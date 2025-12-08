@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  penguin-metrics:
+    build: .
+    container_name: penguin-metrics
+    restart: unless-stopped
+    
+    # Required for accessing host metrics
+    privileged: true
+    pid: host
+    
+    volumes:
+      # Configuration
+      - ./config.conf:/etc/penguin-metrics/config.conf:ro
+      
+      # Host filesystem access for metrics
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      
+      # Docker socket for container monitoring
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    
+    environment:
+      # Use host's /proc
+      - HOST_PROC=/host/proc
+      - HOST_SYS=/host/sys
+    
+    # Network for MQTT access
+    network_mode: host
+    
+    # Or use bridge mode with explicit ports
+    # networks:
+    #   - metrics
+    # 
+    # networks:
+    #   metrics:
+    #     driver: bridge
+

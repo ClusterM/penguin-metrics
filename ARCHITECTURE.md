@@ -1,0 +1,1023 @@
+# Penguin Metrics - Architecture
+
+Detailed documentation of the project structure, modules, and their responsibilities.
+
+## Project Structure
+
+```
+penguin_metrics/
+├── __init__.py              # Package metadata (version, author)
+├── __main__.py              # CLI entry point
+├── app.py                   # Main application orchestrator
+│
+├── config/                  # Configuration parsing
+│   ├── __init__.py
+│   ├── lexer.py             # Tokenizer for nginx-like syntax
+│   ├── parser.py            # Recursive descent parser
+│   ├── schema.py            # Configuration dataclasses
+│   └── loader.py            # File loading and validation
+│
+├── collectors/              # Metric collectors
+│   ├── __init__.py
+│   ├── base.py              # Abstract collector interface
+│   ├── system.py            # System metrics (CPU, RAM, etc.)
+│   ├── temperature.py       # Thermal zones
+│   ├── process.py           # Process monitoring
+│   ├── service.py           # Systemd services
+│   ├── container.py         # Docker containers
+│   ├── battery.py           # Battery status
+│   ├── custom.py            # Custom commands/scripts
+│   └── gpu.py               # GPU metrics
+│
+├── mqtt/                    # MQTT communication
+│   ├── __init__.py
+│   ├── client.py            # Async MQTT client
+│   └── homeassistant.py     # HA Discovery integration
+│
+├── models/                  # Data models
+│   ├── __init__.py
+│   ├── device.py            # HA Device model
+│   └── sensor.py            # HA Sensor model
+│
+└── utils/                   # Utility functions
+    ├── __init__.py
+    ├── smaps.py             # /proc/PID/smaps parser
+    ├── cgroup.py            # cgroup v1/v2 reader
+    └── docker_api.py        # Docker socket API client
+```
+
+---
+
+## Core Modules
+
+### `__main__.py` - CLI Entry Point
+
+Command-line interface for the application.
+
+**Functions:**
+- `setup_logging(verbose, debug)` - Configure logging levels
+- `validate_config(config_path)` - Validate and print config summary
+- `main()` - Parse arguments and run application
+
+**CLI Arguments:**
+```
+penguin-metrics [config] [-v|--verbose] [-d|--debug] [--validate] [--version]
+```
+
+---
+
+### `app.py` - Application Orchestrator
+
+Main application class that coordinates all components.
+
+**Classes:**
+
+#### `Application`
+Main application that manages collectors, MQTT client, and HA discovery.
+
+```python
+class Application:
+    def __init__(self, config: Config)
+    
+    # Public methods
+    async def start() -> None          # Start the application
+    async def stop() -> None           # Stop gracefully
+    async def run() -> None            # Run until shutdown
+    
+    # Internal methods
+    def _create_collectors() -> list[Collector]
+    async def _initialize_collectors() -> None
+    async def _run_collector(collector: Collector) -> None
+    def _setup_signal_handlers() -> None
+    def _signal_handler() -> None
+```
+
+**Functions:**
+- `run_app(config_path)` - Load config and run application
+
+---
+
+## Configuration Module (`config/`)
+
+### `lexer.py` - Tokenizer
+
+Converts configuration text into tokens.
+
+**Classes:**
+
+#### `TokenType` (Enum)
+Token types: `IDENTIFIER`, `STRING`, `NUMBER`, `DURATION`, `BOOLEAN`, `LBRACE`, `RBRACE`, `SEMICOLON`, `INCLUDE`, `EOF`, `ERROR`
+
+#### `Token`
+```python
+@dataclass
+class Token:
+    type: TokenType
+    value: str | int | float | bool
+    line: int
+    column: int
+    raw: str = ""
+```
+
+#### `Lexer`
+```python
+class Lexer:
+    def __init__(self, source: str, filename: str = "<string>")
+    
+    def next_token() -> Token           # Get next token
+    def tokenize() -> Iterator[Token]   # Generate all tokens
+    
+    # Internal methods
+    def _current() -> str               # Current character
+    def _peek(offset: int) -> str       # Look ahead
+    def _advance() -> str               # Move forward
+    def _skip_whitespace() -> None
+    def _skip_comment() -> bool
+    def _read_string() -> Token
+    def _read_number_or_duration() -> Token
+    def _read_identifier() -> Token
+```
+
+**Supported syntax:**
+- Identifiers: `mqtt`, `host`, `cpu_per_core`
+- Strings: `"quoted string"`, `'single quotes'`
+- Numbers: `123`, `45.67`
+- Durations: `10s`, `5m`, `1h`, `30ms`, `1d`
+- Booleans: `on`, `off`, `true`, `false`
+- Comments: `# single line`, `/* multi line */`
+
+---
+
+### `parser.py` - Recursive Descent Parser
+
+Parses tokens into configuration tree.
+
+**Classes:**
+
+#### `Directive`
+```python
+@dataclass
+class Directive:
+    name: str
+    values: list[Any]
+    line: int
+    column: int
+    
+    @property
+    def value(self) -> Any              # First value or None
+    def get(index: int, default) -> Any
+```
+
+#### `Block`
+```python
+@dataclass
+class Block:
+    type: str
+    name: str | None
+    directives: list[Directive]
+    blocks: list[Block]
+    line: int
+    column: int
+    
+    def get_directive(name: str) -> Directive | None
+    def get_directives(name: str) -> list[Directive]
+    def get_value(name: str, default) -> Any
+    def get_block(type_name: str) -> Block | None
+    def get_blocks(type_name: str) -> list[Block]
+```
+
+#### `ConfigDocument`
+```python
+@dataclass
+class ConfigDocument:
+    blocks: list[Block]
+    directives: list[Directive]
+    filename: str
+    
+    def get_block(type_name: str) -> Block | None
+    def get_blocks(type_name: str) -> list[Block]
+    def merge(other: ConfigDocument) -> None
+```
+
+#### `ConfigParser`
+```python
+class ConfigParser:
+    def __init__(self, source, filename, base_path, included_files)
+    
+    def parse() -> ConfigDocument
+    
+    # Internal methods
+    def _parse_include() -> ConfigDocument
+    def _parse_block_or_directive() -> Block | Directive
+    def _parse_block_body(...) -> Block
+```
+
+**Grammar:**
+```
+document    := (block | directive | include)*
+block       := IDENTIFIER [STRING] '{' (block | directive)* '}'
+directive   := IDENTIFIER value* ';'
+value       := STRING | NUMBER | DURATION | BOOLEAN | IDENTIFIER
+include     := 'include' STRING ';'
+```
+
+---
+
+### `schema.py` - Configuration Dataclasses
+
+Typed configuration structures with validation.
+
+**Enums:**
+- `DeviceGrouping`: `PER_SOURCE`, `SINGLE`, `HYBRID`
+- `ProcessMatchType`: `NAME`, `PATTERN`, `PID`, `PIDFILE`, `CMDLINE`
+- `ServiceMatchType`: `UNIT`, `PATTERN`
+- `ContainerMatchType`: `NAME`, `PATTERN`, `IMAGE`, `LABEL`
+
+**Configuration Classes:**
+
+```python
+@dataclass
+class MQTTConfig:
+    host: str = "localhost"
+    port: int = 1883
+    username: str | None = None
+    password: str | None = None
+    client_id: str | None = None
+    topic_prefix: str = "penguin_metrics"
+    qos: int = 1
+    retain: bool = True
+    keepalive: int = 60
+
+@dataclass
+class HomeAssistantConfig:
+    discovery: bool = True
+    discovery_prefix: str = "homeassistant"
+    device_grouping: DeviceGrouping = DeviceGrouping.PER_SOURCE
+    device: DeviceConfig
+
+@dataclass
+class DefaultsConfig:
+    update_interval: float = 10.0
+    smaps: bool = False
+    availability_topic: bool = True
+
+@dataclass
+class SystemConfig:
+    name: str
+    id: str | None = None
+    device: DeviceConfig
+    cpu: bool = True
+    cpu_per_core: bool = False
+    memory: bool = True
+    swap: bool = True
+    load: bool = True
+    uptime: bool = True
+    temperature: bool = True
+    gpu: bool = False
+    update_interval: float | None = None
+
+@dataclass
+class ProcessConfig:
+    name: str
+    id: str | None = None
+    match: ProcessMatchConfig | None = None
+    device: DeviceConfig
+    sensor_prefix: str | None = None
+    cpu: bool = True
+    memory: bool = True
+    smaps: bool | None = None
+    io: bool = False
+    fds: bool = False
+    threads: bool = False
+    aggregate: bool = False
+    update_interval: float | None = None
+    
+    def should_use_smaps(defaults: DefaultsConfig) -> bool
+
+@dataclass
+class ServiceConfig:
+    name: str
+    match: ServiceMatchConfig | None = None
+    cpu: bool = True
+    memory: bool = True
+    smaps: bool | None = None
+    state: bool = True
+    restart_count: bool = False
+    ...
+
+@dataclass
+class ContainerConfig:
+    name: str
+    match: ContainerMatchConfig | None = None
+    cpu: bool = True
+    memory: bool = True
+    network: bool = False
+    disk: bool = False
+    state: bool = True
+    health: bool = False
+    uptime: bool = False
+    ...
+
+@dataclass
+class BatteryConfig:
+    name: str
+    path: str | None = None
+    battery_name: str | None = None
+    capacity: bool = True
+    status: bool = True
+    voltage: bool = False
+    current: bool = False
+    power: bool = False
+    health: bool = False
+    cycles: bool = False
+    temperature: bool = False
+    time_to_empty: bool = False
+    time_to_full: bool = False
+    ...
+
+@dataclass
+class CustomSensorConfig:
+    name: str
+    command: str | None = None
+    script: str | None = None
+    type: str = "number"  # number, string, json
+    unit: str | None = None
+    scale: float = 1.0
+    device_class: str | None = None
+    state_class: str | None = None
+    timeout: float = 5.0
+    ...
+
+@dataclass
+class Config:
+    mqtt: MQTTConfig
+    homeassistant: HomeAssistantConfig
+    defaults: DefaultsConfig
+    system: list[SystemConfig]
+    processes: list[ProcessConfig]
+    services: list[ServiceConfig]
+    containers: list[ContainerConfig]
+    temperatures: list[TemperatureConfig]
+    batteries: list[BatteryConfig]
+    custom: list[CustomSensorConfig]
+    
+    @classmethod
+    def from_document(doc: ConfigDocument) -> Config
+```
+
+---
+
+### `loader.py` - Configuration Loader
+
+Loads and validates configuration files.
+
+**Classes:**
+
+#### `ConfigLoader`
+```python
+class ConfigLoader:
+    def load_file(path: str | Path) -> Config
+    def load_string(source: str, filename: str, base_path: Path) -> Config
+    def validate(config: Config) -> list[str]  # Returns warnings
+```
+
+**Functions:**
+- `load_config(path)` - Convenience function
+
+---
+
+## Collectors Module (`collectors/`)
+
+### `base.py` - Abstract Collector
+
+Base classes for all collectors.
+
+**Classes:**
+
+#### `MetricValue`
+```python
+@dataclass
+class MetricValue:
+    sensor_id: str
+    value: Any
+    timestamp: datetime
+    attributes: dict[str, Any]
+```
+
+#### `CollectorResult`
+```python
+@dataclass
+class CollectorResult:
+    metrics: list[MetricValue]
+    available: bool = True
+    error: str | None = None
+    timestamp: datetime
+    
+    def add_metric(sensor_id: str, value: Any, **attributes) -> None
+    def set_error(error: str) -> None
+```
+
+#### `Collector` (Abstract)
+```python
+class Collector(ABC):
+    def __init__(self, name, collector_id, update_interval, enabled)
+    
+    # Properties
+    @property
+    def device(self) -> Device | None
+    @property
+    def sensors(self) -> list[Sensor]
+    @property
+    def availability(self) -> SensorState
+    
+    # Abstract methods (must implement)
+    @abstractmethod
+    def create_device(self) -> Device
+    
+    @abstractmethod
+    def create_sensors(self) -> list[Sensor]
+    
+    @abstractmethod
+    async def collect(self) -> CollectorResult
+    
+    # Public methods
+    async def initialize() -> None
+    async def safe_collect() -> CollectorResult  # With error handling
+    async def run_forever() -> AsyncIterator[CollectorResult]
+    
+    # Helpers
+    def get_sensor(sensor_id: str) -> Sensor | None
+    @staticmethod
+    def _sanitize_id(value: str) -> str
+```
+
+#### `MultiSourceCollector` (Abstract)
+For collectors that monitor multiple sources (processes, containers).
+
+```python
+class MultiSourceCollector(Collector):
+    def __init__(..., aggregate: bool = False)
+    
+    @abstractmethod
+    async def discover_sources(self) -> list[Any]
+    
+    @abstractmethod
+    async def collect_from_source(source: Any) -> CollectorResult
+    
+    async def collect(self) -> CollectorResult  # Discovers and collects
+    async def _collect_aggregated(sources) -> CollectorResult
+```
+
+---
+
+### `system.py` - System Collector
+
+Collects system-wide metrics using psutil.
+
+**Class: `SystemCollector`**
+
+Metrics:
+- `cpu_percent` - Overall CPU usage (%)
+- `cpu{N}_percent` - Per-core CPU usage (%)
+- `memory_percent` - RAM usage (%)
+- `memory_used` - Used RAM (MB)
+- `memory_available` - Available RAM (MB)
+- `memory_total` - Total RAM (MB)
+- `swap_percent` - Swap usage (%)
+- `swap_used` - Used swap (MB)
+- `load_1m`, `load_5m`, `load_15m` - Load average
+- `uptime` - System uptime (seconds)
+
+---
+
+### `temperature.py` - Temperature Collector
+
+Reads temperatures from thermal zones and hwmon.
+
+**Functions:**
+- `discover_thermal_zones()` - Find thermal zones in sysfs
+- `read_thermal_zone_temp(zone)` - Read temperature
+
+**Class: `TemperatureCollector`**
+
+Metrics per zone:
+- `thermal_zone{N}` - Temperature (°C)
+- `hwmon_{name}_{label}` - hwmon temperatures
+
+---
+
+### `process.py` - Process Collector
+
+Monitors processes with various matching strategies.
+
+**Functions:**
+- `find_processes_by_name(name)` - Match by comm
+- `find_processes_by_pattern(pattern)` - Match by regex on cmdline
+- `find_process_by_pid(pid)` - Exact PID
+- `find_process_by_pidfile(pidfile)` - Read PID from file
+- `find_processes_by_cmdline(substring)` - Substring in cmdline
+
+**Class: `ProcessCollector` (extends MultiSourceCollector)**
+
+Metrics:
+- `state` - running/not_found
+- `count` - Number of matched processes (if aggregate)
+- `cpu_percent` - CPU usage (%)
+- `memory_rss` - RSS memory (MB)
+- `memory_percent` - Memory usage (%)
+- `memory_pss` - PSS memory (MB, requires smaps)
+- `memory_uss` - USS memory (MB, requires smaps)
+- `io_read`, `io_write` - I/O bytes (MB)
+- `num_fds` - Open file descriptors
+- `num_threads` - Thread count
+
+---
+
+### `service.py` - Systemd Service Collector
+
+Monitors systemd services using systemctl and cgroups.
+
+**Async Functions:**
+- `run_systemctl(*args)` - Execute systemctl command
+- `get_service_property(unit, prop)` - Get service property
+- `get_service_state(unit)` - Get active state
+- `get_service_main_pid(unit)` - Get MainPID
+- `get_service_restart_count(unit)` - Get NRestarts
+- `list_units(pattern)` - List matching units
+
+**Class: `ServiceCollector`**
+
+Metrics:
+- `state` - active/inactive/failed
+- `restarts` - Restart count
+- `cpu_usage` - CPU time from cgroup (seconds)
+- `memory` - Memory from cgroup (MB)
+- `memory_cache` - Cache memory (MB)
+- `memory_pss`, `memory_uss` - If smaps enabled
+- `processes` - Number of processes in service
+
+---
+
+### `container.py` - Docker Container Collector
+
+Monitors Docker containers via API.
+
+**Class: `ContainerCollector`**
+
+Metrics:
+- `state` - running/exited/paused/not_found
+- `health` - healthy/unhealthy/starting
+- `cpu_percent` - CPU usage (%)
+- `memory_usage` - Memory (MB)
+- `memory_percent` - Memory (%)
+- `memory_limit` - Memory limit (MB)
+- `network_rx`, `network_tx` - Network I/O (MB)
+- `disk_read`, `disk_write` - Block I/O (MB)
+- `uptime` - Container uptime (seconds)
+- `pids` - Process count
+
+---
+
+### `battery.py` - Battery Collector
+
+Reads battery status from `/sys/class/power_supply/`.
+
+**Functions:**
+- `discover_batteries()` - Find battery devices
+- `read_sysfs_value(path)` - Read string from sysfs
+- `read_sysfs_int(path)` - Read integer from sysfs
+- `read_sysfs_float(path, scale)` - Read float with scaling
+
+**Class: `BatteryCollector`**
+
+Metrics:
+- `capacity` - Charge level (%)
+- `status` - charging/discharging/full/not charging
+- `voltage` - Current voltage (V)
+- `current` - Current (A)
+- `power` - Power consumption (W)
+- `health` - Battery health
+- `cycles` - Charge cycle count
+- `temperature` - Battery temperature (°C)
+- `time_to_empty` - Minutes remaining
+- `time_to_full` - Minutes to full charge
+- `energy_now`, `energy_full`, `energy_full_design` - Energy (Wh)
+
+---
+
+### `custom.py` - Custom Command Collector
+
+Executes user-defined commands.
+
+**Class: `CustomCollector`**
+
+Methods:
+- `_execute_command()` - Run command with timeout
+- `_parse_output(output)` - Parse based on type (number/string/json)
+
+Metrics:
+- `value` - Parsed command output
+
+---
+
+### `gpu.py` - GPU Collector
+
+Reads GPU metrics from sysfs (minimal implementation).
+
+**Functions:**
+- `discover_gpu_devices()` - Find GPUs (devfreq, drm)
+- `get_devfreq_metrics(device)` - Metrics from devfreq
+- `get_drm_metrics(device)` - Metrics from DRM
+
+**Class: `GPUCollector`**
+
+Metrics per GPU:
+- `{gpu_id}_frequency` - GPU frequency (MHz)
+- `{gpu_id}_temperature` - GPU temperature (°C)
+- `{gpu_id}_utilization` - GPU utilization (%)
+
+---
+
+## MQTT Module (`mqtt/`)
+
+### `client.py` - MQTT Client
+
+Async MQTT client with reconnection support.
+
+**Class: `MQTTClient`**
+
+```python
+class MQTTClient:
+    def __init__(self, config: MQTTConfig, availability_topic: str)
+    
+    # Properties
+    @property
+    def connected(self) -> bool
+    @property
+    def topic_prefix(self) -> str
+    
+    # Connection
+    async def connect() -> None
+    async def disconnect() -> None
+    
+    # Publishing
+    async def publish(topic, payload, qos, retain) -> None
+    async def publish_json(topic, data, qos, retain) -> None
+    
+    # Lifecycle
+    async def start() -> None               # Start background publisher
+    async def stop() -> None                # Stop and disconnect
+    async def session() -> AsyncContextManager  # Context manager
+    async def wait_connected(timeout) -> bool
+```
+
+Features:
+- Auto-reconnection with exponential backoff
+- Last Will and Testament (LWT) for availability
+- Message queue for offline buffering
+- Background publisher task
+
+---
+
+### `homeassistant.py` - HA Discovery
+
+Home Assistant MQTT Discovery integration.
+
+**Class: `HomeAssistantDiscovery`**
+
+```python
+class HomeAssistantDiscovery:
+    def __init__(self, mqtt_client, config: HomeAssistantConfig)
+    
+    async def register_sensor(sensor: Sensor) -> None
+    async def unregister_sensor(sensor: Sensor) -> None
+    async def register_sensors(sensors: list[Sensor]) -> None
+    
+    async def publish_sensor_state(sensor: Sensor) -> None
+    async def publish_sensor_states(sensors: list[Sensor]) -> None
+    
+    async def publish_device_availability(device, available, topic_prefix) -> None
+    
+    async def cleanup() -> None  # Remove all entities
+```
+
+**Functions:**
+- `build_sensor_discovery(sensor, prefix)` - Build discovery message
+
+---
+
+## Models Module (`models/`)
+
+### `device.py` - HA Device Model
+
+**Class: `Device`**
+
+```python
+@dataclass
+class Device:
+    identifiers: list[str]
+    name: str | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    hw_version: str | None = None
+    sw_version: str | None = None
+    suggested_area: str | None = None
+    configuration_url: str | None = None
+    via_device: str | None = None
+    
+    @property
+    def primary_identifier(self) -> str
+    
+    def to_discovery_dict() -> dict[str, Any]
+    def with_identifier_prefix(prefix: str) -> Device
+    
+    @staticmethod
+    def _sanitize_id(value: str) -> str
+```
+
+**Functions:**
+- `create_device(source_type, source_name, ...)` - Factory function
+
+---
+
+### `sensor.py` - HA Sensor Model
+
+**Enums:**
+- `SensorState`: `ONLINE`, `OFFLINE`, `UNKNOWN`
+- `DeviceClass`: `TEMPERATURE`, `BATTERY`, `POWER`, `VOLTAGE`, etc.
+- `StateClass`: `MEASUREMENT`, `TOTAL`, `TOTAL_INCREASING`
+
+**Class: `Sensor`**
+
+```python
+@dataclass
+class Sensor:
+    unique_id: str
+    name: str
+    state_topic: str = ""
+    availability_topic: str | None = None
+    device: Device | None = None
+    
+    # Configuration
+    value_template: str | None = None
+    unit_of_measurement: str | None = None
+    device_class: DeviceClass | str | None = None
+    state_class: StateClass | str | None = None
+    icon: str | None = None
+    enabled_by_default: bool = True
+    entity_category: str | None = None
+    
+    # Properties
+    @property
+    def state(self) -> Any
+    @state.setter
+    def state(self, value: Any)
+    
+    @property
+    def availability(self) -> SensorState
+    
+    # Methods
+    def set_unavailable() -> None
+    def to_discovery_dict(topic_prefix) -> dict[str, Any]
+    def get_discovery_topic(prefix) -> str
+    def format_state() -> str
+```
+
+**Functions:**
+- `create_sensor(source_id, metric_name, ...)` - Factory function
+
+---
+
+## Utils Module (`utils/`)
+
+### `smaps.py` - Memory Parser
+
+Parses `/proc/PID/smaps` for detailed memory metrics.
+
+**Class: `SmapsInfo`**
+
+```python
+@dataclass
+class SmapsInfo:
+    pss: int = 0              # Proportional Set Size
+    uss: int = 0              # Unique Set Size
+    rss: int = 0              # Resident Set Size
+    swap: int = 0             # Swapped memory
+    swap_pss: int = 0         # Proportional swap
+    
+    shared_clean: int = 0
+    shared_dirty: int = 0
+    private_clean: int = 0
+    private_dirty: int = 0
+    referenced: int = 0
+    anonymous: int = 0
+    size: int = 0
+    
+    @property
+    def shared(self) -> int
+    @property
+    def private(self) -> int
+    @property
+    def pss_mb(self) -> float
+    @property
+    def uss_mb(self) -> float
+    @property
+    def rss_mb(self) -> float
+    @property
+    def swap_mb(self) -> float
+    
+    def __add__(self, other) -> SmapsInfo  # For aggregation
+    def to_dict() -> dict[str, int | float]
+```
+
+**Functions:**
+- `parse_smaps(pid)` - Parse full smaps file
+- `parse_smaps_rollup(pid)` - Parse smaps_rollup (faster)
+- `get_process_memory(pid, use_rollup)` - Get memory info
+- `aggregate_smaps(pids)` - Aggregate multiple processes
+- `iter_all_smaps()` - Iterate all accessible processes
+
+---
+
+### `cgroup.py` - Cgroup Reader
+
+Reads CPU/memory metrics from cgroups (v1 and v2).
+
+**Class: `CgroupStats`**
+
+```python
+@dataclass
+class CgroupStats:
+    cpu_usage_usec: int = 0
+    cpu_user_usec: int = 0
+    cpu_system_usec: int = 0
+    
+    memory_current: int = 0
+    memory_max: int = 0
+    memory_swap: int = 0
+    memory_cache: int = 0
+    memory_rss: int = 0
+    
+    pids_current: int = 0
+    
+    @property
+    def memory_mb(self) -> float
+    @property
+    def cpu_usage_sec(self) -> float
+```
+
+**Functions:**
+- `detect_cgroup_version()` - Returns 1, 2, or 0
+- `get_process_cgroup(pid)` - Get cgroup path for process
+- `get_cgroup_stats(cgroup_path)` - Get stats (auto-detect version)
+- `get_cgroup_stats_v1(cgroup_path)` - cgroup v1 specific
+- `get_cgroup_stats_v2(cgroup_path)` - cgroup v2 specific
+- `get_systemd_service_cgroup(unit_name)` - Get cgroup for service
+- `get_cgroup_pids(cgroup_path)` - List PIDs in cgroup
+- `iter_cgroup_children(cgroup_path)` - Iterate child cgroups
+
+---
+
+### `docker_api.py` - Docker API Client
+
+Async Docker API client via Unix socket.
+
+**Classes:**
+
+#### `ContainerInfo`
+```python
+@dataclass
+class ContainerInfo:
+    id: str
+    name: str
+    image: str
+    state: str
+    status: str
+    created: int = 0
+    started_at: str = ""
+    health: str | None = None
+    labels: dict[str, str]
+    
+    @property
+    def short_id(self) -> str
+    @property
+    def is_running(self) -> bool
+```
+
+#### `ContainerStats`
+```python
+@dataclass
+class ContainerStats:
+    cpu_percent: float = 0.0
+    cpu_system: int = 0
+    cpu_total: int = 0
+    
+    memory_usage: int = 0
+    memory_limit: int = 0
+    memory_percent: float = 0.0
+    memory_cache: int = 0
+    
+    network_rx_bytes: int = 0
+    network_tx_bytes: int = 0
+    
+    block_read: int = 0
+    block_write: int = 0
+    
+    pids: int = 0
+    
+    @property
+    def memory_usage_mb(self) -> float
+    @property
+    def memory_limit_mb(self) -> float
+```
+
+#### `DockerClient`
+```python
+class DockerClient:
+    def __init__(self, socket_path: str = "/var/run/docker.sock")
+    
+    @property
+    def available(self) -> bool  # Socket exists?
+    
+    async def ping() -> bool
+    async def list_containers(all, filters) -> list[ContainerInfo]
+    async def get_container(container_id) -> ContainerInfo | None
+    async def get_stats(container_id, stream) -> ContainerStats
+    
+    # Internal
+    async def _request(method, path, query) -> tuple[int, dict, bytes]
+    async def _get_json(path, query) -> Any
+    def _decode_chunked(data: bytes) -> bytes
+```
+
+---
+
+## Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Configuration                             │
+│  config.conf → Lexer → Parser → Schema → Config object          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        Application                               │
+│  Application creates collectors based on Config                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        Collectors                                │
+│  Each collector runs in async loop:                              │
+│  1. Discover sources (processes, containers, etc.)               │
+│  2. Collect metrics                                              │
+│  3. Return CollectorResult with metrics                          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        MQTT Publishing                           │
+│  1. Register sensors via HA Discovery                            │
+│  2. Publish metric values to state topics                        │
+│  3. Update availability status                                   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        Home Assistant                            │
+│  1. Receives discovery messages                                  │
+│  2. Creates sensor entities                                      │
+│  3. Updates state from MQTT                                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Error Handling
+
+1. **Configuration errors** - Raised during parsing, includes line/column info
+2. **Collector errors** - Caught in `safe_collect()`, sets `result.error`
+3. **MQTT errors** - Auto-reconnect with exponential backoff
+4. **Source not found** - Reported via sensor state (`not_found`)
+5. **Permission errors** - Logged, collector continues without affected metrics
+
+---
+
+## Extending
+
+### Adding a new collector
+
+1. Create new file in `collectors/`
+2. Inherit from `Collector` or `MultiSourceCollector`
+3. Implement `create_device()`, `create_sensors()`, `collect()`
+4. Add config class to `schema.py`
+5. Register in `app.py._create_collectors()`
+
+### Adding a new config block
+
+1. Add dataclass to `schema.py`
+2. Add `from_block()` class method
+3. Add to `Config.from_document()`
+4. Update `ConfigLoader.validate()`
+

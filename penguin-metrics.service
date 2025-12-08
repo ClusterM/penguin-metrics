@@ -1,0 +1,50 @@
+[Unit]
+Description=Penguin Metrics - Linux system telemetry for Home Assistant
+Documentation=https://github.com/clusterm/penguin-metrics
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# Working directory
+WorkingDirectory=/opt/penguin-metrics
+
+# Python virtual environment
+Environment="PATH=/opt/penguin-metrics/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+
+# Main command
+ExecStart=/opt/penguin-metrics/.venv/bin/python -m penguin_metrics -v /etc/penguin-metrics/config.conf
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security hardening (while still allowing access to /proc and /sys)
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Allow access to proc and sys for metrics collection
+ReadOnlyPaths=/proc /sys
+
+# Allow Docker socket access (if monitoring containers)
+ReadWritePaths=/var/run/docker.sock
+
+# Capabilities for reading other processes' memory info
+AmbientCapabilities=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=penguin-metrics
+
+[Install]
+WantedBy=multi-user.target
+
