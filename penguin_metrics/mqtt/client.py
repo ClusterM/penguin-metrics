@@ -74,12 +74,12 @@ class MQTTClient:
     
     def _create_client(self) -> aiomqtt.Client:
         """Create a new aiomqtt client instance."""
-        # Build will message for availability
+        # Build will message for availability (LWT)
         will = aiomqtt.Will(
             topic=self.availability_topic,
             payload="offline",
             qos=1,
-            retain=True,
+            retain=self.config.should_retain_status(),
         )
         
         return aiomqtt.Client(
@@ -111,7 +111,7 @@ class MQTTClient:
             self.availability_topic,
             "online",
             qos=1,
-            retain=True,
+            retain=self.config.should_retain_status(),
         )
         
         logger.info(f"Connected to MQTT broker at {self.config.host}:{self.config.port}")
@@ -126,7 +126,7 @@ class MQTTClient:
                     self.availability_topic,
                     "offline",
                     qos=1,
-                    retain=True,
+                    retain=self.config.should_retain_status(),
                 )
             except Exception:
                 pass
@@ -158,6 +158,7 @@ class MQTTClient:
         payload: Any,
         qos: int | None = None,
         retain: bool | None = None,
+        is_status: bool = False,
     ) -> None:
         """
         Publish a message to a topic.
@@ -166,12 +167,18 @@ class MQTTClient:
             topic: MQTT topic
             payload: Message payload (will be JSON encoded if not string)
             qos: QoS level (default from config)
-            retain: Retain flag (default from config)
+            retain: Retain flag (None = use config mode)
+            is_status: If True, this is a status/availability message
         """
         if qos is None:
             qos = self.config.qos
+        
+        # Determine retain based on mode if not explicitly set
         if retain is None:
-            retain = self.config.retain
+            if is_status:
+                retain = self.config.should_retain_status()
+            else:
+                retain = self.config.should_retain_data()
         
         # Convert payload to string
         if isinstance(payload, str):
@@ -188,6 +195,38 @@ class MQTTClient:
             self._message_queue.put_nowait((topic, payload_str, qos, retain))
         except asyncio.QueueFull:
             logger.warning("Message queue full, dropping message")
+    
+    async def publish_data(
+        self,
+        topic: str,
+        payload: Any,
+        qos: int | None = None,
+    ) -> None:
+        """
+        Publish data (respects retain mode for data).
+        
+        Args:
+            topic: MQTT topic
+            payload: Message payload
+            qos: QoS level
+        """
+        await self.publish(topic, payload, qos, is_status=False)
+    
+    async def publish_status(
+        self,
+        topic: str,
+        payload: str,
+        qos: int | None = None,
+    ) -> None:
+        """
+        Publish status/availability (respects retain mode for status).
+        
+        Args:
+            topic: MQTT topic  
+            payload: Status payload (online/offline)
+            qos: QoS level
+        """
+        await self.publish(topic, payload, qos, is_status=True)
     
     async def publish_json(
         self,

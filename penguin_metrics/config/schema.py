@@ -42,6 +42,13 @@ class ContainerMatchType(Enum):
     LABEL = "label"            # Container label
 
 
+class RetainMode(Enum):
+    """MQTT retain message modes."""
+    OFF = "off"                # Don't retain any messages
+    ONLINE = "online"          # Only retain availability (LWT) status
+    FULL = "full"              # Retain all messages (default)
+
+
 @dataclass
 class DeviceConfig:
     """Home Assistant device configuration."""
@@ -77,7 +84,7 @@ class MQTTConfig:
     client_id: str | None = None
     topic_prefix: str = "penguin_metrics"
     qos: int = 1
-    retain: bool = True
+    retain: RetainMode = RetainMode.FULL
     keepalive: int = 60
     
     @classmethod
@@ -85,6 +92,21 @@ class MQTTConfig:
         """Create MQTTConfig from a parsed 'mqtt' block."""
         if block is None:
             return cls()
+        
+        # Parse retain mode
+        retain_val = block.get_value("retain", "full")
+        if isinstance(retain_val, bool):
+            # Backwards compatibility: on -> full, off -> off
+            retain_mode = RetainMode.FULL if retain_val else RetainMode.OFF
+        else:
+            retain_str = str(retain_val).lower()
+            retain_map = {
+                "off": RetainMode.OFF,
+                "online": RetainMode.ONLINE,
+                "full": RetainMode.FULL,
+                "on": RetainMode.FULL,  # Backwards compatibility
+            }
+            retain_mode = retain_map.get(retain_str, RetainMode.FULL)
         
         return cls(
             host=block.get_value("host", "localhost"),
@@ -94,9 +116,17 @@ class MQTTConfig:
             client_id=block.get_value("client_id"),
             topic_prefix=block.get_value("topic_prefix", "penguin_metrics"),
             qos=int(block.get_value("qos", 1)),
-            retain=bool(block.get_value("retain", True)),
+            retain=retain_mode,
             keepalive=int(block.get_value("keepalive", 60)),
         )
+    
+    def should_retain_data(self) -> bool:
+        """Check if data messages should be retained."""
+        return self.retain == RetainMode.FULL
+    
+    def should_retain_status(self) -> bool:
+        """Check if status/availability messages should be retained."""
+        return self.retain in (RetainMode.FULL, RetainMode.ONLINE)
 
 
 @dataclass

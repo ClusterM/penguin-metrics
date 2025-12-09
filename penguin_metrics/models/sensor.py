@@ -239,6 +239,7 @@ def create_sensor(
     device_class: DeviceClass | str | None = None,
     state_class: StateClass | str | None = None,
     icon: str | None = None,
+    availability_topic: str | None = None,
     **kwargs,
 ) -> Sensor:
     """
@@ -254,6 +255,7 @@ def create_sensor(
         device_class: HA device class
         state_class: HA state class
         icon: MDI icon name
+        availability_topic: Global availability topic (uses {prefix}/status if None)
         **kwargs: Additional sensor attributes
     
     Returns:
@@ -262,10 +264,9 @@ def create_sensor(
     unique_id = f"{source_id}_{metric_name}"
     state_topic = f"{topic_prefix}/{source_id}/{metric_name}"
     
-    # Determine availability topic from device
-    availability_topic = None
-    if device:
-        availability_topic = f"{topic_prefix}/{device.primary_identifier}/status"
+    # Use global availability topic (single LWT for entire service)
+    if availability_topic is None:
+        availability_topic = f"{topic_prefix}/status"
     
     return Sensor(
         unique_id=unique_id,

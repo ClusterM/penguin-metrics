@@ -199,8 +199,15 @@ mqtt {
 | `client_id` | *(auto-generated)* | MQTT client identifier |
 | `topic_prefix` | `"penguin_metrics"` | Base topic for all messages |
 | `qos` | `1` | Quality of Service (0, 1, 2) |
-| `retain` | `on` | Retain messages on broker |
+| `retain` | `full` | Retain mode: `off`, `online`, `full` |
 | `keepalive` | `60` | Keepalive interval (seconds) |
+
+**Retain modes:**
+| Mode | Data | Status (LWT) | Description |
+|------|------|--------------|-------------|
+| `off` | No | No | Don't retain any messages |
+| `online` | No | Yes | Only retain availability status |
+| `full` | Yes | Yes | Retain all messages (default) |
 
 ### Home Assistant Integration
 
