@@ -930,6 +930,7 @@ class Config:
     auto_batteries: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_containers: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_services: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
+    auto_processes: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)  # Not implemented
     
     # Manual collectors (singular blocks: temperature, battery, etc.)
     system: list[SystemConfig] = field(default_factory=list)
@@ -956,6 +957,7 @@ class Config:
         config.auto_batteries = AutoDiscoveryConfig.from_block(doc.get_block("batteries"))
         config.auto_containers = AutoDiscoveryConfig.from_block(doc.get_block("containers"))
         config.auto_services = AutoDiscoveryConfig.from_block(doc.get_block("services"))
+        config.auto_processes = AutoDiscoveryConfig.from_block(doc.get_block("processes"))
         
         # Parse collector blocks (singular names for manual configuration)
         for block in doc.get_blocks("system"):

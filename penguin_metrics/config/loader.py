@@ -108,6 +108,7 @@ class ConfigLoader:
         "batteries": {"auto", "filter", "exclude"},
         "containers": {"auto", "filter", "exclude"},
         "services": {"auto", "filter", "exclude"},
+        "processes": {"auto", "filter", "exclude"},  # Not implemented, but recognize the block
         "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
         "match": {"name", "pattern", "pid", "pidfile", "cmdline", "unit", "image", "label"},
     }

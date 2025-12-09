@@ -108,6 +108,13 @@ class Application:
         collectors.extend(self._auto_discover_temperatures(manual_temps, topic_prefix))
         
         # Process collectors
+        # Note: auto-discovery not supported for processes (too many in system)
+        if self.config.auto_processes.enabled:
+            logger.warning(
+                "Process auto-discovery is not supported (thousands of processes in system). "
+                "Use individual 'process \"name\" { match ... }' blocks instead."
+            )
+        
         for proc_config in self.config.processes:
             collectors.append(ProcessCollector(
                 config=proc_config,
