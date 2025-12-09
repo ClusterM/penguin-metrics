@@ -105,17 +105,15 @@ class Application:
                     )
                 )
 
-        # Standalone temperature collectors (manual)
-        # Use system device if no custom device configured
+        # Standalone temperature collectors (manual) - always part of system device
         for temp_config in self.config.temperatures:
             manual_temps.add(temp_config.name)
-            parent = system_device if temp_config.device.is_default() else None
             collectors.append(
                 TemperatureCollector(
                     config=temp_config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
-                    parent_device=parent,
+                    parent_device=system_device,
                 )
             )
 
