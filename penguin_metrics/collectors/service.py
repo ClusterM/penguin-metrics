@@ -356,7 +356,7 @@ class ServiceCollector(Collector):
             result.set("restarts", restarts)
         
         # If service is not active, skip cgroup metrics
-        if self._service_state not in ("active", "activating", "reloading"):
+        if self._service_state != "active":
             return result
         
         # Refresh cgroup path

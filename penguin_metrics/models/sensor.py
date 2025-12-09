@@ -161,13 +161,13 @@ class Sensor:
             # Maps various states to online/offline
             source_type = dual_avail["source_type"]
             if source_type == "service":
-                valid_states = "active", "activating", "reloading"
+                valid_states = ("active",)
             elif source_type == "docker":
-                valid_states = "running",
+                valid_states = ("running",)
             elif source_type == "process":
-                valid_states = "running",
+                valid_states = ("running",)
             else:
-                valid_states = "online",
+                valid_states = ("online",)
             
             states_str = ", ".join(f"'{s}'" for s in valid_states)
             local_tpl = f"{{{{ 'online' if value_json.state in [{states_str}] else 'offline' }}}}"
