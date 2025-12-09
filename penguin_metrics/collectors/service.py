@@ -401,7 +401,7 @@ class ServiceCollector(Collector):
         
         if self.use_smaps and pids:
             smaps = aggregate_smaps(pids)
-            result.set("memory_pss", round(smaps.pss_mb, 2))
+            result.set("memory_pss", round(smaps.memory_real_pss_mb, 2))
             result.set("memory_uss", round(smaps.uss_mb, 2))
         
         return result

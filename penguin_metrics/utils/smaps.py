@@ -36,6 +36,11 @@ class SmapsInfo:
     referenced: int = 0
     anonymous: int = 0
     
+    # PSS breakdown (from smaps_rollup)
+    pss_anon: int = 0       # PSS for anonymous memory
+    pss_file: int = 0       # PSS for file-backed mappings
+    pss_shmem: int = 0      # PSS for shared memory
+    
     # Size metrics
     size: int = 0           # Virtual memory size
     
@@ -69,6 +74,34 @@ class SmapsInfo:
         """Swap in megabytes."""
         return self.swap / (1024 * 1024)
     
+    @property
+    def memory_real_mb(self) -> float:
+        """
+        Real memory usage excluding file-backed mappings.
+        
+        Formula: (Anonymous + SwapPss) / 1024
+        This excludes mmap'd files that can be evicted from RAM.
+        """
+        return (self.anonymous + self.swap_pss) / (1024 * 1024)
+    
+    @property
+    def memory_real_pss_mb(self) -> float:
+        """
+        Real PSS memory usage excluding file-backed mappings.
+        
+        Formula: (Pss_Anon + Pss_Shm + SwapPss) / 1024
+        This excludes mmap'd files (Pss_File) that can be evicted from RAM.
+        
+        Falls back to regular PSS if breakdown not available (from full smaps).
+        """
+        if self.pss_anon > 0 or self.pss_shmem > 0:
+            # We have breakdown from smaps_rollup
+            return (self.pss_anon + self.pss_shmem + self.swap_pss) / (1024 * 1024)
+        else:
+            # Fallback: use regular PSS (from full smaps, which doesn't have breakdown)
+            # This is less accurate but better than nothing
+            return self.pss_mb
+    
     def __add__(self, other: "SmapsInfo") -> "SmapsInfo":
         """Add two SmapsInfo objects (for aggregating multiple processes)."""
         return SmapsInfo(
@@ -84,6 +117,9 @@ class SmapsInfo:
             referenced=self.referenced + other.referenced,
             anonymous=self.anonymous + other.anonymous,
             size=self.size + other.size,
+            pss_anon=self.pss_anon + other.pss_anon,
+            pss_file=self.pss_file + other.pss_file,
+            pss_shmem=self.pss_shmem + other.pss_shmem,
         )
     
     def to_dict(self) -> dict[str, int | float]:
@@ -105,7 +141,7 @@ class SmapsInfo:
 
 
 # Regex patterns for parsing smaps
-# Matches: "Pss: 123 kB" or "Pss_Dirty: 45 kB" or "Shared_Clean: 100 kB"
+# Matches: "Pss: 123 kB" or "Pss_Dirty: 45 kB" or "SwapPss: 0 kB" or "Shared_Clean: 100 kB"
 _SMAPS_FIELD_PATTERN = re.compile(r"^([A-Za-z_]+):\s+(\d+)\s*kB", re.IGNORECASE)
 
 
@@ -131,19 +167,22 @@ def _parse_smaps_content(content: str) -> SmapsInfo:
         value_bytes = value_kb * 1024
         
         # Handle both smaps and smaps_rollup formats
-        # smaps_rollup may have fields like "Pss_Dirty" which become "pss_dirty"
-        if field == "pss" or field.startswith("pss_"):
-            # In rollup, "Pss" is the main value, "Pss_Dirty", "Pss_Anon" etc are details
-            # We only care about total PSS
-            if field == "pss":
-                info.pss += value_bytes
+        # smaps_rollup has fields like "Pss_Anon", "Pss_File", "Pss_Shmem"
+        if field == "pss":
+            info.pss += value_bytes
+        elif field == "pss_anon":
+            info.pss_anon += value_bytes
+        elif field == "pss_file":
+            info.pss_file += value_bytes
+        elif field == "pss_shmem":
+            info.pss_shmem += value_bytes
         elif field == "rss":
             info.rss += value_bytes
         elif field == "size":
             info.size += value_bytes
         elif field == "swap":
             info.swap += value_bytes
-        elif field == "swappss" or field == "swap_pss":
+        elif field == "swappss" or field == "swap_pss" or field == "swappss":
             info.swap_pss += value_bytes
         elif field == "shared_clean":
             info.shared_clean += value_bytes
@@ -229,18 +268,26 @@ def get_process_memory(pid: int, use_rollup: bool = False) -> SmapsInfo | None:
     
     Args:
         pid: Process ID
-        use_rollup: Use smaps_rollup (faster but may be less accurate for PSS)
-                   Default False - use full smaps for accuracy
+        use_rollup: Use smaps_rollup for breakdown (Pss_Anon, Pss_Shm, etc.)
+                   If False, tries rollup first for breakdown, then falls back to full smaps
     
     Returns:
         SmapsInfo with memory metrics, or None if unavailable
     
     Note:
-        smaps_rollup can give inaccurate PSS values in some cases.
-        Full smaps is more accurate but slower for processes with many VMAs.
+        smaps_rollup provides breakdown (Pss_Anon, Pss_Shm) needed for memory_real_pss.
+        If rollup unavailable, falls back to full smaps (less accurate for real PSS).
     """
     if use_rollup:
         return parse_smaps_rollup(pid)
+    
+    # Try rollup first for breakdown, fallback to full smaps
+    rollup_info = parse_smaps_rollup(pid)
+    if rollup_info and (rollup_info.pss_anon > 0 or rollup_info.pss_shmem > 0):
+        # We have breakdown from rollup
+        return rollup_info
+    
+    # Fallback to full smaps (no breakdown, but more accurate total PSS)
     return parse_smaps(pid)
 
 

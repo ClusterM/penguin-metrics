@@ -348,7 +348,7 @@ class ProcessCollector(MultiSourceCollector):
             if self.use_smaps:
                 smaps = get_process_memory(proc.pid)
                 if smaps:
-                    result.set("memory_pss", round(smaps.pss_mb, 2))
+                    result.set("memory_pss", round(smaps.memory_real_pss_mb, 2))
                     result.set("memory_uss", round(smaps.uss_mb, 2))
             
             if self.config.io:
@@ -398,7 +398,9 @@ class ProcessCollector(MultiSourceCollector):
             total_cpu = 0.0
             total_rss = 0.0
             total_mem_percent = 0.0
-            total_pss = 0.0
+            total_pss_anon = 0.0
+            total_pss_shmem = 0.0
+            total_swap_pss = 0.0
             total_uss = 0.0
             total_io_read = 0.0
             total_io_write = 0.0
@@ -418,7 +420,9 @@ class ProcessCollector(MultiSourceCollector):
                     if self.use_smaps:
                         smaps = get_process_memory(proc.pid)
                         if smaps:
-                            total_pss += smaps.pss
+                            total_pss_anon += smaps.pss_anon
+                            total_pss_shmem += smaps.pss_shmem
+                            total_swap_pss += smaps.swap_pss
                             total_uss += smaps.uss
                     
                     if self.config.io:
@@ -452,7 +456,14 @@ class ProcessCollector(MultiSourceCollector):
                 result.set("memory_percent", round(total_mem_percent, 1))
             
             if self.use_smaps:
-                result.set("memory_pss", round(total_pss / (1024 * 1024), 2))
+                # Calculate real PSS (excluding file-backed mappings)
+                if total_pss_anon > 0 or total_pss_shmem > 0:
+                    memory_real_pss = (total_pss_anon + total_pss_shmem + total_swap_pss) / (1024 * 1024)
+                else:
+                    # Fallback: if breakdown not available, we can't calculate real PSS
+                    # This shouldn't happen if smaps_rollup is used
+                    memory_real_pss = 0.0
+                result.set("memory_pss", round(memory_real_pss, 2))
                 result.set("memory_uss", round(total_uss / (1024 * 1024), 2))
             
             if self.config.io:
