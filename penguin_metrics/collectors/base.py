@@ -86,6 +86,7 @@ class Collector(ABC):
         collector_id: str | None = None,
         update_interval: float = 10.0,
         enabled: bool = True,
+        topic_prefix: str = "penguin_metrics",
     ):
         """
         Initialize collector.
@@ -95,11 +96,13 @@ class Collector(ABC):
             collector_id: Unique identifier (generated from name if not provided)
             update_interval: Collection interval in seconds
             enabled: Whether collector is enabled
+            topic_prefix: MQTT topic prefix (for unique_id generation)
         """
         self.name = name
         self.collector_id = collector_id or self._sanitize_id(name)
         self.update_interval = update_interval
         self.enabled = enabled
+        self.topic_prefix = topic_prefix
         
         # Internal state
         self._device: Device | None = None
@@ -112,8 +115,8 @@ class Collector(ABC):
         """
         Generate sensor unique_id for a metric.
         
-        Format: {source_type}_{name}_{metric}
-        Example: system_cpu_percent, docker_myapp_cpu_percent
+        Format: penguin_metrics_{topic_prefix}_{source_type}_{name}_{metric}
+        Example: penguin_metrics_penguin_metrics_system_cpu_percent
         
         Args:
             metric: Metric name (cpu_percent, memory_used, etc.)
@@ -122,8 +125,8 @@ class Collector(ABC):
             Unique sensor ID
         """
         if self.SOURCE_TYPE == "system":
-            return f"system_{metric}"
-        return f"{self.SOURCE_TYPE}_{self.collector_id}_{metric}"
+            return f"penguin_metrics_{self.topic_prefix}_system_{metric}"
+        return f"penguin_metrics_{self.topic_prefix}_{self.SOURCE_TYPE}_{self.collector_id}_{metric}"
     
     def source_topic(self, topic_prefix: str) -> str:
         """

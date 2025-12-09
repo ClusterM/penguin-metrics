@@ -71,8 +71,8 @@ class SystemCollector(Collector):
     def sensor_id(self, metric: str) -> str:
         """Generate sensor ID without source name (system has no name)."""
         if metric:
-            return f"{self.SOURCE_TYPE}_{metric}"
-        return self.SOURCE_TYPE
+            return f"penguin_metrics_{self.topic_prefix}_system_{metric}"
+        return f"penguin_metrics_{self.topic_prefix}_system"
     
     def metric_topic(self, metric_sensor_id: str, topic_prefix: str) -> str:
         """Build topic as {prefix}/system/{metric}."""

@@ -310,11 +310,11 @@ def create_sensor(
         penguin_metrics/temperature/soc    -> {"temp": 42.0, "state": "online"}
         penguin_metrics/docker/nginx       -> {"cpu_percent": 5.0, "state": "running"}
     """
-    # Build unique_id
+    # Build unique_id with prefix for uniqueness across systems
     if source_name:
-        unique_id = f"{source_type}_{source_name}_{metric_name}"
+        unique_id = f"penguin_metrics_{topic_prefix}_{source_type}_{source_name}_{metric_name}"
     else:
-        unique_id = f"{source_type}_{metric_name}"
+        unique_id = f"penguin_metrics_{topic_prefix}_{source_type}_{metric_name}"
     
     # Build state_topic (JSON topic for the source)
     if source_name:
