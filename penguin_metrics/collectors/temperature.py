@@ -104,6 +104,7 @@ class TemperatureCollector(Collector):
             collector_id = config.id
             update_interval = config.update_interval
             self.specific_zone = config.zone
+            self.specific_hwmon = config.hwmon
             self.specific_path = config.path
             self.warning_temp = config.warning
             self.critical_temp = config.critical
@@ -112,6 +113,7 @@ class TemperatureCollector(Collector):
             collector_id = f"{config.id or config.name}_temp" if config.id else f"{config.name}_temp"
             update_interval = config.update_interval
             self.specific_zone = None
+            self.specific_hwmon = None
             self.specific_path = None
             self.warning_temp = None
             self.critical_temp = None
@@ -127,18 +129,35 @@ class TemperatureCollector(Collector):
         self.topic_prefix = topic_prefix
         self.parent_device = parent_device
         
-        # Discovered zones
+        # Discovered zones and hwmon sensors
         self._zones: list[ThermalZone] = []
+        self._hwmon_sensors: list[tuple[str, str, int]] = []  # (chip, label, index)
     
     async def initialize(self) -> None:
         """Discover thermal zones on initialization."""
-        if self.specific_zone or self.specific_path:
-            # Specific zone configured
+        if self.specific_hwmon:
+            # Specific hwmon sensor configured - find it
+            try:
+                temps = psutil.sensors_temperatures()
+                target = self.specific_hwmon.lower().replace("-", "_")
+                for chip, entries in temps.items():
+                    for i, entry in enumerate(entries):
+                        label = entry.label or f"sensor{i}"
+                        sensor_name = f"{chip}_{label}".lower().replace(" ", "_").replace("-", "_")
+                        if sensor_name == target or label.lower().replace("-", "_") == target:
+                            self._hwmon_sensors = [(chip, label, i)]
+                            break
+                    if self._hwmon_sensors:
+                        break
+            except Exception:
+                pass
+        elif self.specific_zone or self.specific_path:
+            # Specific thermal zone configured
             if self.specific_path:
                 path = Path(self.specific_path).parent
                 name = Path(self.specific_path).parent.name
             else:
-                # Find zone by type
+                # Find zone by type or name
                 for zone in discover_thermal_zones():
                     if zone.type == self.specific_zone or zone.name == self.specific_zone:
                         self._zones = [zone]
@@ -166,6 +185,24 @@ class TemperatureCollector(Collector):
         sensors = []
         device = self.device
         
+        # Add specific hwmon sensor if configured
+        if self._hwmon_sensors:
+            for chip, label, _ in self._hwmon_sensors:
+                sensor_name = f"{chip}_{label}".lower().replace(" ", "_")
+                sensors.append(create_sensor(
+                    source_id=self.collector_id,
+                    metric_name="temp",
+                    display_name=f"Temperature: {chip} {label}",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    unit="°C",
+                    device_class=DeviceClass.TEMPERATURE,
+                    state_class=StateClass.MEASUREMENT,
+                    icon="mdi:thermometer",
+                ))
+            return sensors
+        
+        # Add thermal zones
         for zone in self._zones:
             sensor_id = f"{self.collector_id}_{zone.name}"
             display_name = f"Temperature: {zone.type}"
@@ -182,35 +219,56 @@ class TemperatureCollector(Collector):
                 icon="mdi:thermometer",
             ))
         
-        # Also add hwmon sensors if available
-        try:
-            temps = psutil.sensors_temperatures()
-            for name, entries in temps.items():
-                for i, entry in enumerate(entries):
-                    label = entry.label or f"sensor{i}"
-                    sensor_name = f"{name}_{label}".lower().replace(" ", "_")
-                    
-                    sensors.append(create_sensor(
-                        source_id=self.collector_id,
-                        metric_name=f"hwmon_{sensor_name}",
-                        display_name=f"Temperature: {name} {label}",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="°C",
-                        device_class=DeviceClass.TEMPERATURE,
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:thermometer",
-                        enabled_by_default=False,  # Hwmon sensors disabled by default
-                    ))
-        except Exception:
-            # sensors_temperatures not available on all platforms
-            pass
+        # Add all hwmon sensors only if no specific zone/hwmon configured
+        if not self.specific_zone and not self.specific_path and not self.specific_hwmon:
+            try:
+                temps = psutil.sensors_temperatures()
+                for name, entries in temps.items():
+                    for i, entry in enumerate(entries):
+                        label = entry.label or f"sensor{i}"
+                        sensor_name = f"{name}_{label}".lower().replace(" ", "_")
+                        
+                        sensors.append(create_sensor(
+                            source_id=self.collector_id,
+                            metric_name=f"hwmon_{sensor_name}",
+                            display_name=f"Temperature: {name} {label}",
+                            device=device,
+                            topic_prefix=self.topic_prefix,
+                            unit="°C",
+                            device_class=DeviceClass.TEMPERATURE,
+                            state_class=StateClass.MEASUREMENT,
+                            icon="mdi:thermometer",
+                            enabled_by_default=False,  # Hwmon sensors disabled by default
+                        ))
+            except Exception:
+                # sensors_temperatures not available on all platforms
+                pass
         
         return sensors
     
     async def collect(self) -> CollectorResult:
         """Collect temperature readings."""
         result = CollectorResult()
+        
+        # Read specific hwmon sensor if configured
+        if self._hwmon_sensors:
+            try:
+                temps = psutil.sensors_temperatures()
+                for chip, label, idx in self._hwmon_sensors:
+                    if chip in temps and idx < len(temps[chip]):
+                        entry = temps[chip][idx]
+                        result.add_metric(
+                            f"{self.collector_id}_temp",
+                            round(entry.current, 1),
+                            high=entry.high,
+                            critical=entry.critical,
+                        )
+            except Exception:
+                pass
+            
+            if not result.metrics:
+                result.set_error("Hwmon sensor not available")
+            return result
         
         # Read from thermal zones
         for zone in self._zones:
@@ -222,22 +280,23 @@ class TemperatureCollector(Collector):
                     zone_type=zone.type,
                 )
         
-        # Read from hwmon via psutil
-        try:
-            temps = psutil.sensors_temperatures()
-            for name, entries in temps.items():
-                for i, entry in enumerate(entries):
-                    label = entry.label or f"sensor{i}"
-                    sensor_name = f"{name}_{label}".lower().replace(" ", "_")
-                    
-                    result.add_metric(
-                        f"{self.collector_id}_hwmon_{sensor_name}",
-                        round(entry.current, 1),
-                        high=entry.high,
-                        critical=entry.critical,
-                    )
-        except Exception:
-            pass
+        # Read all hwmon sensors (only if no specific zone/hwmon configured)
+        if not self.specific_zone and not self.specific_path and not self.specific_hwmon:
+            try:
+                temps = psutil.sensors_temperatures()
+                for name, entries in temps.items():
+                    for i, entry in enumerate(entries):
+                        label = entry.label or f"sensor{i}"
+                        sensor_name = f"{name}_{label}".lower().replace(" ", "_")
+                        
+                        result.add_metric(
+                            f"{self.collector_id}_hwmon_{sensor_name}",
+                            round(entry.current, 1),
+                            high=entry.high,
+                            critical=entry.critical,
+                        )
+            except Exception:
+                pass
         
         if not result.metrics:
             result.set_error("No temperature sensors available")

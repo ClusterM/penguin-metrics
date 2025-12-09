@@ -708,8 +708,9 @@ class TemperatureConfig:
     """Temperature sensor configuration."""
     name: str
     id: str | None = None
-    zone: str | None = None
-    path: str | None = None
+    zone: str | None = None       # Thermal zone name (e.g., "soc-thermal", "thermal_zone0")
+    hwmon: str | None = None      # Hwmon sensor name (e.g., "soc_thermal_sensor0")
+    path: str | None = None       # Direct path to temp file
     warning: float | None = None
     critical: float | None = None
     update_interval: float | None = None
@@ -727,6 +728,7 @@ class TemperatureConfig:
             name=name,
             id=block.get_value("id"),
             zone=block.get_value("zone"),
+            hwmon=block.get_value("hwmon"),
             path=block.get_value("path"),
             warning=block.get_value("warning"),
             critical=block.get_value("critical"),
