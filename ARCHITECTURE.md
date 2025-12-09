@@ -305,7 +305,7 @@ class DefaultsConfig:
     smaps: bool = False
     availability_topic: bool = True
     # Per-source-type defaults
-    system: SystemDefaultsConfig
+    # Note: system defaults removed - system block appears only once
     process: ProcessDefaultsConfig
     service: ServiceDefaultsConfig
     container: ContainerDefaultsConfig

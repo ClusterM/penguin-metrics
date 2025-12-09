@@ -182,32 +182,6 @@ class LoggingConfig:
 
 
 @dataclass
-class SystemDefaultsConfig:
-    """Default settings for system collectors."""
-    cpu: bool = True
-    cpu_per_core: bool = False
-    memory: bool = True
-    swap: bool = True
-    load: bool = True
-    uptime: bool = True
-    gpu: bool = False
-    
-    @classmethod
-    def from_block(cls, block: Block | None) -> "SystemDefaultsConfig":
-        if block is None:
-            return cls()
-        return cls(
-            cpu=bool(block.get_value("cpu", True)),
-            cpu_per_core=bool(block.get_value("cpu_per_core", False)),
-            memory=bool(block.get_value("memory", True)),
-            swap=bool(block.get_value("swap", True)),
-            load=bool(block.get_value("load", True)),
-            uptime=bool(block.get_value("uptime", True)),
-            gpu=bool(block.get_value("gpu", False)),
-        )
-
-
-@dataclass
 class ProcessDefaultsConfig:
     """Default settings for process collectors."""
     cpu: bool = True
@@ -339,7 +313,7 @@ class DefaultsConfig:
     availability_topic: bool = True
     
     # Per-source-type defaults
-    system: SystemDefaultsConfig = field(default_factory=SystemDefaultsConfig)
+    # Note: system defaults removed - system block appears only once
     process: ProcessDefaultsConfig = field(default_factory=ProcessDefaultsConfig)
     service: ServiceDefaultsConfig = field(default_factory=ServiceDefaultsConfig)
     container: ContainerDefaultsConfig = field(default_factory=ContainerDefaultsConfig)
@@ -360,7 +334,7 @@ class DefaultsConfig:
             update_interval=float(interval),
             smaps=bool(block.get_value("smaps", False)),
             availability_topic=bool(block.get_value("availability_topic", True)),
-            system=SystemDefaultsConfig.from_block(block.get_block("system")),
+            # system defaults removed - system block appears only once
             process=ProcessDefaultsConfig.from_block(block.get_block("process")),
             service=ServiceDefaultsConfig.from_block(block.get_block("service")),
             container=ContainerDefaultsConfig.from_block(block.get_block("container")),
@@ -465,28 +439,27 @@ class SystemConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "SystemConfig":
         """Create SystemConfig from a parsed 'system' block."""
         name = block.name or "system"
-        sd = defaults.system  # System-specific defaults
         
         interval = block.get_value("update_interval")
         if interval is None:
             interval = defaults.update_interval
         
-        # Helper to get value with source-type default fallback
-        def get_bool(name: str, sd_val: bool) -> bool:
+        # Helper to get value with hardcoded defaults (system appears only once)
+        def get_bool(name: str, default: bool) -> bool:
             val = block.get_value(name)
-            return bool(val) if val is not None else sd_val
+            return bool(val) if val is not None else default
         
         return cls(
             name=name,
             id=block.get_value("id"),
             device=DeviceConfig.from_block(block.get_block("device")),
-            cpu=get_bool("cpu", sd.cpu),
-            cpu_per_core=get_bool("cpu_per_core", sd.cpu_per_core),
-            memory=get_bool("memory", sd.memory),
-            swap=get_bool("swap", sd.swap),
-            load=get_bool("load", sd.load),
-            uptime=get_bool("uptime", sd.uptime),
-            gpu=get_bool("gpu", sd.gpu),
+            cpu=get_bool("cpu", True),
+            cpu_per_core=get_bool("cpu_per_core", False),
+            memory=get_bool("memory", True),
+            swap=get_bool("swap", True),
+            load=get_bool("load", True),
+            uptime=get_bool("uptime", True),
+            gpu=get_bool("gpu", False),
             update_interval=float(interval) if interval else None,
         )
 
