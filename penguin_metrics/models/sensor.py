@@ -154,22 +154,43 @@ class Sensor:
         if self.device:
             result["device"] = self.device.to_discovery_dict()
         
-        if self.availability_topic:
-            # Check if we have an availability template (for JSON-based availability)
-            avail_tpl = getattr(self, "_availability_template", None)
-            if avail_tpl:
-                # Use availability list format for JSON template
-                result["availability"] = [{
-                    "topic": self.availability_topic,
-                    "value_template": avail_tpl,
-                    "payload_available": "online",
-                    "payload_not_available": "not_found",
-                }]
+        # Check for dual availability (global status + local state)
+        dual_avail = getattr(self, "_dual_availability", None)
+        if dual_avail:
+            # Build value_template based on source type
+            # Maps various states to online/offline
+            source_type = dual_avail["source_type"]
+            if source_type == "service":
+                valid_states = "active", "activating", "reloading"
+            elif source_type == "docker":
+                valid_states = "running",
+            elif source_type == "process":
+                valid_states = "running",
             else:
-                # Simple availability (for system which uses global status)
-                result["availability_topic"] = self.availability_topic
-                result["payload_available"] = self.payload_available
-                result["payload_not_available"] = self.payload_not_available
+                valid_states = "online",
+            
+            states_str = ", ".join(f"'{s}'" for s in valid_states)
+            local_tpl = f"{{{{ 'online' if value_json.state in [{states_str}] else 'offline' }}}}"
+            
+            result["availability_mode"] = "all"
+            result["availability"] = [
+                {
+                    "topic": dual_avail["global_topic"],
+                    "payload_available": "online",
+                    "payload_not_available": "offline",
+                },
+                {
+                    "topic": dual_avail["local_topic"],
+                    "value_template": local_tpl,
+                    "payload_available": "online",
+                    "payload_not_available": "offline",
+                },
+            ]
+        elif self.availability_topic:
+            # Simple availability (for system which uses global status only)
+            result["availability_topic"] = self.availability_topic
+            result["payload_available"] = self.payload_available
+            result["payload_not_available"] = self.payload_not_available
         
         if self.value_template:
             result["value_template"] = self.value_template
@@ -305,24 +326,15 @@ def create_sensor(
     value_template = f"{{{{ value_json.{metric_name} }}}}" if use_json else None
     
     # Availability handling
-    # For system: use global status topic
-    # For others: use state field in JSON
-    if source_type == "system":
-        avail_topic = f"{topic_prefix}/status"
-        avail_tpl = None
-    else:
-        # Availability is in the same JSON topic
-        avail_topic = state_topic
-        avail_tpl = "{{ value_json.state }}"
-    
-    if availability_topic:
-        avail_topic = availability_topic
+    # For system: use only global status topic
+    # For others: use both global status AND local state in JSON
+    global_status_topic = f"{topic_prefix}/status"
     
     sensor = Sensor(
         unique_id=unique_id,
         name=display_name,
         state_topic=state_topic,
-        availability_topic=avail_topic,
+        availability_topic=global_status_topic,  # Default for simple case
         device=device,
         value_template=value_template,
         unit_of_measurement=unit,
@@ -332,9 +344,14 @@ def create_sensor(
         **kwargs,
     )
     
-    # Store availability template for discovery payload
-    if avail_tpl:
-        sensor._availability_template = avail_tpl
+    # For non-system sources, store dual availability info
+    # Both global status AND local state must be available
+    if source_type != "system":
+        sensor._dual_availability = {
+            "global_topic": global_status_topic,
+            "local_topic": state_topic,
+            "source_type": source_type,
+        }
     
     return sensor
 
