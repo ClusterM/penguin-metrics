@@ -1,5 +1,7 @@
 # Penguin Metrics
 
+[![Tests](https://github.com/clusterm/penguin-metrics/actions/workflows/test.yml/badge.svg)](https://github.com/clusterm/penguin-metrics/actions/workflows/test.yml)
+
 Linux system telemetry service that sends data to MQTT, with Home Assistant integration via MQTT Discovery.
 
 ## Features
