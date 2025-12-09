@@ -107,20 +107,18 @@ class Application:
         # Auto-discover temperatures
         collectors.extend(self._auto_discover_temperatures(manual_temps, topic_prefix))
         
-        # Process collectors
-        # Note: auto-discovery not supported for processes (too many in system)
-        if self.config.auto_processes.enabled:
-            logger.warning(
-                "Process auto-discovery is not supported (thousands of processes in system). "
-                "Use individual 'process \"name\" { match ... }' blocks instead."
-            )
-        
+        # Process collectors (manual)
+        manual_processes: set[str] = set()
         for proc_config in self.config.processes:
+            manual_processes.add(proc_config.name)
             collectors.append(ProcessCollector(
                 config=proc_config,
                 defaults=self.config.defaults,
                 topic_prefix=topic_prefix,
             ))
+        
+        # Auto-discover processes
+        collectors.extend(self._auto_discover_processes(manual_processes, topic_prefix))
         
         # Service collectors (manual)
         for svc_config in self.config.services:
@@ -375,6 +373,64 @@ class Application:
         
         if collectors:
             logger.info(f"Auto-discovered {len(collectors)} services")
+        
+        return collectors
+    
+    def _auto_discover_processes(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+        """Auto-discover running processes."""
+        import psutil
+        
+        auto_cfg = self.config.auto_processes
+        if not auto_cfg.enabled:
+            return []
+        
+        # Require filter for processes (thousands in system!)
+        if not auto_cfg.filters:
+            logger.warning(
+                "Process auto-discovery requires a filter pattern (thousands of processes in system!). "
+                "Use 'filter \"python*\";' for specific processes, or 'filter \"*\";' for ALL (dangerous!)."
+            )
+            return []
+        
+        collectors = []
+        
+        try:
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    name = proc.info['name']
+                    if not name:
+                        continue
+                    
+                    # Check filter/exclude
+                    if name in exclude:
+                        continue
+                    if not auto_cfg.matches(name):
+                        continue
+                    
+                    # Create unique collector name
+                    collector_name = f"{name}_{proc.info['pid']}"
+                    
+                    from .config.schema import ProcessConfig, ProcessMatchConfig, ProcessMatchType
+                    config = ProcessConfig(
+                        name=collector_name,
+                        match=ProcessMatchConfig(type=ProcessMatchType.PID, value=str(proc.info['pid'])),
+                        update_interval=self.config.defaults.update_interval,
+                    )
+                    collectors.append(ProcessCollector(
+                        config=config,
+                        defaults=self.config.defaults,
+                        topic_prefix=topic_prefix,
+                    ))
+                    logger.debug(f"Auto-discovered process: {collector_name}")
+                
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+        
+        except Exception as e:
+            logger.warning(f"Failed to list processes: {e}")
+        
+        if collectors:
+            logger.info(f"Auto-discovered {len(collectors)} processes")
         
         return collectors
     
