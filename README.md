@@ -80,7 +80,7 @@ pip install build
 python -m build
 
 # Install built package
-pip install dist/penguin_metrics-0.1.0-py3-none-any.whl
+pip install dist/penguin_metrics-0.0.1-py3-none-any.whl
 
 # Or install directly from source
 pip install .

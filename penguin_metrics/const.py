@@ -4,7 +4,7 @@ Application constants and metadata.
 
 # Application info
 APP_NAME = "Penguin Metrics"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.0.1"
 APP_URL = "https://github.com/clusterm/penguin-metrics"
 
 # Default values
