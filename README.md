@@ -20,6 +20,7 @@ Linux system telemetry service for Home Assistant via MQTT.
 - Linux with `/proc` and `/sys` filesystems
 - MQTT broker (Mosquitto, EMQX, etc.)
 - Home Assistant with MQTT integration (optional)
+- Root or `CAP_SYS_PTRACE` capability (for smaps memory metrics)
 
 ## Installation
 
@@ -729,13 +730,60 @@ homeassistant/sensor/{unique_id}/config
 
 ### For smaps (PSS/USS memory)
 
-Reading `/proc/PID/smaps` of other processes requires:
-- Running as root, OR
-- `CAP_SYS_PTRACE` capability
+#### What is PSS and USS?
 
+| Metric | Formula | Description |
+|--------|---------|-------------|
+| **RSS** | Private + Shared | Total memory in RAM (overestimates if shared) |
+| **PSS** | Private + Shared/N | Proportional Set Size — fair share of shared memory |
+| **USS** | Private only | Unique Set Size — memory freed when process exits |
+
+**Why use PSS/USS?**
+- RSS counts shared memory (libc, etc.) fully for each process
+- 10 processes sharing 50MB libc → RSS shows 500MB total ❌
+- PSS divides shared memory: each process shows 5MB → 50MB total ✓
+- USS shows only private memory — what's freed on `kill`
+
+#### Granting permissions
+
+Reading `/proc/PID/smaps` of other processes requires elevated privileges.
+
+**Option 1: Run as root** (simplest)
 ```bash
-# Grant capability
-sudo setcap cap_sys_ptrace+ep /path/to/.venv/bin/python3
+sudo penguin-metrics config.conf
+```
+
+**Option 2: CAP_SYS_PTRACE capability** (recommended for systemd)
+```bash
+# For installed package
+sudo setcap cap_sys_ptrace+ep $(which python3)
+
+# For virtualenv
+sudo setcap cap_sys_ptrace+ep /opt/penguin-metrics/.venv/bin/python3
+
+# Verify
+getcap /opt/penguin-metrics/.venv/bin/python3
+# Output: /opt/penguin-metrics/.venv/bin/python3 cap_sys_ptrace=ep
+```
+
+**Option 3: In systemd service file**
+```ini
+[Service]
+# Run as root
+User=root
+
+# Or use AmbientCapabilities (requires User=non-root)
+User=penguin-metrics
+AmbientCapabilities=CAP_SYS_PTRACE
+```
+
+**Option 4: In Docker** (docker-compose.yml)
+```yaml
+services:
+  penguin-metrics:
+    cap_add:
+      - SYS_PTRACE
+    pid: host  # Required to see host processes
 ```
 
 ### For Docker monitoring
@@ -770,8 +818,10 @@ ERROR: Failed to connect to MQTT: [Errno 111] Connection refused
 WARNING: Cannot read /proc/1234/smaps: Permission denied
 ```
 
-- Run as root for smaps access
-- Or disable smaps in config: `smaps off;`
+Solutions:
+- Run as root: `sudo penguin-metrics config.conf`
+- Grant capability: `sudo setcap cap_sys_ptrace+ep $(which python3)`
+- Disable smaps: `smaps off;` in config (will use RSS instead)
 
 ### No sensors in Home Assistant
 
