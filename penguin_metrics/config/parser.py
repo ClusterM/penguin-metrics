@@ -139,6 +139,20 @@ class ConfigDocument:
         """Get all blocks with given type."""
         return [b for b in self.blocks if b.type == type_name]
     
+    def get_directive(self, name: str) -> Directive | None:
+        """Get first directive with given name."""
+        for d in self.directives:
+            if d.name == name:
+                return d
+        return None
+    
+    def get_value(self, name: str, default: Any = None) -> Any:
+        """Get value of first directive with given name."""
+        directive = self.get_directive(name)
+        if directive and directive.values:
+            return directive.values[0]
+        return default
+    
     def merge(self, other: "ConfigDocument") -> None:
         """Merge another document into this one (for includes)."""
         self.blocks.extend(other.blocks)

@@ -343,7 +343,6 @@ class DefaultsConfig:
     update_interval: float = 10.0  # seconds
     smaps: bool = False
     availability_topic: bool = True
-    auto_refresh_interval: float = 0  # seconds, 0 = disabled
     
     # Per-source-type defaults
     system: SystemDefaultsConfig = field(default_factory=SystemDefaultsConfig)
@@ -363,15 +362,10 @@ class DefaultsConfig:
         if isinstance(interval, str):
             interval = 10.0
         
-        refresh = block.get_value("auto_refresh_interval", 0)
-        if isinstance(refresh, str):
-            refresh = 0
-        
         return cls(
             update_interval=float(interval),
             smaps=bool(block.get_value("smaps", False)),
             availability_topic=bool(block.get_value("availability_topic", True)),
-            auto_refresh_interval=float(refresh),
             system=SystemDefaultsConfig.from_block(block.get_block("system")),
             process=ProcessDefaultsConfig.from_block(block.get_block("process")),
             service=ServiceDefaultsConfig.from_block(block.get_block("service")),
@@ -980,6 +974,9 @@ class Config:
     defaults: DefaultsConfig = field(default_factory=DefaultsConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     
+    # Global settings
+    auto_refresh_interval: float = 0  # seconds, 0 = disabled
+    
     # Auto-discovery settings (plural blocks: temperatures, batteries, etc.)
     auto_temperatures: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_batteries: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
@@ -1000,6 +997,12 @@ class Config:
     def from_document(cls, doc: ConfigDocument) -> "Config":
         """Create Config from a parsed ConfigDocument."""
         config = cls()
+        
+        # Parse top-level directives
+        refresh = doc.get_value("auto_refresh_interval", 0)
+        if isinstance(refresh, str):
+            refresh = 0
+        config.auto_refresh_interval = float(refresh)
         
         # Parse global blocks
         config.mqtt = MQTTConfig.from_block(doc.get_block("mqtt"))

@@ -388,15 +388,11 @@ temperatures {
 
 ### Dynamic Auto-Refresh
 
-By default, auto-discovery runs only at startup. Enable `auto_refresh_interval` to periodically check for new or removed services/containers:
+By default, auto-discovery runs only at startup. Enable `auto_refresh_interval` (top-level setting) to periodically check for new or removed services/containers:
 
 ```nginx
-defaults {
-    update_interval 10s;
-    
-    # Check for new/removed sources every 60 seconds (0 = disabled)
-    auto_refresh_interval 60s;
-}
+# Check for new/removed sources every 60 seconds (0 = disabled)
+auto_refresh_interval 60s;
 ```
 
 When enabled:

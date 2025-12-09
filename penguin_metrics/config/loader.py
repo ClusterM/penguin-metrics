@@ -91,11 +91,14 @@ class ConfigLoader:
         except Exception as e:
             raise ConfigError(f"Failed to load configuration: {e}") from e
     
+    # Known top-level directives (not in blocks)
+    KNOWN_TOP_LEVEL = {"auto_refresh_interval"}
+    
     # Known directives for each block type
     KNOWN_DIRECTIVES = {
         "mqtt": {"host", "port", "username", "password", "client_id", "topic_prefix", "qos", "retain", "keepalive"},
         "homeassistant": {"discovery", "discovery_prefix", "device_grouping", "device", "state_file"},
-        "defaults": {"update_interval", "smaps", "availability_topic", "auto_refresh_interval", "system", "process", "service", "container", "battery", "custom"},
+        "defaults": {"update_interval", "smaps", "availability_topic", "system", "process", "service", "container", "battery", "custom"},
         "logging": {"level", "file", "file_level", "file_max_size", "file_keep", "colors", "format"},
         "system": {"id", "device", "cpu", "cpu_per_core", "memory", "swap", "load", "uptime", "gpu", "update_interval"},
         "process": {"id", "device", "match", "cpu", "memory", "smaps", "io", "fds", "threads", "aggregate", "update_interval"},
@@ -198,6 +201,13 @@ class ConfigLoader:
         
         for block in document.blocks:
             check_block(block)
+        
+        # Check top-level directives
+        for directive in document.directives:
+            if directive.name not in self.KNOWN_TOP_LEVEL:
+                warnings.append(
+                    f"Unknown top-level directive '{directive.name}' (line {directive.line})"
+                )
         
         return warnings
 

@@ -660,7 +660,7 @@ class Application:
             self._collector_tasks[collector.collector_id] = task
         
         # Start auto-refresh task if enabled
-        refresh_interval = self.config.defaults.auto_refresh_interval
+        refresh_interval = self.config.auto_refresh_interval
         if refresh_interval > 0:
             self._refresh_task = asyncio.create_task(self._auto_refresh_loop(refresh_interval))
             logger.info(f"Auto-refresh enabled: checking for new/removed sources every {refresh_interval}s")
