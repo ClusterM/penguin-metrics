@@ -62,6 +62,10 @@ class DeviceConfig:
     sw_version: str | None = None
     identifiers: list[str] = field(default_factory=list)
 
+    def is_default(self) -> bool:
+        """Check if this is a default device config (not customized by user)."""
+        return self.name is None and not self.identifiers
+
     @classmethod
     def from_block(cls, block: Block | None) -> "DeviceConfig":
         """Create DeviceConfig from a parsed 'device' block."""

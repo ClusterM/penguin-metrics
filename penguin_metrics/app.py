@@ -22,6 +22,7 @@ from .collectors.system import SystemCollector
 from .collectors.temperature import TemperatureCollector
 from .config.loader import ConfigLoader
 from .config.schema import Config
+from .models.device import Device
 from .logging import LogConfig, get_logger, setup_logging
 from .mqtt.client import MQTTClient
 from .mqtt.homeassistant import HomeAssistantDiscovery
@@ -79,39 +80,47 @@ class Application:
         manual_containers: set[str] = set()
         manual_services: set[str] = set()
 
-        # System collectors
+        # System collectors - create first to get system device for temperatures/GPU
+        system_device: Device | None = None
         for sys_config in self.config.system:
-            collectors.append(
-                SystemCollector(
-                    config=sys_config,
-                    defaults=self.config.defaults,
-                    topic_prefix=topic_prefix,
-                )
+            system_collector = SystemCollector(
+                config=sys_config,
+                defaults=self.config.defaults,
+                topic_prefix=topic_prefix,
             )
+            collectors.append(system_collector)
 
-            # Add GPU collector if enabled
+            # Get system device for temperature/GPU sensors (use first system)
+            if system_device is None:
+                system_device = system_collector.create_device()
+
+            # Add GPU collector if enabled - uses system device
             if sys_config.gpu:
                 collectors.append(
                     GPUCollector(
                         config=sys_config,
                         defaults=self.config.defaults,
                         topic_prefix=topic_prefix,
+                        parent_device=system_device,
                     )
                 )
 
         # Standalone temperature collectors (manual)
+        # Use system device if no custom device configured
         for temp_config in self.config.temperatures:
             manual_temps.add(temp_config.name)
+            parent = system_device if temp_config.device.is_default() else None
             collectors.append(
                 TemperatureCollector(
                     config=temp_config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    parent_device=parent,
                 )
             )
 
-        # Auto-discover temperatures
-        auto_temps = self._auto_discover_temperatures(manual_temps, topic_prefix)
+        # Auto-discover temperatures - always use system device
+        auto_temps = self._auto_discover_temperatures(manual_temps, topic_prefix, system_device)
         if auto_temps:
             logger.info(f"Auto-discovered {len(auto_temps)} temperature sensors")
         collectors.extend(auto_temps)
@@ -197,7 +206,9 @@ class Application:
 
         return collectors
 
-    def _auto_discover_temperatures(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+    def _auto_discover_temperatures(
+        self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
+    ) -> list[Collector]:
         """Auto-discover temperature sensors."""
         from .collectors.temperature import discover_hwmon_sensors, discover_thermal_zones
 
@@ -227,6 +238,7 @@ class Application:
                     config=config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    parent_device=parent_device,
                 )
             )
             logger.debug(f"Auto-discovered temperature: {name}")
@@ -251,6 +263,7 @@ class Application:
                     config=config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    parent_device=parent_device,
                 )
             )
             logger.debug(f"Auto-discovered hwmon sensor: {name}")
