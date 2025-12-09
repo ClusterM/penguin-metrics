@@ -388,12 +388,14 @@ class AutoDiscoveryConfig:
         temperatures {
             auto on;
             filter "nvme_*";
+            filter "soc_*";
             exclude "internal*";
+            exclude "test*";
         }
     """
     enabled: bool = False
-    filter: str | None = None      # Include only matching (glob pattern)
-    exclude: str | None = None     # Exclude matching (glob pattern)
+    filters: list[str] = field(default_factory=list)    # Include only matching (glob patterns)
+    excludes: list[str] = field(default_factory=list)   # Exclude matching (glob patterns)
     
     @classmethod
     def from_block(cls, block: Block | None) -> "AutoDiscoveryConfig":
@@ -410,10 +412,14 @@ class AutoDiscoveryConfig:
             elif isinstance(auto_val, str):
                 enabled = auto_val.lower() in ("on", "true", "yes", "1")
         
+        # Get all filter and exclude values
+        filters = block.get_all_values("filter")
+        excludes = block.get_all_values("exclude")
+        
         return cls(
             enabled=enabled,
-            filter=block.get_value("filter"),
-            exclude=block.get_value("exclude"),
+            filters=filters,
+            excludes=excludes,
         )
     
     def matches(self, name: str) -> bool:
@@ -428,15 +434,19 @@ class AutoDiscoveryConfig:
         """
         import fnmatch
         
-        # Check exclude first
-        if self.exclude and fnmatch.fnmatch(name, self.exclude):
-            return False
+        # Check excludes first - if any matches, exclude
+        for pattern in self.excludes:
+            if fnmatch.fnmatch(name, pattern):
+                return False
         
-        # Check filter
-        if self.filter:
-            return fnmatch.fnmatch(name, self.filter)
+        # Check filters - if any matches, include
+        if self.filters:
+            for pattern in self.filters:
+                if fnmatch.fnmatch(name, pattern):
+                    return True
+            return False  # Has filters but none matched
         
-        # No filter = include all
+        # No filters = include all (that weren't excluded)
         return True
 
 

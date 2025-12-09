@@ -92,6 +92,21 @@ class Block:
             return directive.value
         return default
     
+    def get_all_values(self, name: str) -> list[Any]:
+        """
+        Get all values from all directives with given name.
+        
+        Useful for directives that can be repeated:
+            filter "nvme_*";
+            filter "soc_*";
+        Returns: ["nvme_*", "soc_*"]
+        """
+        values = []
+        for d in self.directives:
+            if d.name == name and d.value is not None:
+                values.append(d.value)
+        return values
+    
     def get_block(self, type_name: str) -> "Block | None":
         """Get first nested block with given type."""
         for b in self.blocks:

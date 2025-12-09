@@ -320,8 +320,8 @@ class Application:
             return []
         
         # Require filter for services (too many otherwise)
-        if not auto_cfg.filter:
-            logger.warning("Service auto-discovery requires a filter pattern")
+        if not auto_cfg.filters:
+            logger.warning("Service auto-discovery requires at least one filter pattern")
             return []
         
         collectors = []
