@@ -1,20 +1,42 @@
 # Penguin Metrics
 
-Linux system telemetry service for Home Assistant via MQTT.
+Linux system telemetry service that sends data to MQTT, with Home Assistant integration via MQTT Discovery.
 
 ## Features
 
-- **System Metrics**: CPU, RAM, swap, load average, uptime
+### Data Collection
+- **System Metrics**: CPU (overall and per-core), RAM, swap, load average, uptime
 - **Temperature**: Thermal zones and hwmon sensors (auto-discovery supported)
 - **Process Monitoring**: By name, regex pattern, PID, or pidfile
-- **Memory Details**: PSS/USS via `/proc/PID/smaps` (requires root)
+- **Memory Details**: 
+  - Standard RSS (Resident Set Size)
+  - PSS/USS via `/proc/PID/smaps` (requires root or `CAP_SYS_PTRACE`)
+  - **Real PSS/USS**: Excludes file-backed mappings (accurate for apps that map large files)
 - **Systemd Services**: State, CPU, memory via cgroups (auto-discovery with filter)
 - **Docker Containers**: CPU, memory, network, disk I/O (auto-discovery supported)
 - **Battery**: Capacity, status, voltage, current, health (auto-discovery supported)
 - **Custom Sensors**: Run shell commands or scripts
-- **GPU**: Basic metrics via sysfs (frequency, temperature)
-- **Auto-Discovery**: Automatic sensor detection with filter/exclude patterns
-- **Stale Sensor Cleanup**: Removed sensors are cleaned from Home Assistant
+- **GPU**: Basic metrics via sysfs (frequency, temperature) - minimal implementation
+
+### MQTT Integration
+- **JSON Payloads**: Single topic per source with all metrics in JSON format
+- **Retain Modes**: `on` (retain all) or `off` (no retention)
+- **Availability**: Dual availability system (global app status + local source state)
+- **Last Will and Testament**: Automatic offline notification on disconnect
+
+### Home Assistant Integration
+- **MQTT Discovery**: Automatic sensor and device registration
+- **Device Grouping**: Flexible grouping strategies (per-source, single, hybrid)
+- **Value Templates**: Extract metrics from JSON payloads
+- **Stale Sensor Cleanup**: Removed sensors are automatically cleaned from Home Assistant
+
+### Auto-Discovery
+- **Temperature Sensors**: Automatic detection with filter/exclude patterns
+- **Batteries**: Auto-discovery of all power supplies
+- **Docker Containers**: Auto-discovery with name/image/label filters
+- **Systemd Services**: Auto-discovery with required filter (safety)
+- **Processes**: Auto-discovery with required filter (safety)
+- **Dynamic Refresh**: Periodic check for new/removed sources (configurable interval)
 
 ## Requirements
 
@@ -202,15 +224,16 @@ mqtt {
 | `client_id` | *(auto-generated)* | MQTT client identifier |
 | `topic_prefix` | `"penguin_metrics"` | Base topic for all messages |
 | `qos` | `1` | Quality of Service (0, 1, 2) |
-| `retain` | `online` | Retain mode: `off`, `online`, `full` |
+| `retain` | `on` | Retain mode: `on` (retain all) or `off` (no retention) |
 | `keepalive` | `60` | Keepalive interval (seconds) |
 
 **Retain modes:**
-| Mode | Data | Status (LWT) | Description |
-|------|------|--------------|-------------|
-| `off` | No | No | Don't retain any messages |
-| `online` | No | Yes | Only retain availability status |
-| `full` | Yes | Yes | Retain all messages (default) |
+| Mode | Description |
+|------|-------------|
+| `off` | Don't retain any messages |
+| `on` | Retain all messages (default) |
+
+When the service disconnects, `{"state": "offline"}` is sent to all JSON topics (if retain is enabled).
 
 ### Home Assistant Integration
 
@@ -361,10 +384,16 @@ containers {
     filter "myapp-*";
 }
 
-# Auto-discover systemd services (filter REQUIRED)
+# Auto-discover systemd services (filter REQUIRED for safety)
 services {
     auto on;
-    filter "docker*";
+    filter "docker*";          # REQUIRED - too many services otherwise
+}
+
+# Auto-discover processes (filter REQUIRED for safety)
+processes {
+    auto on;
+    filter "python*";           # REQUIRED - thousands of processes otherwise
 }
 ```
 
@@ -388,7 +417,7 @@ temperatures {
 
 ### Dynamic Auto-Refresh
 
-By default, auto-discovery runs only at startup. Enable `auto_refresh_interval` (top-level setting) to periodically check for new or removed services/containers:
+By default, auto-discovery runs only at startup. Enable `auto_refresh_interval` (top-level setting) to periodically check for new or removed sources:
 
 ```nginx
 # Check for new/removed sources every 60 seconds (0 = disabled)
@@ -396,10 +425,11 @@ auto_refresh_interval 60s;
 ```
 
 When enabled:
-- **New services/containers** matching filters are automatically added
-- **Removed services/containers** are automatically cleaned up
+- **New services/containers/processes** matching filters are automatically added
+- **Removed services/containers/processes** are automatically cleaned up
 - Home Assistant sensors are registered/unregistered dynamically
 - Manual configurations are never affected
+- Logs at `INFO` level only when sources are added/removed (not on every check)
 
 **Manual definitions override auto-discovered:**
 
@@ -476,8 +506,8 @@ python -m penguin_metrics --no-color config.conf
 ### System Metrics
 
 ```nginx
-system "server-name" {
-    id "custom_id";            # Optional: custom ID for topics
+system {
+    # Note: system block doesn't require a name
     
     cpu on;                    # Total CPU usage
     cpu_per_core off;          # Per-core CPU usage
@@ -485,7 +515,6 @@ system "server-name" {
     swap on;                   # Swap usage
     load on;                   # Load average (1, 5, 15 min)
     uptime on;                 # System uptime
-    temperature on;            # Thermal zones
     gpu off;                   # GPU metrics (if available)
     
     update_interval 5s;
@@ -498,17 +527,17 @@ system "server-name" {
 }
 ```
 
+**Note:** Temperature sensors are configured separately via the `temperatures` block (see Auto-Discovery section).
+
 **Default values:**
 | Directive | Default | Description |
 |-----------|---------|-------------|
-| `id` | *(from name)* | Custom ID for topics |
 | `cpu` | `on` | Total CPU usage |
 | `cpu_per_core` | `off` | Per-core CPU usage |
 | `memory` | `on` | Memory usage |
 | `swap` | `on` | Swap usage |
 | `load` | `on` | Load average |
 | `uptime` | `on` | System uptime |
-| `temperature` | `on` | Thermal zones |
 | `gpu` | `off` | GPU metrics |
 | `update_interval` | *(from defaults)* | Override default interval |
 
@@ -521,7 +550,7 @@ process "docker" {
     
     cpu on;
     memory on;
-    smaps on;                  # PSS/USS (requires root)
+    smaps on;                  # PSS/USS + Real PSS/USS (requires root)
     io on;                     # I/O bytes
     fds on;                    # Open file descriptors
     threads on;                # Thread count
@@ -556,14 +585,21 @@ process "python-script" {
 **Default values:**
 | Directive | Default | Description |
 |-----------|---------|-------------|
-| `cpu` | `on` | CPU usage |
+| `cpu` | `on` | CPU usage (normalized to 0-100%) |
 | `memory` | `on` | Memory (RSS) |
-| `smaps` | *(from defaults)* | PSS/USS memory |
+| `smaps` | *(from defaults)* | PSS/USS + Real PSS/USS memory |
 | `io` | `off` | I/O bytes read/write |
 | `fds` | `off` | Open file descriptors |
 | `threads` | `off` | Thread count |
 | `aggregate` | `off` | Sum metrics from all matches |
 | `update_interval` | *(from defaults)* | Override default interval |
+
+**Memory metrics when `smaps on`:**
+- `memory_rss_mb`: Standard RSS (Resident Set Size)
+- `memory_pss_mb`: Proportional Set Size (includes file-backed)
+- `memory_uss_mb`: Unique Set Size (includes file-backed)
+- `memory_real_pss_mb`: Real PSS (excludes file-backed mappings)
+- `memory_real_uss_mb`: Real USS (excludes file-backed mappings)
 
 **Match types:**
 | Type | Example | Description |
@@ -600,12 +636,14 @@ service "nginx" {
 **Default values:**
 | Directive | Default | Description |
 |-----------|---------|-------------|
-| `cpu` | `on` | CPU time from cgroup |
+| `cpu` | `on` | CPU usage (normalized to 0-100%) |
 | `memory` | `on` | Memory from cgroup |
-| `smaps` | *(from defaults)* | PSS/USS aggregated |
-| `state` | `on` | Service state |
+| `smaps` | *(from defaults)* | PSS/USS + Real PSS/USS aggregated |
+| `state` | `on` | Service state (only 'active' collects metrics) |
 | `restart_count` | `off` | Number of restarts |
 | `update_interval` | *(from defaults)* | Override default interval |
+
+**Note:** Metrics are only collected when service state is `active`. States like `activating` or `reloading` don't collect cgroup metrics.
 
 **Match types:**
 | Type | Example | Description |
@@ -649,14 +687,13 @@ container "monitored" {
 **Default values:**
 | Directive | Default | Description |
 |-----------|---------|-------------|
-| `cpu` | `on` | CPU usage % |
+| `cpu` | `on` | CPU usage % (normalized to 0-100%) |
 | `memory` | `on` | Memory usage |
 | `network` | `off` | Network RX/TX bytes |
 | `disk` | `off` | Block I/O |
 | `state` | `on` | Container state |
 | `health` | `off` | Healthcheck status |
 | `uptime` | `off` | Container uptime |
-| `auto_discover` | `off` | Create device per matched container |
 | `update_interval` | *(from defaults)* | Override default interval |
 
 **Match types:**
@@ -676,7 +713,7 @@ battery "main" {
     # name "BAT0";
     
     capacity on;               # Charge percentage
-    status on;                 # Charging/Discharging/Full
+    status on;                 # Charging/Discharging/Full (published as 'state')
     voltage on;                # Current voltage
     current on;                # Current amperage
     power on;                  # Power consumption
@@ -696,7 +733,7 @@ battery "main" {
 | `path` | *(auto-detect)* | Path to battery in sysfs |
 | `name` | *(auto-detect)* | Battery name (BAT0, etc.) |
 | `capacity` | `on` | Charge percentage |
-| `status` | `on` | Charging/Discharging/Full |
+| `status` | `on` | Charging/Discharging/Full (published as `state` in JSON) |
 | `voltage` | `off` | Current voltage |
 | `current` | `off` | Current amperage |
 | `power` | `off` | Power consumption |
@@ -760,17 +797,29 @@ custom "wan_ip" {
 | `string` | Use raw output as-is |
 | `json` | Parse as JSON object |
 
+**JSON payload:**
+Custom sensors publish JSON with:
+- `value`: The parsed command output
+- `state`: `"online"` (command succeeded) or `"not_found"` (command failed)
+
 ### Temperature Zones (Standalone)
+
+Manually configure specific temperature sensors (overrides auto-discovered with same name):
 
 ```nginx
 temperature "cpu" {
     zone "cpu-thermal";        # Thermal zone name
     # Or: path "/sys/class/thermal/thermal_zone0/temp";
+    # Or: hwmon "soc_thermal_sensor0";
     
-    warning 70;
-    critical 85;
+    update_interval 5s;
 }
 ```
+
+**Note:** Temperature sensors publish JSON with `temp` and `state` fields:
+- `state`: `"online"` (sensor found) or `"not_found"` (sensor missing)
+- `temp`: Temperature value in Celsius
+- Optional: `high` and `critical` thresholds if available
 
 ### Include Files
 
@@ -784,34 +833,73 @@ include "/etc/penguin-metrics/conf.d/*.conf";
 
 ## MQTT Topics
 
-### State Topics
+### JSON Payload Topics
 
-Sensor values are published to:
+Each source publishes all its metrics as a single JSON payload to one topic:
+
 ```
-{topic_prefix}/{source_id}/{metric_name}
+{topic_prefix}/{source_type}/{source_name}
 ```
 
-Example:
+**Examples:**
 ```
-penguin_metrics/main/cpu_percent         -> 45.2
-penguin_metrics/main/memory_percent      -> 67.8
-penguin_metrics/docker/cpu_percent       -> 2.5
-penguin_metrics/docker/state             -> running
+penguin_metrics/system
+  → {"cpu_percent": 45.2, "memory_percent": 67.8, "load_1": 1.2, ...}
+
+penguin_metrics/process/docker
+  → {"cpu_percent": 2.5, "memory_rss_mb": 512.3, "state": "running", ...}
+
+penguin_metrics/service/docker-service
+  → {"cpu_percent": 1.8, "memory_mb": 1024.5, "state": "active", ...}
+
+penguin_metrics/docker/homeassistant
+  → {"cpu_percent": 5.2, "memory_mb": 2048.0, "state": "running", ...}
+
+penguin_metrics/temperature/cpu-thermal
+  → {"temp": 42.5, "state": "online", "high": 70.0, "critical": 85.0}
+
+penguin_metrics/battery/main
+  → {"capacity": 85, "state": "charging", "voltage": 12.6, ...}
 ```
 
 ### Availability Topics
 
-Device availability:
+**Global application status:**
 ```
-{topic_prefix}/{device_id}/status        -> online/offline
-{topic_prefix}/status                    -> online/offline (main)
+{topic_prefix}/status  → "online" / "offline"
 ```
+
+**Local source state** (included in JSON payload):
+- Each source includes a `state` field in its JSON payload
+- Values: `"online"`, `"offline"`, `"running"`, `"active"`, `"not_found"`, etc.
+- Home Assistant uses `value_template` to extract both the metric value and availability state
 
 ### Home Assistant Discovery
 
 Discovery messages are published to:
 ```
-homeassistant/sensor/{unique_id}/config
+{discovery_prefix}/sensor/{unique_id}/config
+```
+
+Each sensor uses `value_template` to extract its metric from the source's JSON payload:
+```json
+{
+  "state_topic": "penguin_metrics/process/docker",
+  "value_template": "{{ value_json.cpu_percent }}",
+  "availability": [
+    {
+      "topic": "penguin_metrics/status",
+      "payload_available": "online",
+      "payload_not_available": "offline"
+    },
+    {
+      "topic": "penguin_metrics/process/docker",
+      "value_template": "{{ 'online' if value_json.state == 'running' else 'offline' }}",
+      "payload_available": "online",
+      "payload_not_available": "offline"
+    }
+  ]
+}
 ```
 
 ## Permissions
@@ -825,12 +913,26 @@ homeassistant/sensor/{unique_id}/config
 | **RSS** | Private + Shared | Total memory in RAM (overestimates if shared) |
 | **PSS** | Private + Shared/N | Proportional Set Size — fair share of shared memory |
 | **USS** | Private only | Unique Set Size — memory freed when process exits |
+| **Real PSS** | Pss_Anon + Pss_Shm + SwapPss | PSS excluding file-backed mappings |
+| **Real USS** | Anonymous | USS excluding file-backed mappings (mmap'd files) |
 
 **Why use PSS/USS?**
 - RSS counts shared memory (libc, etc.) fully for each process
 - 10 processes sharing 50MB libc → RSS shows 500MB total ❌
 - PSS divides shared memory: each process shows 5MB → 50MB total ✓
 - USS shows only private memory — what's freed on `kill`
+
+**Why use Real PSS/USS?**
+- Standard PSS/USS includes file-backed mappings (mmap'd files)
+- File-backed mappings can be evicted from RAM by the kernel
+- Applications like qBittorrent map large files but don't actually use that much RAM
+- Real PSS/USS excludes file-backed mappings → accurate RAM usage
+- **Real PSS** = `Pss_Anon + Pss_Shm + SwapPss` (from `/proc/PID/smaps`)
+- **Real USS** = `Anonymous` (from `/proc/PID/smaps`)
+
+**Example:**
+- qBittorrent maps 3GB of torrent files → RSS shows 3GB
+- Real USS shows 200MB → actual RAM usage ✓
 
 #### Granting permissions
 
@@ -952,13 +1054,17 @@ python -m penguin_metrics --validate config.conf
 ### Test MQTT connection
 
 ```bash
-# Subscribe to all topics
+# Subscribe to all topics (JSON payloads)
 mosquitto_sub -h 10.13.1.100 -p 1833 \
   -u penguin_metrics -P password \
   -t "penguin_metrics/#" -v
 
 # In another terminal, run the service
 python -m penguin_metrics -v config.conf
+
+# Example output:
+# penguin_metrics/system {"cpu_percent": 45.2, "memory_percent": 67.8, ...}
+# penguin_metrics/process/docker {"cpu_percent": 2.5, "state": "running", ...}
 ```
 
 ### Test Home Assistant Discovery
@@ -985,8 +1091,9 @@ async def test():
     await collector.initialize()
     
     result = await collector.collect()
-    for metric in result.metrics:
-        print(f"{metric.sensor_id}: {metric.value}")
+    # Result contains a dict with all metrics
+    print(result.data)  # {"cpu_percent": 45.2, "memory_percent": 67.8, ...}
+    print(f"Available: {result.available}")
 
 asyncio.run(test())
 ```
