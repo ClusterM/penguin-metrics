@@ -95,7 +95,7 @@ class ConfigLoader:
     KNOWN_DIRECTIVES = {
         "mqtt": {"host", "port", "username", "password", "client_id", "topic_prefix", "qos", "retain", "keepalive"},
         "homeassistant": {"discovery", "discovery_prefix", "device_grouping", "device", "state_file"},
-        "defaults": {"update_interval", "smaps", "availability_topic", "system", "process", "service", "container", "battery", "custom"},
+        "defaults": {"update_interval", "smaps", "availability_topic", "auto_refresh_interval", "system", "process", "service", "container", "battery", "custom"},
         "logging": {"level", "file", "file_level", "file_max_size", "file_keep", "colors", "format"},
         "system": {"id", "device", "cpu", "cpu_per_core", "memory", "swap", "load", "uptime", "gpu", "update_interval"},
         "process": {"id", "device", "match", "cpu", "memory", "smaps", "io", "fds", "threads", "aggregate", "update_interval"},

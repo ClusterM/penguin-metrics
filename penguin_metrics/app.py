@@ -66,7 +66,9 @@ class Application:
         # State
         self._running = False
         self._tasks: list[asyncio.Task] = []
+        self._collector_tasks: dict[str, asyncio.Task] = {}  # collector_id -> task
         self._shutdown_event = asyncio.Event()
+        self._refresh_task: asyncio.Task | None = None
     
     async def _create_collectors(self) -> list[Collector]:
         """Create all configured collectors."""
@@ -481,6 +483,136 @@ class Application:
             
             await asyncio.sleep(collector.update_interval)
     
+    async def _auto_refresh_loop(self, interval: float) -> None:
+        """Periodically check for new/removed auto-discovered sources."""
+        logger.debug(f"Auto-refresh loop started (interval: {interval}s)")
+        
+        while self._running:
+            await asyncio.sleep(interval)
+            
+            if not self._running:
+                break
+            
+            try:
+                await self._refresh_auto_discovered()
+            except Exception as e:
+                logger.error(f"Error during auto-refresh: {e}")
+    
+    async def _refresh_auto_discovered(self) -> None:
+        """Check for new/removed services and containers."""
+        topic_prefix = self.config.mqtt.topic_prefix
+        
+        # Get current collector IDs
+        current_ids = {c.collector_id for c in self.collectors}
+        
+        # Get manually configured IDs (these should not be auto-removed)
+        manual_ids: set[str] = set()
+        for cfg in self.config.services:
+            manual_ids.add(cfg.id or cfg.name)
+        for cfg in self.config.containers:
+            manual_ids.add(cfg.id or cfg.name)
+        for cfg in self.config.processes:
+            manual_ids.add(cfg.id or cfg.name)
+        
+        # Discover current services
+        new_services = self._auto_discover_services(manual_ids, topic_prefix)
+        new_service_ids = {c.collector_id for c in new_services}
+        
+        # Discover current containers
+        new_containers = await self._auto_discover_containers(manual_ids, topic_prefix)
+        new_container_ids = {c.collector_id for c in new_containers}
+        
+        # Find auto-discovered collectors that are currently running
+        auto_service_ids = {c.collector_id for c in self.collectors 
+                          if c.SOURCE_TYPE == "service" and c.collector_id not in manual_ids}
+        auto_container_ids = {c.collector_id for c in self.collectors 
+                             if c.SOURCE_TYPE == "docker" and c.collector_id not in manual_ids}
+        
+        # Find new and removed
+        added_services = new_service_ids - auto_service_ids
+        removed_services = auto_service_ids - new_service_ids
+        added_containers = new_container_ids - auto_container_ids
+        removed_containers = auto_container_ids - new_container_ids
+        
+        # Add new collectors
+        for collector in new_services:
+            if collector.collector_id in added_services:
+                await self._add_collector(collector)
+                logger.info(f"Auto-discovered new service: {collector.name}")
+        
+        for collector in new_containers:
+            if collector.collector_id in added_containers:
+                await self._add_collector(collector)
+                logger.info(f"Auto-discovered new container: {collector.name}")
+        
+        # Remove old collectors
+        for collector_id in removed_services:
+            await self._remove_collector(collector_id)
+            logger.info(f"Removed disappeared service: {collector_id}")
+        
+        for collector_id in removed_containers:
+            await self._remove_collector(collector_id)
+            logger.info(f"Removed disappeared container: {collector_id}")
+    
+    async def _add_collector(self, collector: Collector) -> None:
+        """Add and start a new collector."""
+        try:
+            await collector.initialize()
+            
+            # Register sensors
+            if self.config.homeassistant.discovery:
+                await self.ha.register_sensors(collector.sensors)
+            
+            # Add to list
+            self.collectors.append(collector)
+            
+            # Start task
+            task = asyncio.create_task(self._run_collector(collector))
+            self._tasks.append(task)
+            self._collector_tasks[collector.collector_id] = task
+            
+            # Save state
+            self.ha._save_state()
+            
+        except Exception as e:
+            logger.error(f"Failed to add collector {collector.name}: {e}")
+    
+    async def _remove_collector(self, collector_id: str) -> None:
+        """Stop and remove a collector."""
+        # Find collector
+        collector = None
+        for c in self.collectors:
+            if c.collector_id == collector_id:
+                collector = c
+                break
+        
+        if not collector:
+            return
+        
+        # Cancel task
+        task = self._collector_tasks.get(collector_id)
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            self._tasks.remove(task)
+            del self._collector_tasks[collector_id]
+        
+        # Remove sensors from Home Assistant
+        if self.config.homeassistant.discovery:
+            for sensor in collector.sensors:
+                topic = f"{self.ha.discovery_prefix}/sensor/{sensor.unique_id}/config"
+                await self.mqtt.publish(topic, "", qos=1, retain=True)
+        
+        # Remove from list
+        self.collectors.remove(collector)
+        
+        # Update state file
+        self.ha._registered_sensors -= {s.unique_id for s in collector.sensors}
+        self.ha._save_state()
+    
     def _setup_signal_handlers(self) -> None:
         """Setup signal handlers for graceful shutdown."""
         loop = asyncio.get_running_loop()
@@ -525,6 +657,13 @@ class Application:
         for collector in self.collectors:
             task = asyncio.create_task(self._run_collector(collector))
             self._tasks.append(task)
+            self._collector_tasks[collector.collector_id] = task
+        
+        # Start auto-refresh task if enabled
+        refresh_interval = self.config.defaults.auto_refresh_interval
+        if refresh_interval > 0:
+            self._refresh_task = asyncio.create_task(self._auto_refresh_loop(refresh_interval))
+            logger.info(f"Auto-refresh enabled: checking for new/removed sources every {refresh_interval}s")
         
         logger.info("Penguin Metrics started successfully")
         
@@ -540,6 +679,14 @@ class Application:
         
         self._running = False
         
+        # Cancel refresh task
+        if self._refresh_task:
+            self._refresh_task.cancel()
+            try:
+                await self._refresh_task
+            except asyncio.CancelledError:
+                pass
+        
         # Cancel collector tasks
         for task in self._tasks:
             task.cancel()
@@ -548,6 +695,7 @@ class Application:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         
         self._tasks.clear()
+        self._collector_tasks.clear()
         
         # Note: LWT (Last Will and Testament) automatically publishes offline status
         # to {prefix}/status when connection is lost, making all sensors unavailable

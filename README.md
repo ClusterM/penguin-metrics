@@ -386,6 +386,25 @@ temperatures {
 - If filters defined and **any matches** → included
 - If no filters → include all (except excluded)
 
+### Dynamic Auto-Refresh
+
+By default, auto-discovery runs only at startup. Enable `auto_refresh_interval` to periodically check for new or removed services/containers:
+
+```nginx
+defaults {
+    update_interval 10s;
+    
+    # Check for new/removed sources every 60 seconds (0 = disabled)
+    auto_refresh_interval 60s;
+}
+```
+
+When enabled:
+- **New services/containers** matching filters are automatically added
+- **Removed services/containers** are automatically cleaned up
+- Home Assistant sensors are registered/unregistered dynamically
+- Manual configurations are never affected
+
 **Manual definitions override auto-discovered:**
 
 ```nginx
