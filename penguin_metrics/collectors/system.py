@@ -60,13 +60,28 @@ class SystemCollector(Collector):
         device_config = self.config.device
         
         return Device(
-            identifiers=[f"system_{self.collector_id}"],
-            name=device_config.name or f"System: {self.config.name}",
+            identifiers=["system"],
+            name=device_config.name or "System",
             manufacturer=device_config.manufacturer,
             model=device_config.model,
             hw_version=device_config.hw_version,
             sw_version=device_config.sw_version,
         )
+    
+    def sensor_id(self, metric: str) -> str:
+        """Generate sensor ID without source name (system has no name)."""
+        if metric:
+            return f"{self.SOURCE_TYPE}_{metric}"
+        return self.SOURCE_TYPE
+    
+    def metric_topic(self, metric_sensor_id: str, topic_prefix: str) -> str:
+        """Build topic as {prefix}/system/{metric}."""
+        # metric_sensor_id is like "system_cpu_percent"
+        parts = metric_sensor_id.split("_", 1)
+        if len(parts) == 2:
+            metric = parts[1]
+            return f"{topic_prefix}/{self.SOURCE_TYPE}/{metric}"
+        return f"{topic_prefix}/{self.SOURCE_TYPE}"
     
     def create_sensors(self) -> list[Sensor]:
         """Create sensors based on configuration."""
@@ -76,7 +91,7 @@ class SystemCollector(Collector):
         if self.config.cpu:
             sensors.append(create_sensor(
                 source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                 metric_name="cpu_percent",
                 display_name="CPU Usage",
                 device=device,
@@ -93,7 +108,7 @@ class SystemCollector(Collector):
                 for i in range(cpu_count):
                     sensors.append(create_sensor(
                         source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name=f"cpu{i}_percent",
                         display_name=f"CPU Core {i} Usage",
                         device=device,
@@ -108,7 +123,7 @@ class SystemCollector(Collector):
             sensors.extend([
                 create_sensor(
                     source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                     metric_name="memory_percent",
                     display_name="Memory Usage",
                     device=device,
@@ -119,7 +134,7 @@ class SystemCollector(Collector):
                 ),
                 create_sensor(
                     source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                     metric_name="memory_used",
                     display_name="Memory Used",
                     device=device,
@@ -131,7 +146,7 @@ class SystemCollector(Collector):
                 ),
                 create_sensor(
                     source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                     metric_name="memory_available",
                     display_name="Memory Available",
                     device=device,
@@ -144,7 +159,7 @@ class SystemCollector(Collector):
                 ),
                 create_sensor(
                     source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                     metric_name="memory_total",
                     display_name="Memory Total",
                     device=device,
@@ -161,7 +176,7 @@ class SystemCollector(Collector):
             sensors.extend([
                 create_sensor(
                     source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                     metric_name="swap_percent",
                     display_name="Swap Usage",
                     device=device,
@@ -172,7 +187,7 @@ class SystemCollector(Collector):
                 ),
                 create_sensor(
                     source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                     metric_name="swap_used",
                     display_name="Swap Used",
                     device=device,
@@ -189,7 +204,7 @@ class SystemCollector(Collector):
             sensors.extend([
                 create_sensor(
                     source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                     metric_name="load_1m",
                     display_name="Load Average (1m)",
                     device=device,
@@ -199,7 +214,7 @@ class SystemCollector(Collector):
                 ),
                 create_sensor(
                     source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                     metric_name="load_5m",
                     display_name="Load Average (5m)",
                     device=device,
@@ -210,7 +225,7 @@ class SystemCollector(Collector):
                 ),
                 create_sensor(
                     source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                     metric_name="load_15m",
                     display_name="Load Average (15m)",
                     device=device,
@@ -224,7 +239,7 @@ class SystemCollector(Collector):
         if self.config.uptime:
             sensors.append(create_sensor(
                 source_type="system",
-                source_name=self.name,
+                source_name="",  # System has no source_name - uses /system/{metric}
                 metric_name="uptime",
                 display_name="Uptime",
                 device=device,

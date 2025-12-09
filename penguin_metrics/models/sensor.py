@@ -264,19 +264,31 @@ def create_sensor(
         Configured Sensor instance
     
     Topic structure: 
-        {prefix}/{type}/{name}/{metric}  - when metric_name is provided
-        {prefix}/{type}/{name}           - when metric_name is empty (e.g., temperature)
+        {prefix}/{type}/{name}/{metric}  - when source_name and metric_name provided
+        {prefix}/{type}/{metric}          - when source_name is empty (e.g., system)
+        {prefix}/{type}/{name}            - when metric_name is empty (e.g., temperature)
     
     Examples:
-        penguin_metrics/system/main/cpu_percent
-        penguin_metrics/temperature/thermal_zone0
+        penguin_metrics/system/cpu_percent      (source_name empty)
+        penguin_metrics/process/nginx/cpu       (both provided)
+        penguin_metrics/temperature/thermal_zone0 (metric_name empty)
     """
-    if metric_name:
-        unique_id = f"{source_type}_{source_name}_{metric_name}"
-        state_topic = f"{topic_prefix}/{source_type}/{source_name}/{metric_name}"
+    # Build unique_id and state_topic based on what's provided
+    if source_name:
+        if metric_name:
+            unique_id = f"{source_type}_{source_name}_{metric_name}"
+            state_topic = f"{topic_prefix}/{source_type}/{source_name}/{metric_name}"
+        else:
+            unique_id = f"{source_type}_{source_name}"
+            state_topic = f"{topic_prefix}/{source_type}/{source_name}"
     else:
-        unique_id = f"{source_type}_{source_name}"
-        state_topic = f"{topic_prefix}/{source_type}/{source_name}"
+        # No source_name (e.g., system metrics)
+        if metric_name:
+            unique_id = f"{source_type}_{metric_name}"
+            state_topic = f"{topic_prefix}/{source_type}/{metric_name}"
+        else:
+            unique_id = source_type
+            state_topic = f"{topic_prefix}/{source_type}"
     
     # Use global availability topic (single LWT for entire service)
     if availability_topic is None:

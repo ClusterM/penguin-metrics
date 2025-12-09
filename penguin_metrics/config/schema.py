@@ -451,7 +451,7 @@ class AutoDiscoveryConfig:
 @dataclass
 class SystemConfig:
     """System-wide metrics configuration."""
-    name: str
+    name: str = "system"  # Optional, not used in topics
     id: str | None = None
     device: DeviceConfig = field(default_factory=DeviceConfig)
     
