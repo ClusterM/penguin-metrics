@@ -23,7 +23,7 @@ Linux system telemetry service for Home Assistant via MQTT.
 
 ## Installation
 
-### From source
+### From source (development)
 
 ```bash
 # Clone repository
@@ -35,12 +35,36 @@ cd penguin-metrics
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install in development mode (editable)
+pip install -e .
+
+# Or install with dev dependencies
+pip install -e ".[dev]"
 
 # Copy and edit configuration
-cp config.example.conf /etc/penguin-metrics/config.conf
-nano /etc/penguin-metrics/config.conf
+sudo mkdir -p /etc/penguin-metrics
+sudo cp config.example.conf /etc/penguin-metrics/config.conf
+sudo nano /etc/penguin-metrics/config.conf
+```
+
+### Install as package
+
+```bash
+# Build wheel
+pip install build
+python -m build
+
+# Install built package
+pip install dist/penguin_metrics-0.1.0-py3-none-any.whl
+
+# Or install directly from source
+pip install .
+```
+
+### Using pip from git
+
+```bash
+pip install git+https://github.com/clusterm/penguin-metrics.git
 ```
 
 ### As systemd service
