@@ -313,6 +313,10 @@ class Application:
             logger.warning("Service auto-discovery requires at least one filter pattern")
             return []
         
+        # Warn about overly broad filters
+        if "*" in auto_cfg.filters or "*.service" in auto_cfg.filters:
+            logger.warning("Service filter '*' matches ALL services (hundreds!). Use specific pattern like 'docker*'")
+        
         collectors = []
         
         try:
@@ -332,7 +336,14 @@ class Application:
                 if not parts:
                     continue
                 
-                unit_name = parts[0]  # e.g., docker.service
+                # Skip status symbols (● for failed services)
+                unit_name = parts[0]
+                if unit_name in ("●", "○", "×") or not unit_name.endswith(".service"):
+                    # Try next part if first is a status symbol
+                    if len(parts) > 1 and parts[1].endswith(".service"):
+                        unit_name = parts[1]
+                    else:
+                        continue
                 name = unit_name.replace(".service", "")
                 
                 if name in exclude:
