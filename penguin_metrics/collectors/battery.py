@@ -337,87 +337,82 @@ class BatteryCollector(Collector):
         result = CollectorResult()
         
         if not self._battery:
-            result.set_error("No battery found")
+            result.set_unavailable("not_found")
             return result
         
         path = self._battery.path
         
+        # Status is always collected for state
+        status = read_sysfs_value(path / "status")
+        if status:
+            result.set_state(status.lower())
+        else:
+            result.set_state("unknown")
+        
         if self.config.capacity:
             capacity = read_sysfs_int(path / "capacity")
             if capacity is not None:
-                result.add_metric(f"{self.collector_id}_capacity", capacity)
-        
-        if self.config.status:
-            status = read_sysfs_value(path / "status")
-            if status:
-                result.add_metric(f"{self.collector_id}_status", status.lower())
+                result.set("capacity", capacity)
         
         if self.config.voltage:
-            # voltage_now is in microvolts
             voltage = read_sysfs_float(path / "voltage_now", scale=0.000001)
             if voltage is not None:
-                result.add_metric(f"{self.collector_id}_voltage", round(voltage, 2))
+                result.set("voltage", round(voltage, 2))
         
         if self.config.current:
-            # current_now is in microamps
             current = read_sysfs_float(path / "current_now", scale=0.000001)
             if current is not None:
-                result.add_metric(f"{self.collector_id}_current", round(abs(current), 3))
+                result.set("current", round(abs(current), 3))
         
         if self.config.power:
-            # power_now is in microwatts
             power = read_sysfs_float(path / "power_now", scale=0.000001)
             if power is not None:
-                result.add_metric(f"{self.collector_id}_power", round(power, 2))
+                result.set("power", round(power, 2))
             else:
-                # Calculate from voltage and current if power_now not available
                 voltage = read_sysfs_float(path / "voltage_now", scale=0.000001)
                 current = read_sysfs_float(path / "current_now", scale=0.000001)
                 if voltage and current:
-                    power = abs(voltage * current)
-                    result.add_metric(f"{self.collector_id}_power", round(power, 2))
+                    result.set("power", round(abs(voltage * current), 2))
         
         if self.config.health:
             health = read_sysfs_value(path / "health")
             if health:
-                result.add_metric(f"{self.collector_id}_health", health)
+                result.set("health", health)
         
         if self.config.cycles:
             cycles = read_sysfs_int(path / "cycle_count")
             if cycles is not None:
-                result.add_metric(f"{self.collector_id}_cycles", cycles)
+                result.set("cycles", cycles)
         
         if self.config.temperature:
-            # temp is in tenths of degrees Celsius
             temp = read_sysfs_float(path / "temp", scale=0.1)
             if temp is not None:
-                result.add_metric(f"{self.collector_id}_temperature", round(temp, 1))
+                result.set("temperature", round(temp, 1))
         
         if self.config.time_to_empty:
-            # time_to_empty_now is in minutes
             tte = read_sysfs_int(path / "time_to_empty_now")
             if tte is not None:
-                result.add_metric(f"{self.collector_id}_time_to_empty", tte)
+                result.set("time_to_empty", tte)
         
         if self.config.time_to_full:
             ttf = read_sysfs_int(path / "time_to_full_now")
             if ttf is not None:
-                result.add_metric(f"{self.collector_id}_time_to_full", ttf)
+                result.set("time_to_full", ttf)
         
-        # Energy values (in microwatt-hours, convert to Wh)
+        # Energy values
         energy_now = read_sysfs_float(path / "energy_now", scale=0.000001)
         if energy_now is not None:
-            result.add_metric(f"{self.collector_id}_energy_now", round(energy_now, 2))
+            result.set("energy_now", round(energy_now, 2))
         
         energy_full = read_sysfs_float(path / "energy_full", scale=0.000001)
         if energy_full is not None:
-            result.add_metric(f"{self.collector_id}_energy_full", round(energy_full, 2))
+            result.set("energy_full", round(energy_full, 2))
         
         energy_full_design = read_sysfs_float(path / "energy_full_design", scale=0.000001)
         if energy_full_design is not None:
-            result.add_metric(f"{self.collector_id}_energy_full_design", round(energy_full_design, 2))
+            result.set("energy_full_design", round(energy_full_design, 2))
         
-        if not result.metrics:
+        if len(result.data) <= 1:  # Only state
             result.set_error("Failed to read battery data")
         
         return result

@@ -342,19 +342,18 @@ class ServiceCollector(Collector):
         result = CollectorResult()
         
         if not self._unit_name:
-            result.set_error("Service unit not found")
+            result.set_unavailable("not_found")
             return result
         
         # Get service state
-        if self.config.state:
-            state = await get_service_state(self._unit_name)
-            self._service_state = state
-            result.add_metric(f"{self.collector_id}_state", state)
+        state = await get_service_state(self._unit_name)
+        self._service_state = state
+        result.set_state(state)
         
         # Get restart count
         if self.config.restart_count:
             restarts = await get_service_restart_count(self._unit_name)
-            result.add_metric(f"{self.collector_id}_restarts", restarts)
+            result.set("restarts", restarts)
         
         # If service is not active, skip cgroup metrics
         if self._service_state not in ("active", "activating", "reloading"):
@@ -384,38 +383,26 @@ class ServiceCollector(Collector):
                 cpu_delta_usec = current_cpu_usec - self._last_cpu_usec
                 
                 if time_delta > 0 and cpu_delta_usec >= 0:
-                    # Convert microseconds to seconds, divide by elapsed time
-                    # This gives fraction of ONE CPU, so divide by CPU count for 0-100%
                     num_cpus = os.cpu_count() or 1
                     cpu_percent = (cpu_delta_usec / 1_000_000) / time_delta / num_cpus * 100.0
-                    cpu_percent = min(cpu_percent, 100.0)  # Cap at 100%
+                    cpu_percent = min(cpu_percent, 100.0)
             
             self._last_cpu_usec = current_cpu_usec
             self._last_cpu_time = current_time
-            
-            result.add_metric(
-                f"{self.collector_id}_cpu_percent",
-                round(cpu_percent, 1),
-            )
+            result.set("cpu_percent", round(cpu_percent, 1))
         
         if self.config.memory:
-            result.add_metric(
-                f"{self.collector_id}_memory",
-                round(cg_stats.memory_mb, 1),
-            )
-            result.add_metric(
-                f"{self.collector_id}_memory_cache",
-                round(cg_stats.memory_cache / (1024 * 1024), 1),
-            )
+            result.set("memory", round(cg_stats.memory_mb, 1))
+            result.set("memory_cache", round(cg_stats.memory_cache / (1024 * 1024), 1))
         
         # Get PIDs for smaps and process count
         pids = get_cgroup_pids(self._cgroup_path)
-        result.add_metric(f"{self.collector_id}_processes", len(pids))
+        result.set("processes", len(pids))
         
         if self.use_smaps and pids:
             smaps = aggregate_smaps(pids)
-            result.add_metric(f"{self.collector_id}_memory_pss", round(smaps.pss_mb, 2))
-            result.add_metric(f"{self.collector_id}_memory_uss", round(smaps.uss_mb, 2))
+            result.set("memory_pss", round(smaps.pss_mb, 2))
+            result.set("memory_uss", round(smaps.uss_mb, 2))
         
         return result
 

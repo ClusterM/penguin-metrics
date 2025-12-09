@@ -259,34 +259,34 @@ class SystemCollector(Collector):
         # CPU usage
         if self.config.cpu:
             cpu_percent = psutil.cpu_percent(interval=None)
-            result.add_metric(self.sensor_id("cpu_percent"), cpu_percent)
+            result.set("cpu_percent", round(cpu_percent, 1))
         
         if self.config.cpu_per_core:
             per_cpu = psutil.cpu_percent(interval=None, percpu=True)
             for i, percent in enumerate(per_cpu):
-                result.add_metric(self.sensor_id(f"cpu{i}_percent"), percent)
+                result.set(f"cpu{i}_percent", round(percent, 1))
         
         # Memory
         if self.config.memory:
             mem = psutil.virtual_memory()
-            result.add_metric(self.sensor_id("memory_percent"), mem.percent)
-            result.add_metric(self.sensor_id("memory_used"), round(mem.used / (1024 * 1024), 1))
-            result.add_metric(self.sensor_id("memory_available"), round(mem.available / (1024 * 1024), 1))
-            result.add_metric(self.sensor_id("memory_total"), round(mem.total / (1024 * 1024), 1))
+            result.set("memory_percent", round(mem.percent, 1))
+            result.set("memory_used", round(mem.used / (1024 * 1024), 1))
+            result.set("memory_available", round(mem.available / (1024 * 1024), 1))
+            result.set("memory_total", round(mem.total / (1024 * 1024), 1))
         
         # Swap
         if self.config.swap:
             swap = psutil.swap_memory()
-            result.add_metric(self.sensor_id("swap_percent"), swap.percent)
-            result.add_metric(self.sensor_id("swap_used"), round(swap.used / (1024 * 1024), 1))
+            result.set("swap_percent", round(swap.percent, 1))
+            result.set("swap_used", round(swap.used / (1024 * 1024), 1))
         
         # Load average
         if self.config.load:
             try:
                 load1, load5, load15 = psutil.getloadavg()
-                result.add_metric(self.sensor_id("load_1m"), round(load1, 2))
-                result.add_metric(self.sensor_id("load_5m"), round(load5, 2))
-                result.add_metric(self.sensor_id("load_15m"), round(load15, 2))
+                result.set("load_1m", round(load1, 2))
+                result.set("load_5m", round(load5, 2))
+                result.set("load_15m", round(load15, 2))
             except (OSError, AttributeError):
                 # Not available on all platforms
                 pass
@@ -295,7 +295,8 @@ class SystemCollector(Collector):
         if self.config.uptime:
             boot_time = psutil.boot_time()
             uptime_seconds = int(datetime.now().timestamp() - boot_time)
-            result.add_metric(self.sensor_id("uptime"), uptime_seconds)
+            result.set("uptime", uptime_seconds)
         
+        # System collector doesn't have state - uses global status
         return result
 

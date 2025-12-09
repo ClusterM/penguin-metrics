@@ -300,20 +300,16 @@ class ContainerCollector(Collector):
         self._container = await self._find_container()
         
         if not self._container:
-            result.add_metric(f"{self.collector_id}_state", "not_found")
-            self._container_state = "not_found"
+            result.set_unavailable("not_found")
             return result
         
         container = self._container
         self._container_state = container.state
-        
-        # State
-        if self.config.state:
-            result.add_metric(f"{self.collector_id}_state", container.state)
+        result.set_state(container.state)
         
         # Health
         if self.config.health and container.health:
-            result.add_metric(f"{self.collector_id}_health", container.health)
+            result.set("health", container.health)
         
         # If container is not running, skip stats
         if not container.is_running:
@@ -327,43 +323,30 @@ class ContainerCollector(Collector):
             return result
         
         if self.config.cpu:
-            result.add_metric(f"{self.collector_id}_cpu_percent", round(stats.cpu_percent, 1))
+            result.set("cpu_percent", round(stats.cpu_percent, 1))
         
         if self.config.memory:
-            result.add_metric(f"{self.collector_id}_memory_usage", round(stats.memory_usage_mb, 1))
-            result.add_metric(f"{self.collector_id}_memory_percent", round(stats.memory_percent, 1))
-            result.add_metric(f"{self.collector_id}_memory_limit", round(stats.memory_limit_mb, 1))
+            result.set("memory_usage", round(stats.memory_usage_mb, 1))
+            result.set("memory_percent", round(stats.memory_percent, 1))
+            result.set("memory_limit", round(stats.memory_limit_mb, 1))
         
         if self.config.network:
-            result.add_metric(
-                f"{self.collector_id}_network_rx",
-                round(stats.network_rx_bytes / (1024 * 1024), 2),
-            )
-            result.add_metric(
-                f"{self.collector_id}_network_tx",
-                round(stats.network_tx_bytes / (1024 * 1024), 2),
-            )
+            result.set("network_rx", round(stats.network_rx_bytes / (1024 * 1024), 2))
+            result.set("network_tx", round(stats.network_tx_bytes / (1024 * 1024), 2))
         
         if self.config.disk:
-            result.add_metric(
-                f"{self.collector_id}_disk_read",
-                round(stats.block_read / (1024 * 1024), 2),
-            )
-            result.add_metric(
-                f"{self.collector_id}_disk_write",
-                round(stats.block_write / (1024 * 1024), 2),
-            )
+            result.set("disk_read", round(stats.block_read / (1024 * 1024), 2))
+            result.set("disk_write", round(stats.block_write / (1024 * 1024), 2))
         
         if self.config.uptime and container.started_at:
             try:
-                # Parse ISO format timestamp
                 started = datetime.fromisoformat(container.started_at.replace("Z", "+00:00"))
                 uptime = int((datetime.now().astimezone() - started).total_seconds())
-                result.add_metric(f"{self.collector_id}_uptime", max(0, uptime))
+                result.set("uptime", max(0, uptime))
             except Exception:
                 pass
         
-        result.add_metric(f"{self.collector_id}_pids", stats.pids)
+        result.set("pids", stats.pids)
         
         return result
 

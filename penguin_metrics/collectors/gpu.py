@@ -311,38 +311,32 @@ class GPUCollector(Collector):
         result = CollectorResult()
         
         if not self._gpus:
-            result.set_error("No GPU devices found")
+            result.set_unavailable("not_found")
             return result
         
-        for gpu in self._gpus:
-            gpu_id = gpu.name.replace(".", "_").replace("-", "_")
-            
-            if gpu.type == "devfreq":
-                metrics = get_devfreq_metrics(gpu)
-            elif gpu.type == "drm":
-                metrics = get_drm_metrics(gpu)
-            else:
-                continue
-            
-            if "frequency" in metrics:
-                result.add_metric(
-                    f"{self.collector_id}_{gpu_id}_frequency",
-                    metrics["frequency"],
-                )
-            
-            if "temperature" in metrics:
-                result.add_metric(
-                    f"{self.collector_id}_{gpu_id}_temperature",
-                    metrics["temperature"],
-                )
-            
-            if "utilization" in metrics:
-                result.add_metric(
-                    f"{self.collector_id}_{gpu_id}_utilization",
-                    metrics["utilization"],
-                )
+        # Collect metrics from first (primary) GPU
+        gpu = self._gpus[0]
         
-        if not result.metrics:
+        if gpu.type == "devfreq":
+            metrics = get_devfreq_metrics(gpu)
+        elif gpu.type == "drm":
+            metrics = get_drm_metrics(gpu)
+        else:
+            result.set_unavailable("not_found")
+            return result
+        
+        if "frequency" in metrics:
+            result.set("frequency", metrics["frequency"])
+        
+        if "temperature" in metrics:
+            result.set("temperature", metrics["temperature"])
+        
+        if "utilization" in metrics:
+            result.set("utilization", metrics["utilization"])
+        
+        if result.data:
+            result.set_state("online")
+        else:
             result.set_error("No GPU metrics available")
         
         return result

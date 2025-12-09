@@ -155,9 +155,21 @@ class Sensor:
             result["device"] = self.device.to_discovery_dict()
         
         if self.availability_topic:
-            result["availability_topic"] = self.availability_topic
-            result["payload_available"] = self.payload_available
-            result["payload_not_available"] = self.payload_not_available
+            # Check if we have an availability template (for JSON-based availability)
+            avail_tpl = getattr(self, "_availability_template", None)
+            if avail_tpl:
+                # Use availability list format for JSON template
+                result["availability"] = [{
+                    "topic": self.availability_topic,
+                    "value_template": avail_tpl,
+                    "payload_available": "online",
+                    "payload_not_available": "not_found",
+                }]
+            else:
+                # Simple availability (for system which uses global status)
+                result["availability_topic"] = self.availability_topic
+                result["payload_available"] = self.payload_available
+                result["payload_not_available"] = self.payload_not_available
         
         if self.value_template:
             result["value_template"] = self.value_template
@@ -241,15 +253,19 @@ def create_sensor(
     state_class: StateClass | str | None = None,
     icon: str | None = None,
     availability_topic: str | None = None,
+    use_json: bool = True,
     **kwargs,
 ) -> Sensor:
     """
     Factory function to create a sensor for a metric.
     
+    All sources now publish JSON to a single topic per source.
+    Sensors use value_template to extract their specific value.
+    
     Args:
         source_type: Type of source (system, temperature, process, docker, service, battery, custom, gpu)
-        source_name: Name of the source (main, nginx, homeassistant, etc.)
-        metric_name: Name of the metric (cpu, memory, temp, etc.)
+        source_name: Name of the source (nginx, homeassistant, etc.)
+        metric_name: Name of the metric (cpu_percent, memory, temp, etc.)
         display_name: Human-readable name for HA
         device: Associated device
         topic_prefix: Base topic prefix
@@ -257,53 +273,68 @@ def create_sensor(
         device_class: HA device class
         state_class: HA state class
         icon: MDI icon name
-        availability_topic: Global availability topic (uses {prefix}/status if None)
+        availability_topic: Override availability topic
+        use_json: If True, use value_template to extract from JSON (default)
         **kwargs: Additional sensor attributes
     
     Returns:
         Configured Sensor instance
     
-    Topic structure: 
-        {prefix}/{type}/{name}/{metric}  - when source_name and metric_name provided
-        {prefix}/{type}/{metric}          - when source_name is empty (e.g., system)
-        {prefix}/{type}/{name}            - when metric_name is empty (e.g., temperature)
+    Topic structure (JSON per source):
+        {prefix}/system                    - system metrics (no state field)
+        {prefix}/{type}/{name}             - all other sources
     
     Examples:
-        penguin_metrics/system/cpu_percent      (source_name empty)
-        penguin_metrics/process/nginx/cpu       (both provided)
-        penguin_metrics/temperature/thermal_zone0 (metric_name empty)
+        penguin_metrics/system             -> {"cpu_percent": 75, "memory_percent": 45}
+        penguin_metrics/temperature/soc    -> {"temp": 42.0, "state": "online"}
+        penguin_metrics/docker/nginx       -> {"cpu_percent": 5.0, "state": "running"}
     """
-    # Build unique_id and state_topic based on what's provided
+    # Build unique_id
     if source_name:
-        if metric_name:
-            unique_id = f"{source_type}_{source_name}_{metric_name}"
-            state_topic = f"{topic_prefix}/{source_type}/{source_name}/{metric_name}"
-        else:
-            unique_id = f"{source_type}_{source_name}"
-            state_topic = f"{topic_prefix}/{source_type}/{source_name}"
+        unique_id = f"{source_type}_{source_name}_{metric_name}"
     else:
-        # No source_name (e.g., system metrics)
-        if metric_name:
-            unique_id = f"{source_type}_{metric_name}"
-            state_topic = f"{topic_prefix}/{source_type}/{metric_name}"
-        else:
-            unique_id = source_type
-            state_topic = f"{topic_prefix}/{source_type}"
+        unique_id = f"{source_type}_{metric_name}"
     
-    # Use global availability topic (single LWT for entire service)
-    if availability_topic is None:
-        availability_topic = f"{topic_prefix}/status"
+    # Build state_topic (JSON topic for the source)
+    if source_name:
+        state_topic = f"{topic_prefix}/{source_type}/{source_name}"
+    else:
+        state_topic = f"{topic_prefix}/{source_type}"
     
-    return Sensor(
+    # Build value_template to extract metric from JSON
+    value_template = f"{{{{ value_json.{metric_name} }}}}" if use_json else None
+    
+    # Availability handling
+    # For system: use global status topic
+    # For others: use state field in JSON
+    if source_type == "system":
+        avail_topic = f"{topic_prefix}/status"
+        avail_tpl = None
+    else:
+        # Availability is in the same JSON topic
+        avail_topic = state_topic
+        avail_tpl = "{{ value_json.state }}"
+    
+    if availability_topic:
+        avail_topic = availability_topic
+    
+    sensor = Sensor(
         unique_id=unique_id,
         name=display_name,
         state_topic=state_topic,
-        availability_topic=availability_topic,
+        availability_topic=avail_topic,
         device=device,
+        value_template=value_template,
         unit_of_measurement=unit,
         device_class=device_class,
         state_class=state_class,
         icon=icon,
         **kwargs,
     )
+    
+    # Store availability template for discovery payload
+    if avail_tpl:
+        sensor._availability_template = avail_tpl
+    
+    return sensor
 

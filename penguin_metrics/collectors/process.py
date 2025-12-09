@@ -322,7 +322,6 @@ class ProcessCollector(MultiSourceCollector):
     async def collect_from_source(self, source: psutil.Process) -> CollectorResult:
         """Collect metrics from a single process."""
         result = CollectorResult()
-        prefix = self.config.sensor_prefix or self.collector_id
         
         try:
             proc = source
@@ -331,10 +330,9 @@ class ProcessCollector(MultiSourceCollector):
                 try:
                     import os
                     cpu_percent = proc.cpu_percent()
-                    # Normalize to 0-100% (psutil can return >100% for multi-threaded processes)
                     num_cpus = os.cpu_count() or 1
                     cpu_percent = min(cpu_percent / num_cpus, 100.0)
-                    result.add_metric(f"{prefix}_cpu_percent", round(cpu_percent, 1))
+                    result.set("cpu_percent", round(cpu_percent, 1))
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
             
@@ -342,41 +340,41 @@ class ProcessCollector(MultiSourceCollector):
                 try:
                     mem_info = proc.memory_info()
                     mem_percent = proc.memory_percent()
-                    result.add_metric(f"{prefix}_memory_rss", round(mem_info.rss / (1024 * 1024), 1))
-                    result.add_metric(f"{prefix}_memory_percent", round(mem_percent, 1))
+                    result.set("memory_rss", round(mem_info.rss / (1024 * 1024), 1))
+                    result.set("memory_percent", round(mem_percent, 1))
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
             
             if self.use_smaps:
                 smaps = get_process_memory(proc.pid)
                 if smaps:
-                    result.add_metric(f"{prefix}_memory_pss", round(smaps.pss_mb, 2))
-                    result.add_metric(f"{prefix}_memory_uss", round(smaps.uss_mb, 2))
+                    result.set("memory_pss", round(smaps.pss_mb, 2))
+                    result.set("memory_uss", round(smaps.uss_mb, 2))
             
             if self.config.io:
                 try:
                     io_counters = proc.io_counters()
-                    result.add_metric(f"{prefix}_io_read", round(io_counters.read_bytes / (1024 * 1024), 1))
-                    result.add_metric(f"{prefix}_io_write", round(io_counters.write_bytes / (1024 * 1024), 1))
+                    result.set("io_read", round(io_counters.read_bytes / (1024 * 1024), 1))
+                    result.set("io_write", round(io_counters.write_bytes / (1024 * 1024), 1))
                 except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
                     pass
             
             if self.config.fds:
                 try:
-                    num_fds = proc.num_fds()
-                    result.add_metric(f"{prefix}_num_fds", num_fds)
+                    result.set("num_fds", proc.num_fds())
                 except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
                     pass
             
             if self.config.threads:
                 try:
-                    num_threads = proc.num_threads()
-                    result.add_metric(f"{prefix}_num_threads", num_threads)
+                    result.set("num_threads", proc.num_threads())
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
+            
+            result.set_state("running")
         
         except psutil.NoSuchProcess:
-            result.set_error("Process not found")
+            result.set_unavailable("not_found")
         except psutil.AccessDenied:
             result.set_error("Access denied")
         
@@ -385,19 +383,16 @@ class ProcessCollector(MultiSourceCollector):
     async def collect(self) -> CollectorResult:
         """Collect process metrics."""
         sources = await self.discover_sources()
-        prefix = self.config.sensor_prefix or self.collector_id
-        
         result = CollectorResult()
-        result.add_metric(f"{prefix}_state", self._process_state)
         
         if not sources:
-            result.add_metric(f"{prefix}_state", "not_found")
+            result.set_unavailable("not_found")
             if self.config.aggregate:
-                result.add_metric(f"{prefix}_count", 0)
+                result.set("count", 0)
             return result
         
         if self.config.aggregate:
-            result.add_metric(f"{prefix}_count", len(sources))
+            result.set("count", len(sources))
             
             # Aggregate metrics from all processes
             total_cpu = 0.0
@@ -448,35 +443,36 @@ class ProcessCollector(MultiSourceCollector):
             
             if self.config.cpu:
                 import os
-                # Normalize to 0-100% (sum of all processes can exceed 100%)
                 num_cpus = os.cpu_count() or 1
                 total_cpu = min(total_cpu / num_cpus, 100.0)
-                result.add_metric(f"{prefix}_cpu_percent", round(total_cpu, 1))
+                result.set("cpu_percent", round(total_cpu, 1))
             
             if self.config.memory:
-                result.add_metric(f"{prefix}_memory_rss", round(total_rss / (1024 * 1024), 1))
-                result.add_metric(f"{prefix}_memory_percent", round(total_mem_percent, 1))
+                result.set("memory_rss", round(total_rss / (1024 * 1024), 1))
+                result.set("memory_percent", round(total_mem_percent, 1))
             
             if self.use_smaps:
-                result.add_metric(f"{prefix}_memory_pss", round(total_pss / (1024 * 1024), 2))
-                result.add_metric(f"{prefix}_memory_uss", round(total_uss / (1024 * 1024), 2))
+                result.set("memory_pss", round(total_pss / (1024 * 1024), 2))
+                result.set("memory_uss", round(total_uss / (1024 * 1024), 2))
             
             if self.config.io:
-                result.add_metric(f"{prefix}_io_read", round(total_io_read / (1024 * 1024), 1))
-                result.add_metric(f"{prefix}_io_write", round(total_io_write / (1024 * 1024), 1))
+                result.set("io_read", round(total_io_read / (1024 * 1024), 1))
+                result.set("io_write", round(total_io_write / (1024 * 1024), 1))
             
             if self.config.fds:
-                result.add_metric(f"{prefix}_num_fds", total_fds)
+                result.set("num_fds", total_fds)
             
             if self.config.threads:
-                result.add_metric(f"{prefix}_num_threads", total_threads)
+                result.set("num_threads", total_threads)
+            
+            result.set_state("running")
         
         else:
             # Single process (first match)
             single_result = await self.collect_from_source(sources[0])
-            result.metrics.extend(single_result.metrics)
-            if not single_result.available:
-                result.set_error(single_result.error or "Collection failed")
+            result.data = single_result.data
+            result.state = single_result.state
+            result.available = single_result.available
         
         return result
 

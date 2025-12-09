@@ -295,105 +295,40 @@ class TemperatureCollector(Collector):
         
         return sensors
     
-    def _add_temp_metrics(
-        self,
-        result: CollectorResult,
-        sensor_name: str,
-        temp_value: float | None,
-        high: float | None = None,
-        critical: float | None = None,
-    ) -> None:
-        """Add state and temp metrics for a temperature sensor."""
-        if temp_value is not None:
-            # Sensor is available
-            result.add_metric(f"{sensor_name}_state", "online")
-            result.add_metric(
-                f"{sensor_name}_temp",
-                round(temp_value, 1),
-                high=high,
-                critical=critical,
-            )
-        else:
-            # Sensor not available
-            result.add_metric(f"{sensor_name}_state", "not_found")
-    
     async def collect(self) -> CollectorResult:
         """Collect temperature readings."""
         result = CollectorResult()
         
         # Read specific hwmon sensor if configured (manual)
         if self._hwmon_sensors:
-            found = False
             try:
                 temps = psutil.sensors_temperatures()
                 for chip, label, idx in self._hwmon_sensors:
                     if chip in temps and idx < len(temps[chip]):
                         entry = temps[chip][idx]
-                        self._add_temp_metrics(
-                            result,
-                            sensor_name=self.name,
-                            temp_value=entry.current,
-                            high=entry.high,
-                            critical=entry.critical,
-                        )
-                        found = True
+                        result.set("temp", round(entry.current, 1))
+                        result.set_state("online")
+                        return result
             except Exception:
                 pass
             
-            if not found:
-                # Sensor not found - publish not_found state
-                self._add_temp_metrics(result, sensor_name=self.name, temp_value=None)
+            # Sensor not found
+            result.set_unavailable("not_found")
             return result
         
-        # Read from thermal zones (auto-discovered)
-        for zone in self._zones:
-            zone_label = zone.type if zone.type != zone.name else zone.name
+        # Read from thermal zones (first one only - each collector handles one sensor)
+        if self._zones:
+            zone = self._zones[0]
             temp = read_thermal_zone_temp(zone)
-            self._add_temp_metrics(result, sensor_name=zone_label, temp_value=temp)
+            if temp is not None:
+                result.set("temp", round(temp, 1))
+                result.set_state("online")
+            else:
+                result.set_unavailable("not_found")
+            return result
         
-        # Read all hwmon sensors (auto-discovered, only if no specific config)
-        if not self.specific_zone and not self.specific_path and not self.specific_hwmon:
-            try:
-                temps = psutil.sensors_temperatures()
-                for name, entries in temps.items():
-                    for i, entry in enumerate(entries):
-                        label = entry.label or f"sensor{i}"
-                        sensor_name = f"{name}_{label}".lower().replace(" ", "_")
-                        
-                        self._add_temp_metrics(
-                            result,
-                            sensor_name=sensor_name,
-                            temp_value=entry.current,
-                            high=entry.high,
-                            critical=entry.critical,
-                        )
-            except Exception:
-                pass
-        
-        if not result.metrics:
-            result.set_error("No temperature sensors available")
-        
+        # No sensors configured/discovered
+        result.set_error("No temperature sensor available")
         return result
     
-    def metric_topic(self, metric_sensor_id: str, topic_prefix: str) -> str:
-        """
-        Build MQTT topic for temperature metric.
-        
-        Format: {prefix}/temperature/{sensor_name}/{metric}
-        Example: penguin_metrics/temperature/soc-thermal/temp
-        """
-        # metric_sensor_id format: {sensor_name}_{metric} (e.g., "soc-thermal_temp")
-        # Split into sensor_name and metric
-        if "_state" in metric_sensor_id:
-            sensor_name = metric_sensor_id.rsplit("_state", 1)[0]
-            metric = "state"
-        elif "_temp" in metric_sensor_id:
-            sensor_name = metric_sensor_id.rsplit("_temp", 1)[0]
-            metric = "temp"
-        else:
-            # Fallback
-            sensor_name = metric_sensor_id
-            metric = "value"
-        
-        return f"{topic_prefix}/temperature/{sensor_name}/{metric}"
 

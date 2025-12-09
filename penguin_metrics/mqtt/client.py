@@ -79,7 +79,7 @@ class MQTTClient:
             topic=self.availability_topic,
             payload="offline",
             qos=1,
-            retain=self.config.should_retain_status(),
+            retain=self.config.should_retain(),
         )
         
         return aiomqtt.Client(
@@ -111,7 +111,7 @@ class MQTTClient:
             self.availability_topic,
             "online",
             qos=1,
-            retain=self.config.should_retain_status(),
+            retain=self.config.should_retain(),
         )
         
         logger.info(f"Connected to MQTT broker at {self.config.host}:{self.config.port}")
@@ -126,7 +126,7 @@ class MQTTClient:
                     self.availability_topic,
                     "offline",
                     qos=1,
-                    retain=self.config.should_retain_status(),
+                    retain=self.config.should_retain(),
                 )
             except Exception:
                 pass
@@ -178,7 +178,7 @@ class MQTTClient:
             if is_status:
                 retain = self.config.should_retain_status()
             else:
-                retain = self.config.should_retain_data()
+                retain = self.config.should_retain()
         
         # Convert payload to string
         if isinstance(payload, str):

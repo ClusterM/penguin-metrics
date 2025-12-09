@@ -16,24 +16,14 @@ from ..models.device import Device
 
 
 @dataclass
-class MetricValue:
-    """A single metric value with metadata."""
-    
-    sensor_id: str
-    value: Any
-    timestamp: datetime = field(default_factory=datetime.now)
-    attributes: dict[str, Any] = field(default_factory=dict)
-    
-    def __repr__(self) -> str:
-        return f"MetricValue({self.sensor_id}={self.value})"
-
-
-@dataclass
 class CollectorResult:
     """Result of a collection cycle."""
     
-    # List of collected metrics
-    metrics: list[MetricValue] = field(default_factory=list)
+    # Data dict for JSON publication (key -> value)
+    data: dict[str, Any] = field(default_factory=dict)
+    
+    # Source state (online, running, not_found, etc.)
+    state: str = "online"
     
     # Collector availability
     available: bool = True
@@ -44,23 +34,35 @@ class CollectorResult:
     # Collection timestamp
     timestamp: datetime = field(default_factory=datetime.now)
     
-    def add_metric(self, sensor_id: str, value: Any, **attributes) -> None:
-        """Add a metric value to the result."""
-        self.metrics.append(MetricValue(
-            sensor_id=sensor_id,
-            value=value,
-            timestamp=self.timestamp,
-            attributes=attributes,
-        ))
+    def set(self, key: str, value: Any) -> None:
+        """Set a data value."""
+        self.data[key] = value
+    
+    def set_state(self, state: str) -> None:
+        """Set the source state."""
+        self.state = state
+        self.data["state"] = state
+    
+    def set_unavailable(self, state: str = "not_found") -> None:
+        """Mark source as unavailable."""
+        self.available = False
+        self.state = state
+        self.data = {"state": state}
     
     def set_error(self, error: str) -> None:
         """Mark collection as failed with error."""
         self.available = False
         self.error = error
+        self.state = "error"
+        self.data = {"state": "error"}
+    
+    def to_json_dict(self) -> dict[str, Any]:
+        """Get data dict for JSON serialization."""
+        return self.data
     
     def __repr__(self) -> str:
         status = "OK" if self.available else f"ERROR: {self.error}"
-        return f"CollectorResult({len(self.metrics)} metrics, {status})"
+        return f"CollectorResult({len(self.data)} fields, state={self.state}, {status})"
 
 
 class Collector(ABC):
@@ -111,38 +113,37 @@ class Collector(ABC):
         Generate sensor unique_id for a metric.
         
         Format: {source_type}_{name}_{metric}
-        Example: system_main_cpu_percent
+        Example: system_cpu_percent, docker_myapp_cpu_percent
         
         Args:
             metric: Metric name (cpu_percent, memory_used, etc.)
         
         Returns:
-            Unique sensor ID matching create_sensor() format
+            Unique sensor ID
         """
-        if metric:
-            return f"{self.SOURCE_TYPE}_{self.name}_{metric}"
-        return f"{self.SOURCE_TYPE}_{self.name}"
+        if self.SOURCE_TYPE == "system":
+            return f"system_{metric}"
+        return f"{self.SOURCE_TYPE}_{self.collector_id}_{metric}"
     
-    def metric_topic(self, metric_sensor_id: str, topic_prefix: str) -> str:
+    def source_topic(self, topic_prefix: str) -> str:
         """
-        Build MQTT topic for a metric.
+        Get MQTT topic for this source's JSON data.
         
-        Default format: {prefix}/{type}/{name}/{metric}
-        Override in subclasses for different topic structures.
+        Format: {prefix}/{type}/{name} or {prefix}/{type} for system
+        Examples:
+            - opi5max/system
+            - opi5max/temperature/soc
+            - opi5max/docker/myapp
         
         Args:
-            metric_sensor_id: The sensor_id from result.add_metric()
             topic_prefix: Base topic prefix
         
         Returns:
-            Full MQTT topic string
+            Full MQTT topic string for JSON payload
         """
-        # Extract metric name from sensor_id (format: {collector_id}_{metric})
-        metric_name = metric_sensor_id
-        if metric_sensor_id.startswith(self.collector_id + "_"):
-            metric_name = metric_sensor_id[len(self.collector_id) + 1:]
-        
-        return f"{topic_prefix}/{self.SOURCE_TYPE}/{self.name}/{metric_name}"
+        if self.SOURCE_TYPE == "system":
+            return f"{topic_prefix}/system"
+        return f"{topic_prefix}/{self.SOURCE_TYPE}/{self.collector_id}"
     
     @staticmethod
     def _sanitize_id(value: str) -> str:
@@ -253,14 +254,6 @@ class Collector(ABC):
             result = await self.collect()
             self._last_result = result
             self._availability = SensorState.ONLINE if result.available else SensorState.OFFLINE
-            
-            # Update sensor states from result
-            for metric in result.metrics:
-                sensor = self.get_sensor(metric.sensor_id)
-                if sensor:
-                    sensor.state = metric.value
-                    sensor.availability = self._availability
-            
             return result
         
         except Exception as e:
@@ -268,11 +261,6 @@ class Collector(ABC):
             result.set_error(str(e))
             self._last_result = result
             self._availability = SensorState.OFFLINE
-            
-            # Mark all sensors as unavailable
-            for sensor in self._sensors:
-                sensor.set_unavailable()
-            
             return result
     
     async def run_forever(self) -> AsyncIterator[CollectorResult]:
@@ -373,21 +361,25 @@ class MultiSourceCollector(Collector):
             try:
                 result = await self.collect_from_source(source)
                 if result.available:
-                    for metric in result.metrics:
-                        if metric.sensor_id not in aggregated:
-                            aggregated[metric.sensor_id] = []
-                        if isinstance(metric.value, (int, float)):
-                            aggregated[metric.sensor_id].append(metric.value)
+                    for key, value in result.data.items():
+                        if key == "state":
+                            continue
+                        if key not in aggregated:
+                            aggregated[key] = []
+                        if isinstance(value, (int, float)):
+                            aggregated[key].append(value)
             except Exception:
                 continue
         
         # Sum aggregated values
-        for sensor_id, values in aggregated.items():
+        for key, values in aggregated.items():
             if values:
-                combined.add_metric(sensor_id, sum(values))
+                combined.set(key, sum(values))
         
-        if not combined.metrics:
+        if not combined.data:
             combined.set_error("Failed to collect from any source")
+        else:
+            combined.set_state("online")
         
         return combined
     

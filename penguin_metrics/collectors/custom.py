@@ -204,7 +204,7 @@ class CustomCollector(Collector):
         if returncode != 0:
             error_msg = stderr or f"Command failed with code {returncode}"
             self._last_error = error_msg
-            result.set_error(error_msg)
+            result.set_unavailable("error")
             return result
         
         if not stdout:
@@ -217,11 +217,11 @@ class CustomCollector(Collector):
             self._last_value = value
             self._last_error = None
             
-            # Format value for metric
             if isinstance(value, float):
                 value = round(value, 4)
             
-            result.add_metric(f"{self.collector_id}_value", value)
+            result.set("value", value)
+            result.set_state("online")
         
         except Exception as e:
             self._last_error = str(e)

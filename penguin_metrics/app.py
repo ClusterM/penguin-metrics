@@ -474,21 +474,11 @@ class Application:
             try:
                 result = await collector.safe_collect()
                 
-                # Publish metrics (only if collector is available)
-                if result.available:
-                    for metric in result.metrics:
-                        # Get topic from collector (allows custom topic structures)
-                        topic = collector.metric_topic(metric.sensor_id, self.config.mqtt.topic_prefix)
-                        
-                        value = metric.value
-                        if isinstance(value, float):
-                            value = round(value, 2)
-                        
-                        await self.mqtt.publish_data(topic, value)
-                else:
-                    # Source not found - publish state as unavailable
-                    topic = f"{self.config.mqtt.topic_prefix}/{collector.SOURCE_TYPE}/{collector.name}/state"
-                    await self.mqtt.publish_data(topic, "not_found")
+                # Get source topic (single JSON per source)
+                topic = collector.source_topic(self.config.mqtt.topic_prefix)
+                
+                # Publish JSON data
+                await self.mqtt.publish_json(topic, result.to_json_dict())
                 
                 if not result.available:
                     logger.warning(f"Collector {collector.name} unavailable: {result.error}")
