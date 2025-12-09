@@ -504,7 +504,7 @@ class Application:
                 logger.error(f"Error during auto-refresh: {e}")
     
     async def _refresh_auto_discovered(self) -> None:
-        """Check for new/removed services and containers."""
+        """Check for new/removed services, containers, and processes."""
         topic_prefix = self.config.mqtt.topic_prefix
         
         # Get current collector IDs
@@ -527,17 +527,25 @@ class Application:
         new_containers = await self._auto_discover_containers(manual_ids, topic_prefix)
         new_container_ids = {c.collector_id for c in new_containers}
         
+        # Discover current processes
+        new_processes = self._auto_discover_processes(manual_ids, topic_prefix)
+        new_process_ids = {c.collector_id for c in new_processes}
+        
         # Find auto-discovered collectors that are currently running
         auto_service_ids = {c.collector_id for c in self.collectors 
                           if c.SOURCE_TYPE == "service" and c.collector_id not in manual_ids}
         auto_container_ids = {c.collector_id for c in self.collectors 
                              if c.SOURCE_TYPE == "docker" and c.collector_id not in manual_ids}
+        auto_process_ids = {c.collector_id for c in self.collectors 
+                           if c.SOURCE_TYPE == "process" and c.collector_id not in manual_ids}
         
         # Find new and removed
         added_services = new_service_ids - auto_service_ids
         removed_services = auto_service_ids - new_service_ids
         added_containers = new_container_ids - auto_container_ids
         removed_containers = auto_container_ids - new_container_ids
+        added_processes = new_process_ids - auto_process_ids
+        removed_processes = auto_process_ids - new_process_ids
         
         # Add new collectors
         for collector in new_services:
@@ -550,6 +558,11 @@ class Application:
                 await self._add_collector(collector)
                 logger.info(f"Auto-discovered new container: {collector.name}")
         
+        for collector in new_processes:
+            if collector.collector_id in added_processes:
+                await self._add_collector(collector)
+                logger.info(f"Auto-discovered new process: {collector.name}")
+        
         # Remove old collectors
         for collector_id in removed_services:
             await self._remove_collector(collector_id)
@@ -558,6 +571,10 @@ class Application:
         for collector_id in removed_containers:
             await self._remove_collector(collector_id)
             logger.info(f"Removed disappeared container: {collector_id}")
+        
+        for collector_id in removed_processes:
+            await self._remove_collector(collector_id)
+            logger.info(f"Removed disappeared process: {collector_id}")
     
     async def _add_collector(self, collector: Collector) -> None:
         """Add and start a new collector."""
