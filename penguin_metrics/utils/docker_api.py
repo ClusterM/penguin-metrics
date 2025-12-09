@@ -350,8 +350,10 @@ class DockerClient:
                        precpu_stats.get("system_cpu_usage", 0)
         
         if system_delta > 0:
-            num_cpus = len(cpu_stats.get("cpu_usage", {}).get("percpu_usage", [])) or 1
-            stats.cpu_percent = (cpu_delta / system_delta) * num_cpus * 100.0
+            # CPU percent as fraction of total system CPU (0-100%)
+            # Note: Docker CLI shows per-core sum which can exceed 100%
+            # We normalize to 0-100% for Home Assistant compatibility
+            stats.cpu_percent = (cpu_delta / system_delta) * 100.0
         
         stats.cpu_total = cpu_stats.get("cpu_usage", {}).get("total_usage", 0)
         stats.cpu_system = cpu_stats.get("system_cpu_usage", 0)

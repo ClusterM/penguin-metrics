@@ -188,6 +188,10 @@ class ServiceCollector(Collector):
         self._unit_name: str | None = None
         self._cgroup_path: str | None = None
         self._service_state = "unknown"
+        
+        # For CPU percent calculation (delta-based)
+        self._last_cpu_usec: int = 0
+        self._last_cpu_time: float = 0.0
     
     async def initialize(self) -> None:
         """Resolve the service unit name."""
@@ -252,13 +256,12 @@ class ServiceCollector(Collector):
             sensors.append(create_sensor(
                 source_type="service",
                 source_name=self.name,
-                metric_name="cpu_usage",
-                display_name=f"{self.config.name} CPU Time",
+                metric_name="cpu_percent",
+                display_name=f"{self.config.name} CPU",
                 device=device,
                 topic_prefix=self.topic_prefix,
-                unit="s",
-                device_class=DeviceClass.DURATION,
-                state_class=StateClass.TOTAL_INCREASING,
+                unit="%",
+                state_class=StateClass.MEASUREMENT,
                 icon="mdi:chip",
             ))
         
@@ -368,9 +371,31 @@ class ServiceCollector(Collector):
         cg_stats = get_cgroup_stats(self._cgroup_path)
         
         if self.config.cpu:
+            import time
+            import os
+            
+            current_time = time.time()
+            current_cpu_usec = cg_stats.cpu_usage_usec
+            
+            # Calculate CPU percent from delta
+            cpu_percent = 0.0
+            if self._last_cpu_time > 0:
+                time_delta = current_time - self._last_cpu_time
+                cpu_delta_usec = current_cpu_usec - self._last_cpu_usec
+                
+                if time_delta > 0 and cpu_delta_usec >= 0:
+                    # Convert microseconds to seconds, divide by elapsed time
+                    # This gives fraction of ONE CPU, so divide by CPU count for 0-100%
+                    num_cpus = os.cpu_count() or 1
+                    cpu_percent = (cpu_delta_usec / 1_000_000) / time_delta / num_cpus * 100.0
+                    cpu_percent = min(cpu_percent, 100.0)  # Cap at 100%
+            
+            self._last_cpu_usec = current_cpu_usec
+            self._last_cpu_time = current_time
+            
             result.add_metric(
-                f"{self.collector_id}_cpu_usage",
-                round(cg_stats.cpu_usage_sec, 2),
+                f"{self.collector_id}_cpu_percent",
+                round(cpu_percent, 1),
             )
         
         if self.config.memory:
