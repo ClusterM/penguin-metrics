@@ -105,7 +105,8 @@ class SmapsInfo:
 
 
 # Regex patterns for parsing smaps
-_SMAPS_FIELD_PATTERN = re.compile(r"^(\w+):\s+(\d+)\s*kB", re.IGNORECASE)
+# Matches: "Pss: 123 kB" or "Pss_Dirty: 45 kB" or "Shared_Clean: 100 kB"
+_SMAPS_FIELD_PATTERN = re.compile(r"^([A-Za-z_]+):\s+(\d+)\s*kB", re.IGNORECASE)
 
 
 def _parse_smaps_content(content: str) -> SmapsInfo:
@@ -129,15 +130,20 @@ def _parse_smaps_content(content: str) -> SmapsInfo:
         value_kb = int(match.group(2))
         value_bytes = value_kb * 1024
         
-        if field == "pss":
-            info.pss += value_bytes
+        # Handle both smaps and smaps_rollup formats
+        # smaps_rollup may have fields like "Pss_Dirty" which become "pss_dirty"
+        if field == "pss" or field.startswith("pss_"):
+            # In rollup, "Pss" is the main value, "Pss_Dirty", "Pss_Anon" etc are details
+            # We only care about total PSS
+            if field == "pss":
+                info.pss += value_bytes
         elif field == "rss":
             info.rss += value_bytes
         elif field == "size":
             info.size += value_bytes
         elif field == "swap":
             info.swap += value_bytes
-        elif field == "swappss":
+        elif field == "swappss" or field == "swap_pss":
             info.swap_pss += value_bytes
         elif field == "shared_clean":
             info.shared_clean += value_bytes
@@ -217,16 +223,21 @@ def parse_smaps_rollup(pid: int) -> SmapsInfo | None:
         return None
 
 
-def get_process_memory(pid: int, use_rollup: bool = True) -> SmapsInfo | None:
+def get_process_memory(pid: int, use_rollup: bool = False) -> SmapsInfo | None:
     """
-    Get memory information for a process, preferring smaps_rollup.
+    Get memory information for a process.
     
     Args:
         pid: Process ID
-        use_rollup: Try smaps_rollup first (faster)
+        use_rollup: Use smaps_rollup (faster but may be less accurate for PSS)
+                   Default False - use full smaps for accuracy
     
     Returns:
         SmapsInfo with memory metrics, or None if unavailable
+    
+    Note:
+        smaps_rollup can give inaccurate PSS values in some cases.
+        Full smaps is more accurate but slower for processes with many VMAs.
     """
     if use_rollup:
         return parse_smaps_rollup(pid)
