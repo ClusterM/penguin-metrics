@@ -107,7 +107,10 @@ class Application:
             ))
         
         # Auto-discover temperatures
-        collectors.extend(self._auto_discover_temperatures(manual_temps, topic_prefix))
+        auto_temps = self._auto_discover_temperatures(manual_temps, topic_prefix)
+        if auto_temps:
+            logger.info(f"Auto-discovered {len(auto_temps)} temperature sensors")
+        collectors.extend(auto_temps)
         
         # Process collectors (manual)
         manual_processes: set[str] = set()
@@ -120,7 +123,10 @@ class Application:
             ))
         
         # Auto-discover processes
-        collectors.extend(self._auto_discover_processes(manual_processes, topic_prefix))
+        auto_processes = self._auto_discover_processes(manual_processes, topic_prefix)
+        if auto_processes:
+            logger.info(f"Auto-discovered {len(auto_processes)} processes")
+        collectors.extend(auto_processes)
         
         # Service collectors (manual)
         for svc_config in self.config.services:
@@ -132,7 +138,10 @@ class Application:
             ))
         
         # Auto-discover services
-        collectors.extend(self._auto_discover_services(manual_services, topic_prefix))
+        auto_services = self._auto_discover_services(manual_services, topic_prefix)
+        if auto_services:
+            logger.info(f"Auto-discovered {len(auto_services)} services")
+        collectors.extend(auto_services)
         
         # Container collectors (manual)
         for cont_config in self.config.containers:
@@ -144,7 +153,10 @@ class Application:
             ))
         
         # Auto-discover containers
-        collectors.extend(await self._auto_discover_containers(manual_containers, topic_prefix))
+        auto_containers = await self._auto_discover_containers(manual_containers, topic_prefix)
+        if auto_containers:
+            logger.info(f"Auto-discovered {len(auto_containers)} containers")
+        collectors.extend(auto_containers)
         
         # Battery collectors (manual)
         for bat_config in self.config.batteries:
@@ -156,7 +168,10 @@ class Application:
             ))
         
         # Auto-discover batteries
-        collectors.extend(self._auto_discover_batteries(manual_batteries, topic_prefix))
+        auto_batteries = self._auto_discover_batteries(manual_batteries, topic_prefix)
+        if auto_batteries:
+            logger.info(f"Auto-discovered {len(auto_batteries)} batteries")
+        collectors.extend(auto_batteries)
         
         # Custom collectors
         for custom_config in self.config.custom:
@@ -221,7 +236,7 @@ class Application:
             logger.debug(f"Auto-discovered hwmon sensor: {name}")
         
         if collectors:
-            logger.info(f"Auto-discovered {len(collectors)} temperature sensors")
+            logger.debug(f"Found {len(collectors)} temperature sensors")
         
         return collectors
     
@@ -256,7 +271,7 @@ class Application:
             logger.debug(f"Auto-discovered battery: {name}")
         
         if collectors:
-            logger.info(f"Auto-discovered {len(collectors)} batteries")
+            logger.debug(f"Found {len(collectors)} batteries")
         
         return collectors
     
@@ -302,7 +317,7 @@ class Application:
             logger.debug(f"Auto-discovered container: {name}")
         
         if collectors:
-            logger.info(f"Auto-discovered {len(collectors)} containers")
+            logger.debug(f"Found {len(collectors)} containers")
         
         return collectors
     
@@ -374,7 +389,7 @@ class Application:
             logger.warning(f"Failed to list services: {e}")
         
         if collectors:
-            logger.info(f"Auto-discovered {len(collectors)} services")
+            logger.debug(f"Found {len(collectors)} services")
         
         return collectors
     
@@ -432,7 +447,7 @@ class Application:
             logger.warning(f"Failed to list processes: {e}")
         
         if collectors:
-            logger.info(f"Auto-discovered {len(collectors)} processes")
+            logger.debug(f"Found {len(collectors)} processes")
         
         return collectors
     
