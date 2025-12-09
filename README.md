@@ -436,8 +436,8 @@ When enabled:
 ```nginx
 # This overrides the auto-discovered "soc-thermal"
 temperature "soc-thermal" {
-    warning 70;
-    critical 85;
+    zone "soc-thermal";
+    update_interval 5s;
 }
 ```
 
