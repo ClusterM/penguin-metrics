@@ -468,7 +468,7 @@ class Application:
     
     async def _run_collector(self, collector: Collector) -> None:
         """Run a single collector loop."""
-        logger.info(f"Starting collector: {collector.name} (interval: {collector.update_interval}s)")
+        logger.info(f"Starting collector [{collector.SOURCE_TYPE}]: {collector.name} (interval: {collector.update_interval}s)")
         
         while self._running:
             try:
