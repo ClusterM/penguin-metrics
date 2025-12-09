@@ -128,6 +128,34 @@ class HomeAssistantConfig:
 
 
 @dataclass
+class LoggingConfig:
+    """Logging configuration."""
+    level: str = "info"  # debug, info, warning, error
+    file: str | None = None  # Log file path
+    file_level: str = "debug"  # File log level
+    file_max_size: int = 10  # Max file size in MB
+    file_keep: int = 5  # Number of backup files to keep
+    colors: bool = True  # Colored console output
+    format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    
+    @classmethod
+    def from_block(cls, block: Block | None) -> "LoggingConfig":
+        """Create LoggingConfig from a parsed 'logging' block."""
+        if block is None:
+            return cls()
+        
+        return cls(
+            level=block.get_value("level", "info"),
+            file=block.get_value("file"),
+            file_level=block.get_value("file_level", "debug"),
+            file_max_size=int(block.get_value("file_max_size", 10)),
+            file_keep=int(block.get_value("file_keep", 5)),
+            colors=bool(block.get_value("colors", True)),
+            format=block.get_value("format", "%(asctime)s [%(levelname)s] %(name)s: %(message)s"),
+        )
+
+
+@dataclass
 class DefaultsConfig:
     """Default settings inherited by collectors."""
     update_interval: float = 10.0  # seconds
@@ -587,6 +615,7 @@ class Config:
     mqtt: MQTTConfig = field(default_factory=MQTTConfig)
     homeassistant: HomeAssistantConfig = field(default_factory=HomeAssistantConfig)
     defaults: DefaultsConfig = field(default_factory=DefaultsConfig)
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
     
     # Collectors
     system: list[SystemConfig] = field(default_factory=list)
@@ -606,6 +635,7 @@ class Config:
         config.mqtt = MQTTConfig.from_block(doc.get_block("mqtt"))
         config.homeassistant = HomeAssistantConfig.from_block(doc.get_block("homeassistant"))
         config.defaults = DefaultsConfig.from_block(doc.get_block("defaults"))
+        config.logging = LoggingConfig.from_block(doc.get_block("logging"))
         
         # Parse collector blocks
         for block in doc.get_blocks("system"):

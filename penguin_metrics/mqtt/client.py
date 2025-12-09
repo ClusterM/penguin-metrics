@@ -10,7 +10,6 @@ Features:
 
 import asyncio
 import json
-import logging
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 import uuid
@@ -18,9 +17,10 @@ import uuid
 import aiomqtt
 
 from ..config.schema import MQTTConfig
+from ..logging import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger("mqtt.client")
 
 
 class MQTTClient:
@@ -99,6 +99,9 @@ class MQTTClient:
         Raises:
             aiomqtt.MqttError: If connection fails
         """
+        logger.debug(f"Connecting to MQTT broker {self.config.host}:{self.config.port}")
+        logger.debug(f"Client ID: {self._client_id}")
+        
         self._client = self._create_client()
         await self._client.__aenter__()
         self._connected = True
@@ -112,6 +115,7 @@ class MQTTClient:
         )
         
         logger.info(f"Connected to MQTT broker at {self.config.host}:{self.config.port}")
+        logger.debug(f"Availability topic: {self.availability_topic}")
     
     async def disconnect(self) -> None:
         """Disconnect from MQTT broker."""
@@ -145,6 +149,7 @@ class MQTTClient:
     ) -> None:
         """Publish a message directly (internal use)."""
         if self._client and self._connected:
+            logger.debug(f"Publishing to {topic}: {payload[:100]}{'...' if len(payload) > 100 else ''}")
             await self._client.publish(topic, payload, qos=qos, retain=retain)
     
     async def publish(

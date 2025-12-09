@@ -227,6 +227,54 @@ defaults {
 
 **Duration formats:** `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours), `d` (days)
 
+### Logging Configuration
+
+```nginx
+logging {
+    level info;                # Console log level
+    colors on;                 # Colored console output (auto-detect TTY)
+    
+    # File logging
+    file "/var/log/penguin-metrics/penguin-metrics.log";
+    file_level debug;          # File log level
+    file_max_size 10;          # Max size in MB before rotation
+    file_keep 5;               # Number of rotated files to keep
+    
+    # Custom format (advanced)
+    # format "%(asctime)s [%(levelname)s] %(name)s: %(message)s";
+}
+```
+
+**Default values:**
+| Directive | Default | Description |
+|-----------|---------|-------------|
+| `level` | `"info"` | Console log level |
+| `colors` | `on` | Colored output (if TTY) |
+| `file` | *(none)* | Log file path |
+| `file_level` | `"debug"` | File log level |
+| `file_max_size` | `10` | Max file size (MB) |
+| `file_keep` | `5` | Backup files to keep |
+
+**Log levels:** `debug`, `info`, `warning`, `error`
+
+**Command-line overrides:**
+```bash
+# Verbose (INFO level)
+python -m penguin_metrics -v config.conf
+
+# Debug (DEBUG level)  
+python -m penguin_metrics -d config.conf
+
+# Quiet (ERROR only)
+python -m penguin_metrics -q config.conf
+
+# Custom log file
+python -m penguin_metrics --log-file /tmp/pm.log config.conf
+
+# Disable colors
+python -m penguin_metrics --no-color config.conf
+```
+
 ### System Metrics
 
 ```nginx

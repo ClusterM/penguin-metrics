@@ -9,7 +9,6 @@ Handles:
 """
 
 import asyncio
-import logging
 import signal
 from typing import Any
 
@@ -26,9 +25,10 @@ from .collectors.custom import CustomCollector
 from .collectors.gpu import GPUCollector
 from .mqtt.client import MQTTClient
 from .mqtt.homeassistant import HomeAssistantDiscovery
+from .logging import get_logger, setup_logging, LogConfig
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger("app")
 
 
 class Application:
@@ -281,16 +281,44 @@ class Application:
             raise
 
 
-async def run_app(config_path: str) -> None:
+async def run_app(config_path: str, cli_log_config: LogConfig | None = None) -> None:
     """
     Load configuration and run the application.
     
     Args:
         config_path: Path to configuration file
+        cli_log_config: Logging config from CLI args (overrides file config)
     """
     # Load configuration
     loader = ConfigLoader()
     config = loader.load_file(config_path)
+    
+    # Setup logging from config file (unless CLI overrides)
+    if cli_log_config is None:
+        log_config = LogConfig(
+            console_level=config.logging.level,
+            console_colors=config.logging.colors,
+            file_enabled=config.logging.file is not None,
+            file_path=config.logging.file or "/var/log/penguin-metrics/penguin-metrics.log",
+            file_level=config.logging.file_level,
+            file_max_bytes=config.logging.file_max_size * 1024 * 1024,
+            file_backup_count=config.logging.file_keep,
+            format=config.logging.format,
+        )
+        setup_logging(log_config)
+    else:
+        # CLI args override file config, but merge file settings if not specified
+        if not cli_log_config.file_enabled and config.logging.file:
+            cli_log_config.file_enabled = True
+            cli_log_config.file_path = config.logging.file
+            cli_log_config.file_level = config.logging.file_level
+            cli_log_config.file_max_bytes = config.logging.file_max_size * 1024 * 1024
+            cli_log_config.file_backup_count = config.logging.file_keep
+        setup_logging(cli_log_config)
+    
+    logger.info(f"Loaded configuration from {config_path}")
+    logger.debug(f"MQTT: {config.mqtt.host}:{config.mqtt.port}")
+    logger.debug(f"Topic prefix: {config.mqtt.topic_prefix}")
     
     # Validate configuration
     warnings = loader.validate(config)
