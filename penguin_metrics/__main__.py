@@ -122,35 +122,53 @@ def main() -> int:
         print(f"Configuration file not found: {config_path}", file=sys.stderr)
         return 1
     
-    # Setup initial logging from command line args
-    # This will be reconfigured after loading config file
-    log_config = LogConfig()
+    # Check if user explicitly specified log level via CLI
+    cli_log_override = args.debug or args.verbose or args.quiet or args.no_color or args.log_file
     
+    # Setup initial logging (before config is loaded)
+    # Use minimal logging until config is loaded, unless CLI overrides
+    initial_config = LogConfig()
     if args.debug:
-        log_config.console_level = "debug"
+        initial_config.console_level = "debug"
     elif args.verbose:
-        log_config.console_level = "info"
+        initial_config.console_level = "info"
     elif args.quiet:
-        log_config.console_level = "error"
+        initial_config.console_level = "error"
     else:
-        log_config.console_level = "warning"
+        initial_config.console_level = "warning"  # Minimal during startup
     
     if args.no_color:
-        log_config.console_colors = False
+        initial_config.console_colors = False
     
-    if args.log_file:
-        log_config.file_enabled = True
-        log_config.file_path = args.log_file
-    
-    setup_logging(log_config)
+    setup_logging(initial_config)
     
     # Validate only
     if args.validate:
         return validate_config(str(config_path))
     
+    # Build CLI override config only if user explicitly requested it
+    cli_log_config = None
+    if cli_log_override:
+        cli_log_config = LogConfig()
+        if args.debug:
+            cli_log_config.console_level = "debug"
+        elif args.verbose:
+            cli_log_config.console_level = "info"
+        elif args.quiet:
+            cli_log_config.console_level = "error"
+        else:
+            cli_log_config.console_level = "info"  # Default if only --no-color or --log-file
+        
+        if args.no_color:
+            cli_log_config.console_colors = False
+        
+        if args.log_file:
+            cli_log_config.file_enabled = True
+            cli_log_config.file_path = args.log_file
+    
     # Run application
     try:
-        asyncio.run(run_app(str(config_path), cli_log_config=log_config))
+        asyncio.run(run_app(str(config_path), cli_log_config=cli_log_config))
         return 0
     except ConfigError as e:
         logger.error(f"Configuration error: {e}")
