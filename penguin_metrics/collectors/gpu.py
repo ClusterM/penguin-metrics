@@ -248,7 +248,7 @@ class GPUCollector(Collector):
             return self.parent_device
         
         return Device(
-            identifiers=[f"gpu_{self.collector_id}"],
+            identifiers=[f"penguin_metrics_{self.topic_prefix}_gpu_{self.collector_id}"],
             name=f"GPU: {self.name}",
             manufacturer="Penguin Metrics",
             model="GPU Monitor",

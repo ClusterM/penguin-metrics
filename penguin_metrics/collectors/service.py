@@ -218,7 +218,7 @@ class ServiceCollector(Collector):
         unit = self._unit_name or self.config.name
         
         return Device(
-            identifiers=[f"service_{self.collector_id}"],
+            identifiers=[f"penguin_metrics_{self.topic_prefix}_service_{self.collector_id}"],
             name=device_config.name or f"Service: {unit}",
             manufacturer=device_config.manufacturer,
             model="Systemd Service",

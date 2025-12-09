@@ -136,7 +136,7 @@ class ProcessCollector(MultiSourceCollector):
         device_config = self.config.device
         
         return Device(
-            identifiers=[f"process_{self.collector_id}"],
+            identifiers=[f"penguin_metrics_{self.topic_prefix}_process_{self.collector_id}"],
             name=device_config.name or f"Process: {self.config.name}",
             manufacturer=device_config.manufacturer,
             model="Process Monitor",

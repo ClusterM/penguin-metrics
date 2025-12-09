@@ -60,7 +60,7 @@ class SystemCollector(Collector):
         device_config = self.config.device
         
         return Device(
-            identifiers=["system"],
+            identifiers=[f"penguin_metrics_{self.topic_prefix}_system"],
             name=device_config.name or "System",
             manufacturer=device_config.manufacturer,
             model=device_config.model,

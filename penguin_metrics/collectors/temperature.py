@@ -205,7 +205,7 @@ class TemperatureCollector(Collector):
             return self.parent_device
         
         return Device(
-            identifiers=[f"temp_{self.collector_id}"],
+            identifiers=[f"penguin_metrics_{self.topic_prefix}_temperature_{self.collector_id}"],
             name=f"Temperature: {self.name}",
             manufacturer="Penguin Metrics",
             model="Temperature Monitor",

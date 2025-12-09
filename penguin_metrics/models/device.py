@@ -119,6 +119,7 @@ def create_device(
     source_type: str,
     source_name: str,
     source_id: str | None = None,
+    topic_prefix: str = "penguin_metrics",
     manufacturer: str = "Penguin Metrics",
     model: str = "Linux Monitor",
     **kwargs,
@@ -130,6 +131,7 @@ def create_device(
         source_type: Type of source (system, process, service, container, etc.)
         source_name: Human-readable name
         source_id: Unique identifier (generated from name if not provided)
+        topic_prefix: MQTT topic prefix (for unique identifier generation)
         manufacturer: Device manufacturer
         model: Device model
         **kwargs: Additional device attributes
@@ -138,7 +140,7 @@ def create_device(
         Configured Device instance
     """
     device_id = source_id or Device._sanitize_id(source_name)
-    identifier = f"{source_type}_{device_id}"
+    identifier = f"penguin_metrics_{topic_prefix}_{source_type}_{device_id}"
     
     return Device(
         identifiers=[identifier],
