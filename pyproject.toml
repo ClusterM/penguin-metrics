@@ -5,12 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "penguin-metrics"
 version = "0.1.0"
-description = "Linux system telemetry service for Home Assistant via MQTT"
+description = "Linux system telemetry service that sends data to MQTT, with Home Assistant integration via MQTT Discovery"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [
-    {name = "Alexey Cluster"}
+    {name = "Alexey Cluster"},
+    {name = "Opus 4.5"}
 ]
 keywords = ["mqtt", "home-assistant", "telemetry", "monitoring", "linux", "metrics"]
 classifiers = [
