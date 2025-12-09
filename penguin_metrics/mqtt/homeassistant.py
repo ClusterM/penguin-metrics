@@ -114,6 +114,11 @@ class HomeAssistantDiscovery:
             logger.debug("No previous sensors found in state file")
             return 0
 
+        logger.debug(
+            f"Previous session had {len(self._previous_sensors)} sensors, "
+            f"current session has {len(self._registered_sensors)} sensors"
+        )
+
         # Find sensors that were registered before but not now
         stale = self._previous_sensors - self._registered_sensors
 
@@ -127,7 +132,7 @@ class HomeAssistantDiscovery:
             # Publish empty payload to remove sensor from HA
             topic = f"{self.discovery_prefix}/sensor/{sensor_id}/config"
             await self.mqtt.publish(topic, "", qos=1, retain=True)
-            logger.debug(f"Removed stale sensor: {sensor_id}")
+            logger.info(f"Removed stale sensor: {sensor_id}")
 
         return len(stale)
 
