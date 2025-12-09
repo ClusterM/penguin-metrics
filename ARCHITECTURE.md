@@ -9,6 +9,8 @@ penguin_metrics/
 ├── __init__.py              # Package metadata (version, author)
 ├── __main__.py              # CLI entry point
 ├── app.py                   # Main application orchestrator
+├── const.py                 # Application constants (name, version, URL)
+├── logging.py               # Logging configuration
 │
 ├── config/                  # Configuration parsing
 │   ├── __init__.py
@@ -55,14 +57,39 @@ penguin_metrics/
 Command-line interface for the application.
 
 **Functions:**
-- `setup_logging(verbose, debug)` - Configure logging levels
-- `validate_config(config_path)` - Validate and print config summary
 - `main()` - Parse arguments and run application
 
 **CLI Arguments:**
 ```
-penguin-metrics [config] [-v|--verbose] [-d|--debug] [--validate] [--version]
+penguin-metrics [config] [-v|--verbose] [-d|--debug] [-q|--quiet] 
+                 [--log-file PATH] [--no-color] [--validate] [--version]
 ```
+
+### `const.py` - Application Constants
+
+Application metadata and default values.
+
+**Constants:**
+- `APP_NAME = "Penguin Metrics"`
+- `APP_VERSION = "0.1.0"`
+- `APP_URL = "https://github.com/clusterm/penguin-metrics"`
+- `DEFAULT_MQTT_PORT = 1883`
+- `DEFAULT_MQTT_KEEPALIVE = 60`
+- `DEFAULT_UPDATE_INTERVAL = 10.0`
+- `DEFAULT_QOS = 0`
+
+### `logging.py` - Logging Configuration
+
+Custom logging setup with colored output and file rotation.
+
+**Functions:**
+- `setup_logging(config: LogConfig | LoggingConfig)` - Configure logging
+
+**Classes:**
+- `LogConfig` - CLI logging configuration
+- `ColoredFormatter` - Console formatter with colors
+- `PlainFormatter` - Plain console formatter
+- `RotatingFileHandler` - File handler with rotation
 
 ---
 
@@ -88,8 +115,18 @@ class Application:
     def _create_collectors() -> list[Collector]
     async def _initialize_collectors() -> None
     async def _run_collector(collector: Collector) -> None
+    async def _auto_refresh_loop(interval: float) -> None
+    async def _refresh_auto_discovered() -> None
+    async def _add_collector(collector: Collector) -> None
+    async def _remove_collector(collector_id: str) -> None
     def _setup_signal_handlers() -> None
     def _signal_handler() -> None
+    # Auto-discovery methods
+    def _auto_discover_temperatures(exclude, topic_prefix) -> list[Collector]
+    def _auto_discover_batteries(exclude, topic_prefix) -> list[Collector]
+    async def _auto_discover_containers(exclude, topic_prefix) -> list[Collector]
+    def _auto_discover_services(exclude, topic_prefix) -> list[Collector]
+    def _auto_discover_processes(exclude, topic_prefix) -> list[Collector]
 ```
 
 **Functions:**
@@ -182,6 +219,7 @@ class Block:
     def get_directive(name: str) -> Directive | None
     def get_directives(name: str) -> list[Directive]
     def get_value(name: str, default) -> Any
+    def get_all_values(name: str) -> list[Any]  # Get all values for directive (for multiple filters/excludes)
     def get_block(type_name: str) -> Block | None
     def get_blocks(type_name: str) -> list[Block]
 ```
@@ -196,6 +234,8 @@ class ConfigDocument:
     
     def get_block(type_name: str) -> Block | None
     def get_blocks(type_name: str) -> list[Block]
+    def get_directive(name: str) -> Directive | None
+    def get_value(name: str, default: Any = None) -> Any
     def merge(other: ConfigDocument) -> None
 ```
 
@@ -228,6 +268,7 @@ include     := 'include' STRING ';'
 Typed configuration structures with validation.
 
 **Enums:**
+- `RetainMode`: `ON`, `OFF` - MQTT message retention
 - `DeviceGrouping`: `PER_SOURCE`, `SINGLE`, `HYBRID`
 - `ProcessMatchType`: `NAME`, `PATTERN`, `PID`, `PIDFILE`, `CMDLINE`
 - `ServiceMatchType`: `UNIT`, `PATTERN`
@@ -245,8 +286,10 @@ class MQTTConfig:
     client_id: str | None = None
     topic_prefix: str = "penguin_metrics"
     qos: int = 1
-    retain: bool = True
+    retain: RetainMode = RetainMode.ON  # on/off (default: on)
     keepalive: int = 60
+    
+    def should_retain() -> bool  # Check if messages should be retained
 
 @dataclass
 class HomeAssistantConfig:
@@ -254,16 +297,38 @@ class HomeAssistantConfig:
     discovery_prefix: str = "homeassistant"
     device_grouping: DeviceGrouping = DeviceGrouping.PER_SOURCE
     device: DeviceConfig
+    state_file: str | None = None  # Path to registered sensors state file
 
 @dataclass
 class DefaultsConfig:
     update_interval: float = 10.0
     smaps: bool = False
     availability_topic: bool = True
+    # Per-source-type defaults
+    system: SystemDefaultsConfig
+    process: ProcessDefaultsConfig
+    service: ServiceDefaultsConfig
+    container: ContainerDefaultsConfig
+    battery: BatteryDefaultsConfig
+    custom: CustomDefaultsConfig
+
+@dataclass
+class Config:
+    mqtt: MQTTConfig
+    homeassistant: HomeAssistantConfig
+    defaults: DefaultsConfig
+    logging: LoggingConfig
+    auto_refresh_interval: float = 0  # Top-level: 0 = disabled
+    # Auto-discovery configs
+    auto_temperatures: AutoDiscoveryConfig
+    auto_batteries: AutoDiscoveryConfig
+    auto_containers: AutoDiscoveryConfig
+    auto_services: AutoDiscoveryConfig
+    auto_processes: AutoDiscoveryConfig
 
 @dataclass
 class SystemConfig:
-    name: str
+    name: str = "system"  # Optional, defaults to "system"
     id: str | None = None
     device: DeviceConfig
     cpu: bool = True
@@ -272,7 +337,6 @@ class SystemConfig:
     swap: bool = True
     load: bool = True
     uptime: bool = True
-    temperature: bool = True
     gpu: bool = False
     update_interval: float | None = None
 
@@ -349,10 +413,39 @@ class CustomSensorConfig:
     ...
 
 @dataclass
+class LoggingConfig:
+    level: str = "info"
+    file: str | None = None
+    file_level: str = "debug"
+    file_max_size: int = 10  # MB
+    file_keep: int = 5
+    colors: bool = True
+    format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+@dataclass
+class AutoDiscoveryConfig:
+    enabled: bool = False
+    filters: list[str] = []  # Multiple glob patterns
+    excludes: list[str] = [] # Multiple glob patterns
+    
+    def matches(name: str) -> bool  # Check if name matches filters/excludes
+
+@dataclass
 class Config:
     mqtt: MQTTConfig
     homeassistant: HomeAssistantConfig
     defaults: DefaultsConfig
+    logging: LoggingConfig
+    auto_refresh_interval: float = 0  # Top-level setting (0 = disabled)
+    
+    # Auto-discovery configs
+    auto_temperatures: AutoDiscoveryConfig
+    auto_batteries: AutoDiscoveryConfig
+    auto_containers: AutoDiscoveryConfig
+    auto_services: AutoDiscoveryConfig
+    auto_processes: AutoDiscoveryConfig
+    
+    # Manual collectors
     system: list[SystemConfig]
     processes: list[ProcessConfig]
     services: list[ServiceConfig]
@@ -379,10 +472,16 @@ class ConfigLoader:
     def load_file(path: str | Path) -> Config
     def load_string(source: str, filename: str, base_path: Path) -> Config
     def validate(config: Config) -> list[str]  # Returns warnings
+    def _check_unknown_directives(document, config) -> list[str]  # Warn about unknown directives
 ```
 
 **Functions:**
 - `load_config(path)` - Convenience function
+
+**Validation:**
+- Checks for unknown directives in configuration blocks
+- Warns about missing required settings
+- Validates auto-discovery filters (required for services/processes)
 
 ---
 
@@ -394,32 +493,28 @@ Base classes for all collectors.
 
 **Classes:**
 
-#### `MetricValue`
-```python
-@dataclass
-class MetricValue:
-    sensor_id: str
-    value: Any
-    timestamp: datetime
-    attributes: dict[str, Any]
-```
-
 #### `CollectorResult`
 ```python
 @dataclass
 class CollectorResult:
-    metrics: list[MetricValue]
+    data: dict[str, Any] = {}        # JSON data dict (key -> value)
+    state: str = "online"             # Source state (online/running/active/not_found)
     available: bool = True
     error: str | None = None
     timestamp: datetime
     
-    def add_metric(sensor_id: str, value: Any, **attributes) -> None
+    def set(key: str, value: Any) -> None
+    def set_state(state: str) -> None
+    def set_unavailable(state: str = "not_found") -> None
     def set_error(error: str) -> None
+    def to_json_dict() -> dict[str, Any]
 ```
 
 #### `Collector` (Abstract)
 ```python
 class Collector(ABC):
+    SOURCE_TYPE: str = "unknown"  # Class attribute: system, process, service, etc.
+    
     def __init__(self, name, collector_id, update_interval, enabled)
     
     # Properties
@@ -445,8 +540,12 @@ class Collector(ABC):
     async def safe_collect() -> CollectorResult  # With error handling
     async def run_forever() -> AsyncIterator[CollectorResult]
     
+    # Topic helpers
+    def sensor_id(metric: str) -> str  # Generate unique_id for metric
+    def source_topic(topic_prefix: str) -> str  # Get JSON topic for source
+    
     # Helpers
-    def get_sensor(sensor_id: str) -> Sensor | None
+    def get_sensor(unique_id: str) -> Sensor | None
     @staticmethod
     def _sanitize_id(value: str) -> str
 ```
@@ -476,6 +575,8 @@ Collects system-wide metrics using psutil.
 
 **Class: `SystemCollector`**
 
+Topic: `{prefix}/system` → JSON with all metrics
+
 Metrics:
 - `cpu_percent` - Overall CPU usage (%)
 - `cpu{N}_percent` - Per-core CPU usage (%)
@@ -487,6 +588,8 @@ Metrics:
 - `swap_used` - Used swap (MB)
 - `load_1m`, `load_5m`, `load_15m` - Load average
 - `uptime` - System uptime (seconds)
+
+Note: System collector has no `state` field - uses global `{prefix}/status` for availability
 
 ---
 
@@ -500,9 +603,11 @@ Reads temperatures from thermal zones and hwmon.
 
 **Class: `TemperatureCollector`**
 
-Metrics per zone:
-- `thermal_zone{N}` - Temperature (°C)
-- `hwmon_{name}_{label}` - hwmon temperatures
+Metrics per sensor:
+- `temp` - Temperature (°C)
+- `state` - online/not_found (sensor availability)
+
+Topic: `{prefix}/temperature/{sensor_name}` → JSON: `{"temp": 42.0, "state": "online"}`
 
 ---
 
@@ -522,11 +627,11 @@ Monitors processes with various matching strategies.
 Metrics:
 - `state` - running/not_found
 - `count` - Number of matched processes (if aggregate)
-- `cpu_percent` - CPU usage (%)
+- `cpu_percent` - CPU usage (%, normalized to 0-100%)
 - `memory_rss` - RSS memory (MB)
 - `memory_percent` - Memory usage (%)
-- `memory_pss` - PSS memory (MB, requires smaps)
-- `memory_uss` - USS memory (MB, requires smaps)
+- `memory_pss` - Real PSS memory (MB, excludes file-backed mappings, requires smaps)
+- `memory_uss` - Real USS memory (MB, excludes file-backed mappings, requires smaps)
 - `io_read`, `io_write` - I/O bytes (MB)
 - `num_fds` - Open file descriptors
 - `num_threads` - Thread count
@@ -548,12 +653,13 @@ Monitors systemd services using systemctl and cgroups.
 **Class: `ServiceCollector`**
 
 Metrics:
-- `state` - active/inactive/failed
+- `state` - active/inactive/failed/not_found
 - `restarts` - Restart count
-- `cpu_usage` - CPU time from cgroup (seconds)
+- `cpu_percent` - CPU usage (%, normalized to 0-100%, delta-based from cgroup)
 - `memory` - Memory from cgroup (MB)
 - `memory_cache` - Cache memory (MB)
-- `memory_pss`, `memory_uss` - If smaps enabled
+- `memory_pss` - Real PSS memory (MB, excludes file-backed mappings, if smaps enabled)
+- `memory_uss` - Real USS memory (MB, excludes file-backed mappings, if smaps enabled)
 - `processes` - Number of processes in service
 
 ---
@@ -566,8 +672,8 @@ Monitors Docker containers via API.
 
 Metrics:
 - `state` - running/exited/paused/not_found
-- `health` - healthy/unhealthy/starting
-- `cpu_percent` - CPU usage (%)
+- `health` - healthy/unhealthy/starting (if available)
+- `cpu_percent` - CPU usage (%, normalized to 0-100%)
 - `memory_usage` - Memory (MB)
 - `memory_percent` - Memory (%)
 - `memory_limit` - Memory limit (MB)
@@ -591,8 +697,8 @@ Reads battery status from `/sys/class/power_supply/`.
 **Class: `BatteryCollector`**
 
 Metrics:
+- `state` - charging/discharging/full/not charging/not_found
 - `capacity` - Charge level (%)
-- `status` - charging/discharging/full/not charging
 - `voltage` - Current voltage (V)
 - `current` - Current (A)
 - `power` - Power consumption (W)
@@ -616,6 +722,7 @@ Methods:
 - `_parse_output(output)` - Parse based on type (number/string/json)
 
 Metrics:
+- `state` - online/error/not_found
 - `value` - Parsed command output
 
 ---
@@ -631,10 +738,11 @@ Reads GPU metrics from sysfs (minimal implementation).
 
 **Class: `GPUCollector`**
 
-Metrics per GPU:
-- `{gpu_id}_frequency` - GPU frequency (MHz)
-- `{gpu_id}_temperature` - GPU temperature (°C)
-- `{gpu_id}_utilization` - GPU utilization (%)
+Metrics (primary GPU):
+- `state` - online/not_found
+- `frequency` - GPU frequency (MHz)
+- `temperature` - GPU temperature (°C)
+- `utilization` - GPU utilization (%)
 
 ---
 
@@ -662,7 +770,7 @@ class MQTTClient:
     
     # Publishing
     async def publish(topic, payload, qos, retain) -> None
-    async def publish_json(topic, data, qos, retain) -> None
+    async def publish_json(topic, data, qos, retain) -> None  # Publish JSON dict
     
     # Lifecycle
     async def start() -> None               # Start background publisher
@@ -671,11 +779,21 @@ class MQTTClient:
     async def wait_connected(timeout) -> bool
 ```
 
+**Topic Structure:**
+- `{prefix}/system` → JSON: `{"cpu_percent": 75.5, "memory_percent": 45.2, ...}`
+- `{prefix}/temperature/{sensor}` → JSON: `{"temp": 42.0, "state": "online"}`
+- `{prefix}/process/{name}` → JSON: `{"cpu_percent": 2.5, "state": "running", ...}`
+- `{prefix}/service/{name}` → JSON: `{"cpu_percent": 1.2, "state": "active", ...}`
+- `{prefix}/docker/{name}` → JSON: `{"cpu_percent": 5.0, "state": "running", ...}`
+- `{prefix}/status` → `"online"` or `"offline"` (global availability)
+
 Features:
 - Auto-reconnection with exponential backoff
-- Last Will and Testament (LWT) for availability
+- Last Will and Testament (LWT) for availability (`{prefix}/status` → `"offline"`)
 - Message queue for offline buffering
 - Background publisher task
+- JSON payloads per source (single topic per source)
+- Graceful shutdown: publishes `{"state": "offline"}` to all source topics when stopping
 
 ---
 
@@ -689,20 +807,25 @@ Home Assistant MQTT Discovery integration.
 class HomeAssistantDiscovery:
     def __init__(self, mqtt_client, config: HomeAssistantConfig)
     
-    async def register_sensor(sensor: Sensor) -> None
-    async def unregister_sensor(sensor: Sensor) -> None
     async def register_sensors(sensors: list[Sensor]) -> None
-    
-    async def publish_sensor_state(sensor: Sensor) -> None
-    async def publish_sensor_states(sensors: list[Sensor]) -> None
-    
-    async def publish_device_availability(device, available, topic_prefix) -> None
-    
-    async def cleanup() -> None  # Remove all entities
+    async def finalize_registration() -> None  # Cleanup stale sensors
+    async def _remove_stale_sensor(unique_id: str) -> None
 ```
 
-**Functions:**
-- `build_sensor_discovery(sensor, prefix)` - Build discovery message
+**Features:**
+- Automatic sensor registration via MQTT Discovery
+- Dual availability mode: `availability_mode: "all"` with two conditions:
+  1. Global status topic (`{prefix}/status`) - online/offline
+  2. Local state in JSON with value_template mapping states to online/offline
+- State file persistence for stale sensor cleanup
+- JSON value templates for extracting metrics from source topics
+
+**Availability Mapping:**
+- `service`: `active` → online, else → offline
+- `docker`: `running` → online, else → offline
+- `process`: `running` → online, else → offline
+- `temperature/battery/custom`: `online` → online, else → offline
+- `system`: Uses only global status (no local state field)
 
 ---
 
@@ -754,18 +877,22 @@ class Device:
 class Sensor:
     unique_id: str
     name: str
-    state_topic: str = ""
+    state_topic: str = ""  # JSON topic for source
     availability_topic: str | None = None
     device: Device | None = None
     
     # Configuration
-    value_template: str | None = None
+    value_template: str | None = None  # e.g., "{{ value_json.cpu_percent }}"
     unit_of_measurement: str | None = None
     device_class: DeviceClass | str | None = None
     state_class: StateClass | str | None = None
     icon: str | None = None
     enabled_by_default: bool = True
     entity_category: str | None = None
+    
+    # Availability
+    payload_available: str = "online"
+    payload_not_available: str = "offline"
     
     # Properties
     @property
@@ -780,11 +907,12 @@ class Sensor:
     def set_unavailable() -> None
     def to_discovery_dict(topic_prefix) -> dict[str, Any]
     def get_discovery_topic(prefix) -> str
-    def format_state() -> str
 ```
 
 **Functions:**
-- `create_sensor(source_id, metric_name, ...)` - Factory function
+- `create_sensor(source_type, source_name, metric_name, ...)` - Factory function
+  - Creates sensor with JSON value_template
+  - Sets up dual availability (global status + local state) for non-system sources
 
 ---
 
@@ -813,6 +941,11 @@ class SmapsInfo:
     anonymous: int = 0
     size: int = 0
     
+    # PSS breakdown (from smaps_rollup)
+    pss_anon: int = 0         # PSS for anonymous memory
+    pss_file: int = 0         # PSS for file-backed mappings
+    pss_shmem: int = 0        # PSS for shared memory
+    
     @property
     def shared(self) -> int
     @property
@@ -825,6 +958,10 @@ class SmapsInfo:
     def rss_mb(self) -> float
     @property
     def swap_mb(self) -> float
+    @property
+    def memory_real_pss_mb(self) -> float  # Pss_Anon + Pss_Shm + SwapPss (excludes file-backed)
+    @property
+    def memory_real_uss_mb(self) -> float  # Anonymous only (excludes file-backed)
     
     def __add__(self, other) -> SmapsInfo  # For aggregation
     def to_dict() -> dict[str, int | float]
@@ -832,10 +969,17 @@ class SmapsInfo:
 
 **Functions:**
 - `parse_smaps(pid)` - Parse full smaps file
-- `parse_smaps_rollup(pid)` - Parse smaps_rollup (faster)
-- `get_process_memory(pid, use_rollup)` - Get memory info
+- `parse_smaps_rollup(pid)` - Parse smaps_rollup (provides Pss_Anon, Pss_Shm breakdown)
+- `get_process_memory(pid, use_rollup=False)` - Get memory info
+  - Tries smaps_rollup first for breakdown, falls back to full smaps
+  - Uses full smaps by default for accuracy
 - `aggregate_smaps(pids)` - Aggregate multiple processes
 - `iter_all_smaps()` - Iterate all accessible processes
+
+**Memory Metrics:**
+- `memory_real_pss` = `Pss_Anon + Pss_Shm + SwapPss` (excludes file-backed mappings)
+- `memory_real_uss` = `Anonymous` (excludes file-backed mappings)
+- These metrics give accurate RAM usage for processes that map large files (e.g., qbittorrent)
 
 ---
 
@@ -971,16 +1115,16 @@ class DockerClient:
 │                        Collectors                                │
 │  Each collector runs in async loop:                              │
 │  1. Discover sources (processes, containers, etc.)               │
-│  2. Collect metrics                                              │
-│  3. Return CollectorResult with metrics                          │
+│  2. Collect metrics into CollectorResult.data dict               │
+│  3. Return CollectorResult with JSON data                        │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        MQTT Publishing                           │
-│  1. Register sensors via HA Discovery                            │
-│  2. Publish metric values to state topics                        │
-│  3. Update availability status                                   │
+│  1. Register sensors via HA Discovery (with value_template)     │
+│  2. Publish JSON payload to source topic (one per source)        │
+│  3. Auto-refresh: periodically check for new/removed sources    │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -991,6 +1135,49 @@ class DockerClient:
 │  3. Updates state from MQTT                                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Auto-Discovery
+
+Unified auto-discovery system for temperatures, batteries, containers, services, and processes.
+
+**Configuration:**
+```nginx
+temperatures {
+    auto on;
+    filter "nvme_*";
+    filter "soc_*";
+    exclude "internal*";
+}
+
+containers {
+    auto on;
+    filter "myapp-*";
+}
+
+services {
+    auto on;
+    filter "docker*";  # Required for services/processes
+}
+
+processes {
+    auto on;
+    filter "python*";  # Required for processes
+}
+```
+
+**Features:**
+- Multiple `filter` patterns (glob matching)
+- Multiple `exclude` patterns
+- Per-source-type defaults applied to auto-discovered items
+- Auto-refresh: periodically checks for new/removed sources (if `auto_refresh_interval > 0`)
+
+**Auto-Refresh:**
+- Runs every `auto_refresh_interval` seconds (0 = disabled)
+- Automatically adds new sources matching filters
+- Automatically removes disappeared sources
+- Updates Home Assistant sensors dynamically
 
 ---
 
@@ -1010,9 +1197,14 @@ class DockerClient:
 
 1. Create new file in `collectors/`
 2. Inherit from `Collector` or `MultiSourceCollector`
-3. Implement `create_device()`, `create_sensors()`, `collect()`
-4. Add config class to `schema.py`
-5. Register in `app.py._create_collectors()`
+3. Set `SOURCE_TYPE` class attribute (e.g., `SOURCE_TYPE = "mytype"`)
+4. Implement `create_device()`, `create_sensors()`, `collect()`
+5. Return `CollectorResult` with `data` dict and `state` field
+6. Use `result.set(key, value)` to add metrics
+7. Use `result.set_state(state)` to set source state
+8. Add config class to `schema.py`
+9. Register in `app.py._create_collectors()`
+10. Update `create_sensor()` to use `source_type` and `source_name` for topic structure
 
 ### Adding a new config block
 
