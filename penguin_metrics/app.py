@@ -54,7 +54,11 @@ class Application:
         )
         
         # Home Assistant discovery
-        self.ha = HomeAssistantDiscovery(self.mqtt, config.homeassistant)
+        self.ha = HomeAssistantDiscovery(
+            self.mqtt,
+            config.homeassistant,
+            state_file=config.homeassistant.state_file,
+        )
         
         # Collectors
         self.collectors: list[Collector] = []
@@ -222,6 +226,9 @@ class Application:
         
         # Initialize collectors and register sensors
         await self._initialize_collectors()
+        
+        # Cleanup stale sensors and save state
+        await self.ha.finalize_registration()
         
         # Setup signal handlers
         self._setup_signal_handlers()

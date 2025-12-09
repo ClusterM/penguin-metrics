@@ -6,10 +6,12 @@ Handles:
 - Entity registration
 - Device grouping
 - Availability handling
+- Cleanup of stale sensors
 """
 
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from .client import MQTTClient
@@ -19,6 +21,9 @@ from ..config.schema import HomeAssistantConfig
 
 
 logger = logging.getLogger(__name__)
+
+# Default state file location
+DEFAULT_STATE_FILE = "/var/lib/penguin-metrics/registered_sensors.json"
 
 
 class HomeAssistantDiscovery:
@@ -33,6 +38,7 @@ class HomeAssistantDiscovery:
         self,
         mqtt_client: MQTTClient,
         config: HomeAssistantConfig,
+        state_file: str | None = None,
     ):
         """
         Initialize Home Assistant Discovery.
@@ -40,13 +46,103 @@ class HomeAssistantDiscovery:
         Args:
             mqtt_client: MQTT client for publishing
             config: Home Assistant configuration
+            state_file: Path to state file for tracking registered sensors
         """
         self.mqtt = mqtt_client
         self.config = config
+        self.state_file = Path(state_file) if state_file else Path(DEFAULT_STATE_FILE)
         
-        # Track registered entities
+        # Track registered entities (current session)
         self._registered_sensors: set[str] = set()
         self._registered_devices: set[str] = set()
+        
+        # Previously registered sensors (from state file)
+        self._previous_sensors: set[str] = set()
+    
+    def _load_state(self) -> set[str]:
+        """Load previously registered sensors from state file."""
+        # Try primary location
+        try:
+            if self.state_file.exists():
+                data = json.loads(self.state_file.read_text())
+                return set(data.get("sensors", []))
+        except Exception as e:
+            logger.debug(f"Could not load primary state file: {e}")
+        
+        # Try fallback location
+        fallback = Path.home() / ".penguin-metrics" / "registered_sensors.json"
+        try:
+            if fallback.exists():
+                data = json.loads(fallback.read_text())
+                self.state_file = fallback  # Use fallback for future operations
+                return set(data.get("sensors", []))
+        except Exception as e:
+            logger.debug(f"Could not load fallback state file: {e}")
+        
+        return set()
+    
+    def _save_state(self) -> None:
+        """Save registered sensors to state file."""
+        try:
+            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            data = {"sensors": list(self._registered_sensors)}
+            self.state_file.write_text(json.dumps(data, indent=2))
+            logger.debug(f"Saved {len(self._registered_sensors)} sensors to state file")
+        except PermissionError:
+            # Try fallback to user's home directory
+            fallback = Path.home() / ".penguin-metrics" / "registered_sensors.json"
+            try:
+                fallback.parent.mkdir(parents=True, exist_ok=True)
+                data = {"sensors": list(self._registered_sensors)}
+                fallback.write_text(json.dumps(data, indent=2))
+                logger.debug(f"Saved state to fallback: {fallback}")
+                self.state_file = fallback  # Use fallback for future operations
+            except Exception as e:
+                logger.warning(f"Failed to save state file (fallback): {e}")
+        except Exception as e:
+            logger.warning(f"Failed to save state file: {e}")
+    
+    async def cleanup_stale_sensors(self) -> int:
+        """
+        Remove sensors that were previously registered but no longer exist.
+        
+        Returns:
+            Number of sensors removed
+        """
+        self._previous_sensors = self._load_state()
+        
+        if not self._previous_sensors:
+            logger.debug("No previous sensors found in state file")
+            return 0
+        
+        # Find sensors that were registered before but not now
+        stale = self._previous_sensors - self._registered_sensors
+        
+        if not stale:
+            logger.debug("No stale sensors to clean up")
+            return 0
+        
+        logger.info(f"Cleaning up {len(stale)} stale sensors from Home Assistant")
+        
+        for sensor_id in stale:
+            # Publish empty payload to remove sensor from HA
+            topic = f"{self.discovery_prefix}/sensor/{sensor_id}/config"
+            await self.mqtt.publish(topic, "", qos=1, retain=True)
+            logger.debug(f"Removed stale sensor: {sensor_id}")
+        
+        return len(stale)
+    
+    async def finalize_registration(self) -> None:
+        """
+        Finalize sensor registration - cleanup stale and save state.
+        
+        Call this after all sensors have been registered.
+        """
+        removed = await self.cleanup_stale_sensors()
+        if removed:
+            logger.info(f"Removed {removed} stale sensors from previous session")
+        
+        self._save_state()
     
     @property
     def discovery_prefix(self) -> str:

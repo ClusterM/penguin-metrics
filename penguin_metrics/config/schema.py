@@ -136,6 +136,7 @@ class HomeAssistantConfig:
     discovery_prefix: str = "homeassistant"
     device_grouping: DeviceGrouping = DeviceGrouping.PER_SOURCE
     device: DeviceConfig = field(default_factory=DeviceConfig)
+    state_file: str = "/var/lib/penguin-metrics/registered_sensors.json"
     
     @classmethod
     def from_block(cls, block: Block | None) -> "HomeAssistantConfig":
@@ -154,6 +155,7 @@ class HomeAssistantConfig:
             discovery_prefix=block.get_value("discovery_prefix", "homeassistant"),
             device_grouping=grouping,
             device=DeviceConfig.from_block(block.get_block("device")),
+            state_file=block.get_value("state_file", "/var/lib/penguin-metrics/registered_sensors.json"),
         )
 
 
