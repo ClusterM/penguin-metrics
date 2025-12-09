@@ -156,11 +156,171 @@ class LoggingConfig:
 
 
 @dataclass
+class SystemDefaultsConfig:
+    """Default settings for system collectors."""
+    cpu: bool = True
+    cpu_per_core: bool = False
+    memory: bool = True
+    swap: bool = True
+    load: bool = True
+    uptime: bool = True
+    temperature: bool = True
+    gpu: bool = False
+    
+    @classmethod
+    def from_block(cls, block: Block | None) -> "SystemDefaultsConfig":
+        if block is None:
+            return cls()
+        return cls(
+            cpu=bool(block.get_value("cpu", True)),
+            cpu_per_core=bool(block.get_value("cpu_per_core", False)),
+            memory=bool(block.get_value("memory", True)),
+            swap=bool(block.get_value("swap", True)),
+            load=bool(block.get_value("load", True)),
+            uptime=bool(block.get_value("uptime", True)),
+            temperature=bool(block.get_value("temperature", True)),
+            gpu=bool(block.get_value("gpu", False)),
+        )
+
+
+@dataclass
+class ProcessDefaultsConfig:
+    """Default settings for process collectors."""
+    cpu: bool = True
+    memory: bool = True
+    smaps: bool | None = None  # None = use global smaps setting
+    io: bool = False
+    fds: bool = False
+    threads: bool = False
+    aggregate: bool = False
+    
+    @classmethod
+    def from_block(cls, block: Block | None) -> "ProcessDefaultsConfig":
+        if block is None:
+            return cls()
+        smaps_val = block.get_value("smaps")
+        return cls(
+            cpu=bool(block.get_value("cpu", True)),
+            memory=bool(block.get_value("memory", True)),
+            smaps=None if smaps_val is None else bool(smaps_val),
+            io=bool(block.get_value("io", False)),
+            fds=bool(block.get_value("fds", False)),
+            threads=bool(block.get_value("threads", False)),
+            aggregate=bool(block.get_value("aggregate", False)),
+        )
+
+
+@dataclass
+class ServiceDefaultsConfig:
+    """Default settings for service collectors."""
+    cpu: bool = True
+    memory: bool = True
+    smaps: bool | None = None
+    state: bool = True
+    restart_count: bool = False
+    
+    @classmethod
+    def from_block(cls, block: Block | None) -> "ServiceDefaultsConfig":
+        if block is None:
+            return cls()
+        smaps_val = block.get_value("smaps")
+        return cls(
+            cpu=bool(block.get_value("cpu", True)),
+            memory=bool(block.get_value("memory", True)),
+            smaps=None if smaps_val is None else bool(smaps_val),
+            state=bool(block.get_value("state", True)),
+            restart_count=bool(block.get_value("restart_count", False)),
+        )
+
+
+@dataclass
+class ContainerDefaultsConfig:
+    """Default settings for container collectors."""
+    cpu: bool = True
+    memory: bool = True
+    network: bool = False
+    disk: bool = False
+    state: bool = True
+    health: bool = False
+    uptime: bool = False
+    
+    @classmethod
+    def from_block(cls, block: Block | None) -> "ContainerDefaultsConfig":
+        if block is None:
+            return cls()
+        return cls(
+            cpu=bool(block.get_value("cpu", True)),
+            memory=bool(block.get_value("memory", True)),
+            network=bool(block.get_value("network", False)),
+            disk=bool(block.get_value("disk", False)),
+            state=bool(block.get_value("state", True)),
+            health=bool(block.get_value("health", False)),
+            uptime=bool(block.get_value("uptime", False)),
+        )
+
+
+@dataclass
+class BatteryDefaultsConfig:
+    """Default settings for battery collectors."""
+    capacity: bool = True
+    status: bool = True
+    voltage: bool = False
+    current: bool = False
+    power: bool = False
+    health: bool = False
+    cycles: bool = False
+    temperature: bool = False
+    time_to_empty: bool = False
+    time_to_full: bool = False
+    
+    @classmethod
+    def from_block(cls, block: Block | None) -> "BatteryDefaultsConfig":
+        if block is None:
+            return cls()
+        return cls(
+            capacity=bool(block.get_value("capacity", True)),
+            status=bool(block.get_value("status", True)),
+            voltage=bool(block.get_value("voltage", False)),
+            current=bool(block.get_value("current", False)),
+            power=bool(block.get_value("power", False)),
+            health=bool(block.get_value("health", False)),
+            cycles=bool(block.get_value("cycles", False)),
+            temperature=bool(block.get_value("temperature", False)),
+            time_to_empty=bool(block.get_value("time_to_empty", False)),
+            time_to_full=bool(block.get_value("time_to_full", False)),
+        )
+
+
+@dataclass
+class CustomDefaultsConfig:
+    """Default settings for custom collectors."""
+    type: str = "number"
+    timeout: float = 5.0
+    
+    @classmethod
+    def from_block(cls, block: Block | None) -> "CustomDefaultsConfig":
+        if block is None:
+            return cls()
+        return cls(
+            type=block.get_value("type", "number"),
+            timeout=float(block.get_value("timeout", 5.0)),
+        )
+
+
+@dataclass
 class DefaultsConfig:
     """Default settings inherited by collectors."""
     update_interval: float = 10.0  # seconds
     smaps: bool = False
     availability_topic: bool = True
+    
+    # Per-source-type defaults
+    system: SystemDefaultsConfig = field(default_factory=SystemDefaultsConfig)
+    process: ProcessDefaultsConfig = field(default_factory=ProcessDefaultsConfig)
+    service: ServiceDefaultsConfig = field(default_factory=ServiceDefaultsConfig)
+    container: ContainerDefaultsConfig = field(default_factory=ContainerDefaultsConfig)
+    battery: BatteryDefaultsConfig = field(default_factory=BatteryDefaultsConfig)
+    custom: CustomDefaultsConfig = field(default_factory=CustomDefaultsConfig)
     
     @classmethod
     def from_block(cls, block: Block | None) -> "DefaultsConfig":
@@ -176,6 +336,12 @@ class DefaultsConfig:
             update_interval=float(interval),
             smaps=bool(block.get_value("smaps", False)),
             availability_topic=bool(block.get_value("availability_topic", True)),
+            system=SystemDefaultsConfig.from_block(block.get_block("system")),
+            process=ProcessDefaultsConfig.from_block(block.get_block("process")),
+            service=ServiceDefaultsConfig.from_block(block.get_block("service")),
+            container=ContainerDefaultsConfig.from_block(block.get_block("container")),
+            battery=BatteryDefaultsConfig.from_block(block.get_block("battery")),
+            custom=CustomDefaultsConfig.from_block(block.get_block("custom")),
         )
 
 
@@ -203,23 +369,29 @@ class SystemConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "SystemConfig":
         """Create SystemConfig from a parsed 'system' block."""
         name = block.name or "system"
+        sd = defaults.system  # System-specific defaults
         
         interval = block.get_value("update_interval")
         if interval is None:
             interval = defaults.update_interval
         
+        # Helper to get value with source-type default fallback
+        def get_bool(name: str, sd_val: bool) -> bool:
+            val = block.get_value(name)
+            return bool(val) if val is not None else sd_val
+        
         return cls(
             name=name,
             id=block.get_value("id"),
             device=DeviceConfig.from_block(block.get_block("device")),
-            cpu=bool(block.get_value("cpu", True)),
-            cpu_per_core=bool(block.get_value("cpu_per_core", False)),
-            memory=bool(block.get_value("memory", True)),
-            swap=bool(block.get_value("swap", True)),
-            load=bool(block.get_value("load", True)),
-            uptime=bool(block.get_value("uptime", True)),
-            temperature=bool(block.get_value("temperature", True)),
-            gpu=bool(block.get_value("gpu", False)),
+            cpu=get_bool("cpu", sd.cpu),
+            cpu_per_core=get_bool("cpu_per_core", sd.cpu_per_core),
+            memory=get_bool("memory", sd.memory),
+            swap=get_bool("swap", sd.swap),
+            load=get_bool("load", sd.load),
+            uptime=get_bool("uptime", sd.uptime),
+            temperature=get_bool("temperature", sd.temperature),
+            gpu=get_bool("gpu", sd.gpu),
             update_interval=float(interval) if interval else None,
         )
 
@@ -283,16 +455,25 @@ class ProcessConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "ProcessConfig":
         """Create ProcessConfig from a parsed 'process' block."""
         name = block.name or "process"
+        pd = defaults.process  # Process-specific defaults
         
+        # smaps: check block, then process defaults, then global
         smaps_val = block.get_value("smaps")
-        if smaps_val is None:
-            smaps = None  # Will use defaults
-        else:
+        if smaps_val is not None:
             smaps = bool(smaps_val)
+        elif pd.smaps is not None:
+            smaps = pd.smaps
+        else:
+            smaps = None  # Will use global defaults.smaps
         
         interval = block.get_value("update_interval")
         if interval is None:
             interval = defaults.update_interval
+        
+        # Helper to get value with source-type default fallback
+        def get_bool(name: str, pd_val: bool) -> bool:
+            val = block.get_value(name)
+            return bool(val) if val is not None else pd_val
         
         return cls(
             name=name,
@@ -300,13 +481,13 @@ class ProcessConfig:
             match=ProcessMatchConfig.from_directive(block.get_directive("match")),
             device=DeviceConfig.from_block(block.get_block("device")),
             sensor_prefix=block.get_value("sensor_prefix"),
-            cpu=bool(block.get_value("cpu", True)),
-            memory=bool(block.get_value("memory", True)),
+            cpu=get_bool("cpu", pd.cpu),
+            memory=get_bool("memory", pd.memory),
             smaps=smaps,
-            io=bool(block.get_value("io", False)),
-            fds=bool(block.get_value("fds", False)),
-            threads=bool(block.get_value("threads", False)),
-            aggregate=bool(block.get_value("aggregate", False)),
+            io=get_bool("io", pd.io),
+            fds=get_bool("fds", pd.fds),
+            threads=get_bool("threads", pd.threads),
+            aggregate=get_bool("aggregate", pd.aggregate),
             update_interval=float(interval) if interval else None,
         )
     
@@ -369,24 +550,35 @@ class ServiceConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "ServiceConfig":
         """Create ServiceConfig from a parsed 'service' block."""
         name = block.name or "service"
+        svd = defaults.service  # Service-specific defaults
         
+        # smaps: check block, then service defaults, then global
         smaps_val = block.get_value("smaps")
-        smaps = None if smaps_val is None else bool(smaps_val)
+        if smaps_val is not None:
+            smaps = bool(smaps_val)
+        elif svd.smaps is not None:
+            smaps = svd.smaps
+        else:
+            smaps = None
         
         interval = block.get_value("update_interval")
         if interval is None:
             interval = defaults.update_interval
+        
+        def get_bool(name: str, svd_val: bool) -> bool:
+            val = block.get_value(name)
+            return bool(val) if val is not None else svd_val
         
         return cls(
             name=name,
             id=block.get_value("id"),
             match=ServiceMatchConfig.from_directive(block.get_directive("match")),
             device=DeviceConfig.from_block(block.get_block("device")),
-            cpu=bool(block.get_value("cpu", True)),
-            memory=bool(block.get_value("memory", True)),
+            cpu=get_bool("cpu", svd.cpu),
+            memory=get_bool("memory", svd.memory),
             smaps=smaps,
-            state=bool(block.get_value("state", True)),
-            restart_count=bool(block.get_value("restart_count", False)),
+            state=get_bool("state", svd.state),
+            restart_count=get_bool("restart_count", svd.restart_count),
             update_interval=float(interval) if interval else None,
         )
     
@@ -454,10 +646,15 @@ class ContainerConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "ContainerConfig":
         """Create ContainerConfig from a parsed 'container' block."""
         name = block.name or "container"
+        cd = defaults.container  # Container-specific defaults
         
         interval = block.get_value("update_interval")
         if interval is None:
             interval = defaults.update_interval
+        
+        def get_bool(name: str, cd_val: bool) -> bool:
+            val = block.get_value(name)
+            return bool(val) if val is not None else cd_val
         
         return cls(
             name=name,
@@ -465,13 +662,13 @@ class ContainerConfig:
             match=ContainerMatchConfig.from_directive(block.get_directive("match")),
             device=DeviceConfig.from_block(block.get_block("device")),
             auto_discover=bool(block.get_value("auto_discover", False)),
-            cpu=bool(block.get_value("cpu", True)),
-            memory=bool(block.get_value("memory", True)),
-            network=bool(block.get_value("network", False)),
-            disk=bool(block.get_value("disk", False)),
-            state=bool(block.get_value("state", True)),
-            health=bool(block.get_value("health", False)),
-            uptime=bool(block.get_value("uptime", False)),
+            cpu=get_bool("cpu", cd.cpu),
+            memory=get_bool("memory", cd.memory),
+            network=get_bool("network", cd.network),
+            disk=get_bool("disk", cd.disk),
+            state=get_bool("state", cd.state),
+            health=get_bool("health", cd.health),
+            uptime=get_bool("uptime", cd.uptime),
             update_interval=float(interval) if interval else None,
         )
 
@@ -535,10 +732,15 @@ class BatteryConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "BatteryConfig":
         """Create BatteryConfig from a parsed 'battery' block."""
         name = block.name or "battery"
+        bd = defaults.battery  # Battery-specific defaults
         
         interval = block.get_value("update_interval")
         if interval is None:
             interval = defaults.update_interval
+        
+        def get_bool(name: str, bd_val: bool) -> bool:
+            val = block.get_value(name)
+            return bool(val) if val is not None else bd_val
         
         return cls(
             name=name,
@@ -546,16 +748,16 @@ class BatteryConfig:
             path=block.get_value("path"),
             battery_name=block.get_value("name"),  # the battery name like BAT0
             device=DeviceConfig.from_block(block.get_block("device")),
-            capacity=bool(block.get_value("capacity", True)),
-            status=bool(block.get_value("status", True)),
-            voltage=bool(block.get_value("voltage", False)),
-            current=bool(block.get_value("current", False)),
-            power=bool(block.get_value("power", False)),
-            health=bool(block.get_value("health", False)),
-            cycles=bool(block.get_value("cycles", False)),
-            temperature=bool(block.get_value("temperature", False)),
-            time_to_empty=bool(block.get_value("time_to_empty", False)),
-            time_to_full=bool(block.get_value("time_to_full", False)),
+            capacity=get_bool("capacity", bd.capacity),
+            status=get_bool("status", bd.status),
+            voltage=get_bool("voltage", bd.voltage),
+            current=get_bool("current", bd.current),
+            power=get_bool("power", bd.power),
+            health=get_bool("health", bd.health),
+            cycles=get_bool("cycles", bd.cycles),
+            temperature=get_bool("temperature", bd.temperature),
+            time_to_empty=get_bool("time_to_empty", bd.time_to_empty),
+            time_to_full=get_bool("time_to_full", bd.time_to_full),
             update_interval=float(interval) if interval else None,
         )
 
@@ -586,12 +788,19 @@ class CustomSensorConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "CustomSensorConfig":
         """Create CustomSensorConfig from a parsed 'custom' block."""
         name = block.name or "custom"
+        cud = defaults.custom  # Custom-specific defaults
         
         interval = block.get_value("update_interval")
         if interval is None:
             interval = defaults.update_interval
         
-        timeout = block.get_value("timeout", 5.0)
+        # Get type with fallback to custom defaults
+        type_val = block.get_value("type")
+        type_str = type_val if type_val is not None else cud.type
+        
+        # Get timeout with fallback to custom defaults
+        timeout_val = block.get_value("timeout")
+        timeout = float(timeout_val) if timeout_val is not None else cud.timeout
         
         return cls(
             name=name,
@@ -599,13 +808,13 @@ class CustomSensorConfig:
             command=block.get_value("command"),
             script=block.get_value("script"),
             device=DeviceConfig.from_block(block.get_block("device")),
-            type=block.get_value("type", "number"),
+            type=type_str,
             unit=block.get_value("unit"),
             scale=float(block.get_value("scale", 1.0)),
             device_class=block.get_value("device_class"),
             state_class=block.get_value("state_class"),
             update_interval=float(interval) if interval else None,
-            timeout=float(timeout) if timeout else 5.0,
+            timeout=timeout,
         )
 
 

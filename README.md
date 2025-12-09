@@ -227,6 +227,84 @@ defaults {
 
 **Duration formats:** `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours), `d` (days)
 
+#### Per-Source-Type Defaults
+
+You can define default settings for each source type within the `defaults` block:
+
+```nginx
+defaults {
+    update_interval 10s;
+    smaps off;
+    
+    # All processes will have these settings by default
+    process {
+        cpu on;
+        memory on;
+        smaps on;        # Enable smaps for all processes
+        io on;
+        fds off;
+        threads off;
+    }
+    
+    # All containers will have these settings by default
+    container {
+        cpu on;
+        memory on;
+        network on;      # Enable network for all containers
+        disk off;
+        state on;
+        health on;
+    }
+    
+    # All services will have these settings by default
+    service {
+        cpu on;
+        memory on;
+        state on;
+        restart_count on;
+    }
+    
+    # All batteries will have these settings by default
+    battery {
+        capacity on;
+        status on;
+        voltage on;
+        power on;
+    }
+    
+    # All custom sensors will have these settings by default
+    custom {
+        type number;
+        timeout 10s;
+    }
+    
+    # All system collectors will have these settings by default
+    system {
+        cpu on;
+        cpu_per_core on;
+        memory on;
+        swap on;
+        load on;
+        temperature on;
+    }
+}
+```
+
+Individual source blocks can still override these defaults:
+
+```nginx
+# Uses process defaults (smaps on from above)
+process "nginx" {
+    match name "nginx";
+}
+
+# Overrides process defaults (smaps off for this one)
+process "low-priority" {
+    match name "background-task";
+    smaps off;
+}
+```
+
 ### Logging Configuration
 
 ```nginx
