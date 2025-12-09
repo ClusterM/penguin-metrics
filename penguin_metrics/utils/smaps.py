@@ -102,6 +102,17 @@ class SmapsInfo:
             # This is less accurate but better than nothing
             return self.pss_mb
     
+    @property
+    def memory_real_uss_mb(self) -> float:
+        """
+        Real USS memory usage excluding file-backed mappings.
+        
+        Formula: Anonymous / 1024
+        This excludes mmap'd files that can be evicted from RAM.
+        Only counts anonymous memory (heap, stack) that actually uses RAM.
+        """
+        return self.anonymous / (1024 * 1024)
+    
     def __add__(self, other: "SmapsInfo") -> "SmapsInfo":
         """Add two SmapsInfo objects (for aggregating multiple processes)."""
         return SmapsInfo(

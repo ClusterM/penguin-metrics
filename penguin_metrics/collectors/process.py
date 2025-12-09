@@ -349,7 +349,7 @@ class ProcessCollector(MultiSourceCollector):
                 smaps = get_process_memory(proc.pid)
                 if smaps:
                     result.set("memory_pss", round(smaps.memory_real_pss_mb, 2))
-                    result.set("memory_uss", round(smaps.uss_mb, 2))
+                    result.set("memory_uss", round(smaps.memory_real_uss_mb, 2))
             
             if self.config.io:
                 try:
@@ -401,7 +401,7 @@ class ProcessCollector(MultiSourceCollector):
             total_pss_anon = 0.0
             total_pss_shmem = 0.0
             total_swap_pss = 0.0
-            total_uss = 0.0
+            total_anonymous = 0.0
             total_io_read = 0.0
             total_io_write = 0.0
             total_fds = 0
@@ -423,7 +423,7 @@ class ProcessCollector(MultiSourceCollector):
                             total_pss_anon += smaps.pss_anon
                             total_pss_shmem += smaps.pss_shmem
                             total_swap_pss += smaps.swap_pss
-                            total_uss += smaps.uss
+                            total_anonymous += smaps.anonymous
                     
                     if self.config.io:
                         try:
@@ -464,7 +464,7 @@ class ProcessCollector(MultiSourceCollector):
                     # This shouldn't happen if smaps_rollup is used
                     memory_real_pss = 0.0
                 result.set("memory_pss", round(memory_real_pss, 2))
-                result.set("memory_uss", round(total_uss / (1024 * 1024), 2))
+                result.set("memory_uss", round(total_anonymous / (1024 * 1024), 2))
             
             if self.config.io:
                 result.set("io_read", round(total_io_read / (1024 * 1024), 1))
