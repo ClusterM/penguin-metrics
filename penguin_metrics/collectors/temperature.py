@@ -76,6 +76,38 @@ def read_thermal_zone_temp(zone: ThermalZone) -> float | None:
         return None
 
 
+class HwmonSensor(NamedTuple):
+    """Hardware monitor sensor information."""
+    chip: str       # Chip name (e.g., soc_thermal, nvme)
+    label: str      # Sensor label (e.g., sensor0, Composite)
+    index: int      # Index in the chip's sensor list
+
+
+def discover_hwmon_sensors() -> list[HwmonSensor]:
+    """
+    Discover hwmon temperature sensors via psutil.
+    
+    Returns:
+        List of HwmonSensor tuples
+    """
+    sensors = []
+    
+    try:
+        temps = psutil.sensors_temperatures()
+        for chip_name, entries in temps.items():
+            for i, entry in enumerate(entries):
+                label = entry.label or f"sensor{i}"
+                sensors.append(HwmonSensor(
+                    chip=chip_name,
+                    label=label,
+                    index=i,
+                ))
+    except Exception:
+        pass
+    
+    return sensors
+
+
 class TemperatureCollector(Collector):
     """
     Collector for temperature sensors.

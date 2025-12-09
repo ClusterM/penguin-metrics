@@ -377,6 +377,69 @@ class DefaultsConfig:
         )
 
 
+@dataclass
+class AutoDiscoveryConfig:
+    """
+    Unified auto-discovery configuration.
+    
+    Used by: temperatures, batteries, containers, services
+    
+    Example:
+        temperatures {
+            auto on;
+            filter "nvme_*";
+            exclude "internal*";
+        }
+    """
+    enabled: bool = False
+    filter: str | None = None      # Include only matching (glob pattern)
+    exclude: str | None = None     # Exclude matching (glob pattern)
+    
+    @classmethod
+    def from_block(cls, block: Block | None) -> "AutoDiscoveryConfig":
+        """Create AutoDiscoveryConfig from a parsed block."""
+        if block is None:
+            return cls()
+        
+        # "auto on;" or "auto off;"
+        auto_val = block.get_value("auto")
+        enabled = False
+        if auto_val is not None:
+            if isinstance(auto_val, bool):
+                enabled = auto_val
+            elif isinstance(auto_val, str):
+                enabled = auto_val.lower() in ("on", "true", "yes", "1")
+        
+        return cls(
+            enabled=enabled,
+            filter=block.get_value("filter"),
+            exclude=block.get_value("exclude"),
+        )
+    
+    def matches(self, name: str) -> bool:
+        """
+        Check if a name matches the filter/exclude patterns.
+        
+        Args:
+            name: Name to check
+            
+        Returns:
+            True if name should be included
+        """
+        import fnmatch
+        
+        # Check exclude first
+        if self.exclude and fnmatch.fnmatch(name, self.exclude):
+            return False
+        
+        # Check filter
+        if self.filter:
+            return fnmatch.fnmatch(name, self.filter)
+        
+        # No filter = include all
+        return True
+
+
 @dataclass 
 class SystemConfig:
     """System-wide metrics configuration."""
@@ -860,7 +923,13 @@ class Config:
     defaults: DefaultsConfig = field(default_factory=DefaultsConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     
-    # Collectors
+    # Auto-discovery settings (plural blocks: temperatures, batteries, etc.)
+    auto_temperatures: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
+    auto_batteries: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
+    auto_containers: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
+    auto_services: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
+    
+    # Manual collectors (singular blocks: temperature, battery, etc.)
     system: list[SystemConfig] = field(default_factory=list)
     processes: list[ProcessConfig] = field(default_factory=list)
     services: list[ServiceConfig] = field(default_factory=list)
@@ -880,7 +949,13 @@ class Config:
         config.defaults = DefaultsConfig.from_block(doc.get_block("defaults"))
         config.logging = LoggingConfig.from_block(doc.get_block("logging"))
         
-        # Parse collector blocks
+        # Parse auto-discovery blocks (plural names)
+        config.auto_temperatures = AutoDiscoveryConfig.from_block(doc.get_block("temperatures"))
+        config.auto_batteries = AutoDiscoveryConfig.from_block(doc.get_block("batteries"))
+        config.auto_containers = AutoDiscoveryConfig.from_block(doc.get_block("containers"))
+        config.auto_services = AutoDiscoveryConfig.from_block(doc.get_block("services"))
+        
+        # Parse collector blocks (singular names for manual configuration)
         for block in doc.get_blocks("system"):
             config.system.append(SystemConfig.from_block(block, config.defaults))
         

@@ -73,6 +73,12 @@ class Application:
         collectors: list[Collector] = []
         topic_prefix = self.config.mqtt.topic_prefix
         
+        # Track manually configured names to avoid duplicates with auto-discovery
+        manual_temps: set[str] = set()
+        manual_batteries: set[str] = set()
+        manual_containers: set[str] = set()
+        manual_services: set[str] = set()
+        
         # System collectors
         for sys_config in self.config.system:
             collectors.append(SystemCollector(
@@ -81,8 +87,8 @@ class Application:
                 topic_prefix=topic_prefix,
             ))
             
-            # Add temperature collector if enabled
-            if sys_config.temperature:
+            # Add temperature collector if enabled (legacy, disabled if auto-discovery)
+            if sys_config.temperature and not self.config.auto_temperatures.enabled:
                 collectors.append(TemperatureCollector(
                     config=sys_config,
                     defaults=self.config.defaults,
@@ -97,13 +103,17 @@ class Application:
                     topic_prefix=topic_prefix,
                 ))
         
-        # Standalone temperature collectors
+        # Standalone temperature collectors (manual)
         for temp_config in self.config.temperatures:
+            manual_temps.add(temp_config.name)
             collectors.append(TemperatureCollector(
                 config=temp_config,
                 defaults=self.config.defaults,
                 topic_prefix=topic_prefix,
             ))
+        
+        # Auto-discover temperatures
+        collectors.extend(self._auto_discover_temperatures(manual_temps, topic_prefix))
         
         # Process collectors
         for proc_config in self.config.processes:
@@ -113,29 +123,41 @@ class Application:
                 topic_prefix=topic_prefix,
             ))
         
-        # Service collectors (systemd)
+        # Service collectors (manual)
         for svc_config in self.config.services:
+            manual_services.add(svc_config.name)
             collectors.append(ServiceCollector(
                 config=svc_config,
                 defaults=self.config.defaults,
                 topic_prefix=topic_prefix,
             ))
         
-        # Container collectors (Docker)
+        # Auto-discover services
+        collectors.extend(self._auto_discover_services(manual_services, topic_prefix))
+        
+        # Container collectors (manual)
         for cont_config in self.config.containers:
+            manual_containers.add(cont_config.name)
             collectors.append(ContainerCollector(
                 config=cont_config,
                 defaults=self.config.defaults,
                 topic_prefix=topic_prefix,
             ))
         
-        # Battery collectors
+        # Auto-discover containers
+        collectors.extend(self._auto_discover_containers(manual_containers, topic_prefix))
+        
+        # Battery collectors (manual)
         for bat_config in self.config.batteries:
+            manual_batteries.add(bat_config.name)
             collectors.append(BatteryCollector(
                 config=bat_config,
                 defaults=self.config.defaults,
                 topic_prefix=topic_prefix,
             ))
+        
+        # Auto-discover batteries
+        collectors.extend(self._auto_discover_batteries(manual_batteries, topic_prefix))
         
         # Custom collectors
         for custom_config in self.config.custom:
@@ -144,6 +166,209 @@ class Application:
                 defaults=self.config.defaults,
                 topic_prefix=topic_prefix,
             ))
+        
+        return collectors
+    
+    def _auto_discover_temperatures(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+        """Auto-discover temperature sensors."""
+        from .collectors.temperature import discover_thermal_zones, discover_hwmon_sensors
+        
+        auto_cfg = self.config.auto_temperatures
+        if not auto_cfg.enabled:
+            return []
+        
+        collectors = []
+        
+        # Discover thermal zones
+        for zone in discover_thermal_zones():
+            name = zone.type if zone.type != zone.name else zone.name
+            if name in exclude:
+                continue
+            if not auto_cfg.matches(name):
+                continue
+            
+            from .config.schema import TemperatureConfig
+            config = TemperatureConfig(
+                name=name,
+                zone=zone.name,
+                update_interval=self.config.defaults.update_interval,
+            )
+            collectors.append(TemperatureCollector(
+                config=config,
+                defaults=self.config.defaults,
+                topic_prefix=topic_prefix,
+            ))
+            logger.debug(f"Auto-discovered temperature: {name}")
+        
+        # Discover hwmon sensors
+        for sensor in discover_hwmon_sensors():
+            name = f"{sensor.chip}_{sensor.label}".lower().replace(" ", "_")
+            if name in exclude:
+                continue
+            if not auto_cfg.matches(name):
+                continue
+            
+            from .config.schema import TemperatureConfig
+            config = TemperatureConfig(
+                name=name,
+                hwmon=name,
+                update_interval=self.config.defaults.update_interval,
+            )
+            collectors.append(TemperatureCollector(
+                config=config,
+                defaults=self.config.defaults,
+                topic_prefix=topic_prefix,
+            ))
+            logger.debug(f"Auto-discovered hwmon sensor: {name}")
+        
+        if collectors:
+            logger.info(f"Auto-discovered {len(collectors)} temperature sensors")
+        
+        return collectors
+    
+    def _auto_discover_batteries(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+        """Auto-discover battery devices."""
+        from .collectors.battery import discover_batteries
+        
+        auto_cfg = self.config.auto_batteries
+        if not auto_cfg.enabled:
+            return []
+        
+        collectors = []
+        
+        for battery in discover_batteries():
+            name = battery.name  # BAT0, BAT1, etc.
+            if name in exclude:
+                continue
+            if not auto_cfg.matches(name):
+                continue
+            
+            from .config.schema import BatteryConfig
+            config = BatteryConfig(
+                name=name,
+                battery_name=name,
+                update_interval=self.config.defaults.update_interval,
+            )
+            collectors.append(BatteryCollector(
+                config=config,
+                defaults=self.config.defaults,
+                topic_prefix=topic_prefix,
+            ))
+            logger.debug(f"Auto-discovered battery: {name}")
+        
+        if collectors:
+            logger.info(f"Auto-discovered {len(collectors)} batteries")
+        
+        return collectors
+    
+    def _auto_discover_containers(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+        """Auto-discover Docker containers."""
+        from .utils.docker_api import DockerClient
+        
+        auto_cfg = self.config.auto_containers
+        if not auto_cfg.enabled:
+            return []
+        
+        collectors = []
+        docker = DockerClient()
+        
+        if not docker.available:
+            logger.warning("Docker not available for auto-discovery")
+            return []
+        
+        try:
+            import asyncio
+            containers = asyncio.get_event_loop().run_until_complete(
+                docker.list_containers(all=False)  # Only running containers
+            )
+        except Exception as e:
+            logger.warning(f"Failed to list containers: {e}")
+            return []
+        
+        for container in containers:
+            name = container.name
+            if name in exclude:
+                continue
+            if not auto_cfg.matches(name):
+                continue
+            
+            from .config.schema import ContainerConfig, ContainerMatch, ContainerMatchType
+            config = ContainerConfig(
+                name=name,
+                match=ContainerMatch(type=ContainerMatchType.NAME, value=name),
+                update_interval=self.config.defaults.update_interval,
+            )
+            collectors.append(ContainerCollector(
+                config=config,
+                defaults=self.config.defaults,
+                topic_prefix=topic_prefix,
+            ))
+            logger.debug(f"Auto-discovered container: {name}")
+        
+        if collectors:
+            logger.info(f"Auto-discovered {len(collectors)} containers")
+        
+        return collectors
+    
+    def _auto_discover_services(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+        """Auto-discover systemd services."""
+        import asyncio
+        import subprocess
+        
+        auto_cfg = self.config.auto_services
+        if not auto_cfg.enabled:
+            return []
+        
+        # Require filter for services (too many otherwise)
+        if not auto_cfg.filter:
+            logger.warning("Service auto-discovery requires a filter pattern")
+            return []
+        
+        collectors = []
+        
+        try:
+            # Get list of all services
+            result = subprocess.run(
+                ["systemctl", "list-units", "--type=service", "--no-legend", "--all"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            
+            for line in result.stdout.strip().split("\n"):
+                if not line.strip():
+                    continue
+                
+                parts = line.split()
+                if not parts:
+                    continue
+                
+                unit_name = parts[0]  # e.g., docker.service
+                name = unit_name.replace(".service", "")
+                
+                if name in exclude:
+                    continue
+                if not auto_cfg.matches(unit_name) and not auto_cfg.matches(name):
+                    continue
+                
+                from .config.schema import ServiceConfig, ServiceMatch, ServiceMatchType
+                config = ServiceConfig(
+                    name=name,
+                    match=ServiceMatch(type=ServiceMatchType.UNIT, value=unit_name),
+                    update_interval=self.config.defaults.update_interval,
+                )
+                collectors.append(ServiceCollector(
+                    config=config,
+                    defaults=self.config.defaults,
+                    topic_prefix=topic_prefix,
+                ))
+                logger.debug(f"Auto-discovered service: {name}")
+        
+        except Exception as e:
+            logger.warning(f"Failed to list services: {e}")
+        
+        if collectors:
+            logger.info(f"Auto-discovered {len(collectors)} services")
         
         return collectors
     
