@@ -23,6 +23,8 @@ from ..config.schema import CustomSensorConfig, DefaultsConfig
 
 
 class CustomCollector(Collector):
+    
+    SOURCE_TYPE = "custom"
     """
     Collector for custom command/script sensors.
     
@@ -96,7 +98,8 @@ class CustomCollector(Collector):
                 state_class = self.config.state_class
         
         sensor = create_sensor(
-            source_id=self.collector_id,
+            source_type="custom",
+            source_name=self.name,
             metric_name="value",
             display_name=self.config.name,
             device=device,

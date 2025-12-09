@@ -83,6 +83,8 @@ class TemperatureCollector(Collector):
     Supports both sysfs thermal zones and hwmon sensors via psutil.
     """
     
+    SOURCE_TYPE = "temperature"
+    
     def __init__(
         self,
         config: SystemConfig | TemperatureConfig,
@@ -190,7 +192,8 @@ class TemperatureCollector(Collector):
             for chip, label, _ in self._hwmon_sensors:
                 sensor_name = f"{chip}_{label}".lower().replace(" ", "_")
                 sensors.append(create_sensor(
-                    source_id=self.collector_id,
+                    source_type="temperature",
+                source_name=self.name,
                     metric_name="temp",
                     display_name=f"Temperature: {chip} {label}",
                     device=device,
@@ -208,7 +211,8 @@ class TemperatureCollector(Collector):
             display_name = f"Temperature: {zone.type}"
             
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="temperature",
+                source_name=self.name,
                 metric_name=zone.name,
                 display_name=display_name,
                 device=device,
@@ -229,7 +233,8 @@ class TemperatureCollector(Collector):
                         sensor_name = f"{name}_{label}".lower().replace(" ", "_")
                         
                         sensors.append(create_sensor(
-                            source_id=self.collector_id,
+                            source_type="temperature",
+                source_name=self.name,
                             metric_name=f"hwmon_{sensor_name}",
                             display_name=f"Temperature: {name} {label}",
                             device=device,

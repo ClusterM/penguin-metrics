@@ -25,6 +25,8 @@ from ..utils.docker_api import DockerClient, ContainerInfo, ContainerStats, Dock
 
 
 class ContainerCollector(Collector):
+    
+    SOURCE_TYPE = "docker"
     """
     Collector for Docker container metrics.
     
@@ -128,7 +130,8 @@ class ContainerCollector(Collector):
         
         if self.config.state:
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="docker",
+                source_name=self.name,
                 metric_name="state",
                 display_name=f"{self.config.name} State",
                 device=device,
@@ -138,7 +141,8 @@ class ContainerCollector(Collector):
         
         if self.config.health:
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="docker",
+                source_name=self.name,
                 metric_name="health",
                 display_name=f"{self.config.name} Health",
                 device=device,
@@ -148,7 +152,8 @@ class ContainerCollector(Collector):
         
         if self.config.cpu:
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="docker",
+                source_name=self.name,
                 metric_name="cpu_percent",
                 display_name=f"{self.config.name} CPU Usage",
                 device=device,
@@ -161,7 +166,8 @@ class ContainerCollector(Collector):
         if self.config.memory:
             sensors.extend([
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="docker",
+                source_name=self.name,
                     metric_name="memory_usage",
                     display_name=f"{self.config.name} Memory Usage",
                     device=device,
@@ -172,7 +178,8 @@ class ContainerCollector(Collector):
                     icon="mdi:memory",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="docker",
+                source_name=self.name,
                     metric_name="memory_percent",
                     display_name=f"{self.config.name} Memory %",
                     device=device,
@@ -182,7 +189,8 @@ class ContainerCollector(Collector):
                     icon="mdi:memory",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="docker",
+                source_name=self.name,
                     metric_name="memory_limit",
                     display_name=f"{self.config.name} Memory Limit",
                     device=device,
@@ -198,7 +206,8 @@ class ContainerCollector(Collector):
         if self.config.network:
             sensors.extend([
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="docker",
+                source_name=self.name,
                     metric_name="network_rx",
                     display_name=f"{self.config.name} Network RX",
                     device=device,
@@ -209,7 +218,8 @@ class ContainerCollector(Collector):
                     icon="mdi:download",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="docker",
+                source_name=self.name,
                     metric_name="network_tx",
                     display_name=f"{self.config.name} Network TX",
                     device=device,
@@ -224,7 +234,8 @@ class ContainerCollector(Collector):
         if self.config.disk:
             sensors.extend([
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="docker",
+                source_name=self.name,
                     metric_name="disk_read",
                     display_name=f"{self.config.name} Disk Read",
                     device=device,
@@ -235,7 +246,8 @@ class ContainerCollector(Collector):
                     icon="mdi:harddisk",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="docker",
+                source_name=self.name,
                     metric_name="disk_write",
                     display_name=f"{self.config.name} Disk Write",
                     device=device,
@@ -249,7 +261,8 @@ class ContainerCollector(Collector):
         
         if self.config.uptime:
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="docker",
+                source_name=self.name,
                 metric_name="uptime",
                 display_name=f"{self.config.name} Uptime",
                 device=device,
@@ -262,7 +275,8 @@ class ContainerCollector(Collector):
         
         # PIDs count
         sensors.append(create_sensor(
-            source_id=self.collector_id,
+            source_type="docker",
+                source_name=self.name,
             metric_name="pids",
             display_name=f"{self.config.name} Processes",
             device=device,

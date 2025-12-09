@@ -75,6 +75,9 @@ class Collector(ABC):
     Collectors can be enabled/disabled and have configurable intervals.
     """
     
+    # Source type for topic structure (override in subclasses)
+    SOURCE_TYPE: str = "unknown"
+    
     def __init__(
         self,
         name: str,
@@ -102,6 +105,21 @@ class Collector(ABC):
         self._initialized = False
         self._last_result: CollectorResult | None = None
         self._availability = SensorState.UNKNOWN
+    
+    def sensor_id(self, metric: str) -> str:
+        """
+        Generate sensor unique_id for a metric.
+        
+        Format: {source_type}_{name}_{metric}
+        Example: system_main_cpu_percent
+        
+        Args:
+            metric: Metric name (cpu_percent, memory_used, etc.)
+        
+        Returns:
+            Unique sensor ID matching create_sensor() format
+        """
+        return f"{self.SOURCE_TYPE}_{self.name}_{metric}"
     
     @staticmethod
     def _sanitize_id(value: str) -> str:
@@ -178,10 +196,24 @@ class Collector(ABC):
         return self._availability
     
     def get_sensor(self, sensor_id: str) -> Sensor | None:
-        """Get sensor by ID."""
+        """
+        Get sensor by ID.
+        
+        Supports both full unique_id (type_name_metric) and legacy format (collector_id_metric).
+        """
         for sensor in self._sensors:
             if sensor.unique_id == sensor_id:
                 return sensor
+        
+        # Try matching by metric suffix (for backwards compatibility during migration)
+        # If sensor_id is "collector_id_metric", try to find "type_name_metric"
+        if "_" in sensor_id:
+            metric_name = sensor_id.split("_", 1)[-1] if sensor_id.startswith(self.collector_id) else sensor_id
+            expected_id = self.sensor_id(metric_name)
+            for sensor in self._sensors:
+                if sensor.unique_id == expected_id:
+                    return sensor
+        
         return None
     
     async def safe_collect(self) -> CollectorResult:

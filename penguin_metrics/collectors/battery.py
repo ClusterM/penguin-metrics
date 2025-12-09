@@ -97,6 +97,8 @@ class BatteryCollector(Collector):
     Reads battery status from /sys/class/power_supply.
     """
     
+    SOURCE_TYPE = "battery"
+    
     def __init__(
         self,
         config: BatteryConfig,

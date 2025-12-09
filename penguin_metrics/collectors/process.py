@@ -99,6 +99,8 @@ class ProcessCollector(MultiSourceCollector):
     Supports aggregation for multiple matching processes.
     """
     
+    SOURCE_TYPE = "process"
+    
     def __init__(
         self,
         config: ProcessConfig,
@@ -144,11 +146,11 @@ class ProcessCollector(MultiSourceCollector):
         """Create sensors based on configuration."""
         sensors = []
         device = self.device
-        prefix = self.config.sensor_prefix or self.collector_id
         
         # Process state sensor
         sensors.append(create_sensor(
-            source_id=prefix,
+            source_type="process",
+            source_name=self.name,
             metric_name="state",
             display_name=f"{self.config.name} State",
             device=device,
@@ -159,7 +161,8 @@ class ProcessCollector(MultiSourceCollector):
         # Process count (for aggregate mode)
         if self.config.aggregate:
             sensors.append(create_sensor(
-                source_id=prefix,
+                source_type="process",
+            source_name=self.name,
                 metric_name="count",
                 display_name=f"{self.config.name} Process Count",
                 device=device,
@@ -170,7 +173,8 @@ class ProcessCollector(MultiSourceCollector):
         
         if self.config.cpu:
             sensors.append(create_sensor(
-                source_id=prefix,
+                source_type="process",
+            source_name=self.name,
                 metric_name="cpu_percent",
                 display_name=f"{self.config.name} CPU Usage",
                 device=device,
@@ -183,7 +187,8 @@ class ProcessCollector(MultiSourceCollector):
         if self.config.memory:
             sensors.extend([
                 create_sensor(
-                    source_id=prefix,
+                    source_type="process",
+            source_name=self.name,
                     metric_name="memory_rss",
                     display_name=f"{self.config.name} Memory RSS",
                     device=device,
@@ -194,7 +199,8 @@ class ProcessCollector(MultiSourceCollector):
                     icon="mdi:memory",
                 ),
                 create_sensor(
-                    source_id=prefix,
+                    source_type="process",
+            source_name=self.name,
                     metric_name="memory_percent",
                     display_name=f"{self.config.name} Memory Usage",
                     device=device,
@@ -208,7 +214,8 @@ class ProcessCollector(MultiSourceCollector):
         if self.use_smaps:
             sensors.extend([
                 create_sensor(
-                    source_id=prefix,
+                    source_type="process",
+            source_name=self.name,
                     metric_name="memory_pss",
                     display_name=f"{self.config.name} Memory PSS",
                     device=device,
@@ -219,7 +226,8 @@ class ProcessCollector(MultiSourceCollector):
                     icon="mdi:memory",
                 ),
                 create_sensor(
-                    source_id=prefix,
+                    source_type="process",
+            source_name=self.name,
                     metric_name="memory_uss",
                     display_name=f"{self.config.name} Memory USS",
                     device=device,
@@ -234,7 +242,8 @@ class ProcessCollector(MultiSourceCollector):
         if self.config.io:
             sensors.extend([
                 create_sensor(
-                    source_id=prefix,
+                    source_type="process",
+            source_name=self.name,
                     metric_name="io_read",
                     display_name=f"{self.config.name} I/O Read",
                     device=device,
@@ -245,7 +254,8 @@ class ProcessCollector(MultiSourceCollector):
                     icon="mdi:harddisk",
                 ),
                 create_sensor(
-                    source_id=prefix,
+                    source_type="process",
+            source_name=self.name,
                     metric_name="io_write",
                     display_name=f"{self.config.name} I/O Write",
                     device=device,
@@ -259,7 +269,8 @@ class ProcessCollector(MultiSourceCollector):
         
         if self.config.fds:
             sensors.append(create_sensor(
-                source_id=prefix,
+                source_type="process",
+            source_name=self.name,
                 metric_name="num_fds",
                 display_name=f"{self.config.name} Open Files",
                 device=device,
@@ -270,7 +281,8 @@ class ProcessCollector(MultiSourceCollector):
         
         if self.config.threads:
             sensors.append(create_sensor(
-                source_id=prefix,
+                source_type="process",
+            source_name=self.name,
                 metric_name="num_threads",
                 display_name=f"{self.config.name} Threads",
                 device=device,

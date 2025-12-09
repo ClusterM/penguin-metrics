@@ -25,6 +25,8 @@ class SystemCollector(Collector):
     Uses psutil to gather CPU, memory, swap, load, and uptime information.
     """
     
+    SOURCE_TYPE = "system"
+    
     def __init__(
         self,
         config: SystemConfig,
@@ -73,7 +75,8 @@ class SystemCollector(Collector):
         
         if self.config.cpu:
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="system",
+                source_name=self.name,
                 metric_name="cpu_percent",
                 display_name="CPU Usage",
                 device=device,
@@ -89,7 +92,8 @@ class SystemCollector(Collector):
             if cpu_count:
                 for i in range(cpu_count):
                     sensors.append(create_sensor(
-                        source_id=self.collector_id,
+                        source_type="system",
+                source_name=self.name,
                         metric_name=f"cpu{i}_percent",
                         display_name=f"CPU Core {i} Usage",
                         device=device,
@@ -103,7 +107,8 @@ class SystemCollector(Collector):
         if self.config.memory:
             sensors.extend([
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="system",
+                source_name=self.name,
                     metric_name="memory_percent",
                     display_name="Memory Usage",
                     device=device,
@@ -113,7 +118,8 @@ class SystemCollector(Collector):
                     icon="mdi:memory",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="system",
+                source_name=self.name,
                     metric_name="memory_used",
                     display_name="Memory Used",
                     device=device,
@@ -124,7 +130,8 @@ class SystemCollector(Collector):
                     icon="mdi:memory",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="system",
+                source_name=self.name,
                     metric_name="memory_available",
                     display_name="Memory Available",
                     device=device,
@@ -136,7 +143,8 @@ class SystemCollector(Collector):
                     enabled_by_default=False,
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="system",
+                source_name=self.name,
                     metric_name="memory_total",
                     display_name="Memory Total",
                     device=device,
@@ -152,7 +160,8 @@ class SystemCollector(Collector):
         if self.config.swap:
             sensors.extend([
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="system",
+                source_name=self.name,
                     metric_name="swap_percent",
                     display_name="Swap Usage",
                     device=device,
@@ -162,7 +171,8 @@ class SystemCollector(Collector):
                     icon="mdi:harddisk",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="system",
+                source_name=self.name,
                     metric_name="swap_used",
                     display_name="Swap Used",
                     device=device,
@@ -178,7 +188,8 @@ class SystemCollector(Collector):
         if self.config.load:
             sensors.extend([
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="system",
+                source_name=self.name,
                     metric_name="load_1m",
                     display_name="Load Average (1m)",
                     device=device,
@@ -187,7 +198,8 @@ class SystemCollector(Collector):
                     icon="mdi:gauge",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="system",
+                source_name=self.name,
                     metric_name="load_5m",
                     display_name="Load Average (5m)",
                     device=device,
@@ -197,7 +209,8 @@ class SystemCollector(Collector):
                     enabled_by_default=False,
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="system",
+                source_name=self.name,
                     metric_name="load_15m",
                     display_name="Load Average (15m)",
                     device=device,
@@ -210,7 +223,8 @@ class SystemCollector(Collector):
         
         if self.config.uptime:
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="system",
+                source_name=self.name,
                 metric_name="uptime",
                 display_name="Uptime",
                 device=device,
@@ -230,34 +244,34 @@ class SystemCollector(Collector):
         # CPU usage
         if self.config.cpu:
             cpu_percent = psutil.cpu_percent(interval=None)
-            result.add_metric(f"{self.collector_id}_cpu_percent", cpu_percent)
+            result.add_metric(self.sensor_id("cpu_percent"), cpu_percent)
         
         if self.config.cpu_per_core:
             per_cpu = psutil.cpu_percent(interval=None, percpu=True)
             for i, percent in enumerate(per_cpu):
-                result.add_metric(f"{self.collector_id}_cpu{i}_percent", percent)
+                result.add_metric(self.sensor_id(f"cpu{i}_percent"), percent)
         
         # Memory
         if self.config.memory:
             mem = psutil.virtual_memory()
-            result.add_metric(f"{self.collector_id}_memory_percent", mem.percent)
-            result.add_metric(f"{self.collector_id}_memory_used", round(mem.used / (1024 * 1024), 1))
-            result.add_metric(f"{self.collector_id}_memory_available", round(mem.available / (1024 * 1024), 1))
-            result.add_metric(f"{self.collector_id}_memory_total", round(mem.total / (1024 * 1024), 1))
+            result.add_metric(self.sensor_id("memory_percent"), mem.percent)
+            result.add_metric(self.sensor_id("memory_used"), round(mem.used / (1024 * 1024), 1))
+            result.add_metric(self.sensor_id("memory_available"), round(mem.available / (1024 * 1024), 1))
+            result.add_metric(self.sensor_id("memory_total"), round(mem.total / (1024 * 1024), 1))
         
         # Swap
         if self.config.swap:
             swap = psutil.swap_memory()
-            result.add_metric(f"{self.collector_id}_swap_percent", swap.percent)
-            result.add_metric(f"{self.collector_id}_swap_used", round(swap.used / (1024 * 1024), 1))
+            result.add_metric(self.sensor_id("swap_percent"), swap.percent)
+            result.add_metric(self.sensor_id("swap_used"), round(swap.used / (1024 * 1024), 1))
         
         # Load average
         if self.config.load:
             try:
                 load1, load5, load15 = psutil.getloadavg()
-                result.add_metric(f"{self.collector_id}_load_1m", round(load1, 2))
-                result.add_metric(f"{self.collector_id}_load_5m", round(load5, 2))
-                result.add_metric(f"{self.collector_id}_load_15m", round(load15, 2))
+                result.add_metric(self.sensor_id("load_1m"), round(load1, 2))
+                result.add_metric(self.sensor_id("load_5m"), round(load5, 2))
+                result.add_metric(self.sensor_id("load_15m"), round(load15, 2))
             except (OSError, AttributeError):
                 # Not available on all platforms
                 pass
@@ -266,7 +280,7 @@ class SystemCollector(Collector):
         if self.config.uptime:
             boot_time = psutil.boot_time()
             uptime_seconds = int(datetime.now().timestamp() - boot_time)
-            result.add_metric(f"{self.collector_id}_uptime", uptime_seconds)
+            result.add_metric(self.sensor_id("uptime"), uptime_seconds)
         
         return result
 

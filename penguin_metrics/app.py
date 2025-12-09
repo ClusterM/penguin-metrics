@@ -174,7 +174,7 @@ class Application:
                             await self.ha.publish_sensor_state(sensor)
                 else:
                     # Source not found - publish state as unavailable
-                    state_sensor = collector.get_sensor(f"{collector.collector_id}_state")
+                    state_sensor = collector.get_sensor(collector.sensor_id("state"))
                     if state_sensor:
                         state_sensor.state = "not_found"
                         await self.ha.publish_sensor_state(state_sensor)

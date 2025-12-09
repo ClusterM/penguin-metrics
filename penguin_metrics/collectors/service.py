@@ -150,6 +150,8 @@ async def list_units(pattern: str = "*.service") -> list[str]:
 
 
 class ServiceCollector(Collector):
+    
+    SOURCE_TYPE = "service"
     """
     Collector for systemd service metrics.
     
@@ -225,7 +227,8 @@ class ServiceCollector(Collector):
         
         if self.config.state:
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="service",
+                source_name=self.name,
                 metric_name="state",
                 display_name=f"{self.config.name} State",
                 device=device,
@@ -235,7 +238,8 @@ class ServiceCollector(Collector):
         
         if self.config.restart_count:
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="service",
+                source_name=self.name,
                 metric_name="restarts",
                 display_name=f"{self.config.name} Restart Count",
                 device=device,
@@ -246,7 +250,8 @@ class ServiceCollector(Collector):
         
         if self.config.cpu:
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="service",
+                source_name=self.name,
                 metric_name="cpu_usage",
                 display_name=f"{self.config.name} CPU Time",
                 device=device,
@@ -260,7 +265,8 @@ class ServiceCollector(Collector):
         if self.config.memory:
             sensors.extend([
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="service",
+                source_name=self.name,
                     metric_name="memory",
                     display_name=f"{self.config.name} Memory",
                     device=device,
@@ -271,7 +277,8 @@ class ServiceCollector(Collector):
                     icon="mdi:memory",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="service",
+                source_name=self.name,
                     metric_name="memory_cache",
                     display_name=f"{self.config.name} Cache",
                     device=device,
@@ -287,7 +294,8 @@ class ServiceCollector(Collector):
         if self.use_smaps:
             sensors.extend([
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="service",
+                source_name=self.name,
                     metric_name="memory_pss",
                     display_name=f"{self.config.name} Memory PSS",
                     device=device,
@@ -298,7 +306,8 @@ class ServiceCollector(Collector):
                     icon="mdi:memory",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type="service",
+                source_name=self.name,
                     metric_name="memory_uss",
                     display_name=f"{self.config.name} Memory USS",
                     device=device,
@@ -312,7 +321,8 @@ class ServiceCollector(Collector):
         
         # Process count
         sensors.append(create_sensor(
-            source_id=self.collector_id,
+            source_type="service",
+                source_name=self.name,
             metric_name="processes",
             display_name=f"{self.config.name} Processes",
             device=device,

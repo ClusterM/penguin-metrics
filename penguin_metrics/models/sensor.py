@@ -230,7 +230,8 @@ class Sensor:
 
 
 def create_sensor(
-    source_id: str,
+    source_type: str,
+    source_name: str,
     metric_name: str,
     display_name: str,
     device: Device | None = None,
@@ -246,8 +247,9 @@ def create_sensor(
     Factory function to create a sensor for a metric.
     
     Args:
-        source_id: ID of the source (system, process name, etc.)
-        metric_name: Name of the metric (cpu_percent, memory_used, etc.)
+        source_type: Type of source (system, temperature, process, docker, service, battery, custom, gpu)
+        source_name: Name of the source (main, nginx, homeassistant, etc.)
+        metric_name: Name of the metric (cpu, memory, temp, etc.)
         display_name: Human-readable name for HA
         device: Associated device
         topic_prefix: Base topic prefix
@@ -260,9 +262,12 @@ def create_sensor(
     
     Returns:
         Configured Sensor instance
+    
+    Topic structure: {prefix}/{type}/{name}/{metric}
+    Example: penguin_metrics/temperature/soc/temp
     """
-    unique_id = f"{source_id}_{metric_name}"
-    state_topic = f"{topic_prefix}/{source_id}/{metric_name}"
+    unique_id = f"{source_type}_{source_name}_{metric_name}"
+    state_topic = f"{topic_prefix}/{source_type}/{source_name}/{metric_name}"
     
     # Use global availability topic (single LWT for entire service)
     if availability_topic is None:

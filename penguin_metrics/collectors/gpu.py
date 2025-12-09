@@ -196,6 +196,8 @@ def get_drm_metrics(device: GPUDevice) -> dict[str, float | int | str]:
 
 
 class GPUCollector(Collector):
+    
+    SOURCE_TYPE = "gpu"
     """
     Collector for GPU metrics.
     
@@ -261,7 +263,8 @@ class GPUCollector(Collector):
             gpu_id = gpu.name.replace(".", "_").replace("-", "_")
             
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="gpu",
+                source_name=self.name,
                 metric_name=f"{gpu_id}_frequency",
                 display_name=f"GPU {gpu.name} Frequency",
                 device=device,
@@ -274,7 +277,8 @@ class GPUCollector(Collector):
             
             # Temperature sensor if available
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="gpu",
+                source_name=self.name,
                 metric_name=f"{gpu_id}_temperature",
                 display_name=f"GPU {gpu.name} Temperature",
                 device=device,
@@ -288,7 +292,8 @@ class GPUCollector(Collector):
             
             # Utilization if available
             sensors.append(create_sensor(
-                source_id=self.collector_id,
+                source_type="gpu",
+                source_name=self.name,
                 metric_name=f"{gpu_id}_utilization",
                 display_name=f"GPU {gpu.name} Utilization",
                 device=device,
