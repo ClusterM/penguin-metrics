@@ -287,10 +287,10 @@ class Application:
                 continue
             
             from .config.schema import ContainerConfig, ContainerMatchConfig, ContainerMatchType
-            config = ContainerConfig(
+            config = ContainerConfig.from_defaults(
                 name=name,
                 match=ContainerMatchConfig(type=ContainerMatchType.NAME, value=name),
-                update_interval=self.config.defaults.update_interval,
+                defaults=self.config.defaults,
             )
             collectors.append(ContainerCollector(
                 config=config,
@@ -356,10 +356,10 @@ class Application:
                     continue
                 
                 from .config.schema import ServiceConfig, ServiceMatchConfig, ServiceMatchType
-                config = ServiceConfig(
+                config = ServiceConfig.from_defaults(
                     name=name,
                     match=ServiceMatchConfig(type=ServiceMatchType.UNIT, value=unit_name),
-                    update_interval=self.config.defaults.update_interval,
+                    defaults=self.config.defaults,
                 )
                 collectors.append(ServiceCollector(
                     config=config,
@@ -411,10 +411,10 @@ class Application:
                     collector_name = f"{name}_{proc.info['pid']}"
                     
                     from .config.schema import ProcessConfig, ProcessMatchConfig, ProcessMatchType
-                    config = ProcessConfig(
+                    config = ProcessConfig.from_defaults(
                         name=collector_name,
                         match=ProcessMatchConfig(type=ProcessMatchType.PID, value=str(proc.info['pid'])),
-                        update_interval=self.config.defaults.update_interval,
+                        defaults=self.config.defaults,
                     )
                     collectors.append(ProcessCollector(
                         config=config,

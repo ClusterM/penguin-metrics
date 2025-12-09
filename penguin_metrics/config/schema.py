@@ -597,6 +597,23 @@ class ProcessConfig:
         if self.smaps is not None:
             return self.smaps
         return defaults.smaps
+    
+    @classmethod
+    def from_defaults(cls, name: str, match: "ProcessMatchConfig", defaults: DefaultsConfig) -> "ProcessConfig":
+        """Create ProcessConfig from defaults (for auto-discovery)."""
+        pd = defaults.process
+        return cls(
+            name=name,
+            match=match,
+            cpu=pd.cpu,
+            memory=pd.memory,
+            smaps=pd.smaps,
+            io=pd.io,
+            fds=pd.fds,
+            threads=pd.threads,
+            aggregate=pd.aggregate,
+            update_interval=defaults.update_interval,
+        )
 
 
 @dataclass
@@ -688,6 +705,21 @@ class ServiceConfig:
         if self.smaps is not None:
             return self.smaps
         return defaults.smaps
+    
+    @classmethod
+    def from_defaults(cls, name: str, match: "ServiceMatchConfig", defaults: DefaultsConfig) -> "ServiceConfig":
+        """Create ServiceConfig from defaults (for auto-discovery)."""
+        svd = defaults.service
+        return cls(
+            name=name,
+            match=match,
+            cpu=svd.cpu,
+            memory=svd.memory,
+            smaps=svd.smaps,
+            state=svd.state,
+            restart_count=svd.restart_count,
+            update_interval=defaults.update_interval,
+        )
 
 
 @dataclass
@@ -771,6 +803,23 @@ class ContainerConfig:
             health=get_bool("health", cd.health),
             uptime=get_bool("uptime", cd.uptime),
             update_interval=float(interval) if interval else None,
+        )
+    
+    @classmethod
+    def from_defaults(cls, name: str, match: "ContainerMatchConfig", defaults: DefaultsConfig) -> "ContainerConfig":
+        """Create ContainerConfig from defaults (for auto-discovery)."""
+        cd = defaults.container
+        return cls(
+            name=name,
+            match=match,
+            cpu=cd.cpu,
+            memory=cd.memory,
+            network=cd.network,
+            disk=cd.disk,
+            state=cd.state,
+            health=cd.health,
+            uptime=cd.uptime,
+            update_interval=defaults.update_interval,
         )
 
 
