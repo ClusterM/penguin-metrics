@@ -5,14 +5,16 @@ Linux system telemetry service for Home Assistant via MQTT.
 ## Features
 
 - **System Metrics**: CPU, RAM, swap, load average, uptime
-- **Temperature**: Thermal zones from `/sys/class/thermal/`
+- **Temperature**: Thermal zones and hwmon sensors (auto-discovery supported)
 - **Process Monitoring**: By name, regex pattern, PID, or pidfile
 - **Memory Details**: PSS/USS via `/proc/PID/smaps` (requires root)
-- **Systemd Services**: State, CPU, memory via cgroups
-- **Docker Containers**: CPU, memory, network, disk I/O
-- **Battery**: Capacity, status, voltage, current, health
+- **Systemd Services**: State, CPU, memory via cgroups (auto-discovery with filter)
+- **Docker Containers**: CPU, memory, network, disk I/O (auto-discovery supported)
+- **Battery**: Capacity, status, voltage, current, health (auto-discovery supported)
 - **Custom Sensors**: Run shell commands or scripts
 - **GPU**: Basic metrics via sysfs (frequency, temperature)
+- **Auto-Discovery**: Automatic sensor detection with filter/exclude patterns
+- **Stale Sensor Cleanup**: Removed sensors are cleaned from Home Assistant
 
 ## Requirements
 
@@ -334,6 +336,77 @@ process "nginx" {
 process "low-priority" {
     match name "background-task";
     smaps off;
+}
+```
+
+### Auto-Discovery
+
+Penguin Metrics can automatically discover sensors, batteries, containers, and services.
+Use **plural** block names for auto-discovery:
+
+```nginx
+# Auto-discover all temperature sensors
+temperatures {
+    auto on;
+}
+
+# Auto-discover batteries
+batteries {
+    auto on;
+}
+
+# Auto-discover running Docker containers (with filter)
+containers {
+    auto on;
+    filter "myapp-*";
+}
+
+# Auto-discover systemd services (filter REQUIRED)
+services {
+    auto on;
+    filter "docker*";
+}
+```
+
+**Multiple filters and excludes:**
+
+```nginx
+temperatures {
+    auto on;
+    filter "nvme_*";       # Include NVMe sensors
+    filter "soc_*";        # Include SoC sensors
+    filter "gpu_*";        # Include GPU sensors
+    exclude "internal*";   # Exclude internal sensors
+    exclude "test*";       # Exclude test sensors
+}
+```
+
+**Logic:**
+- If **any exclude** pattern matches → excluded
+- If filters defined and **any matches** → included
+- If no filters → include all (except excluded)
+
+**Manual definitions override auto-discovered:**
+
+```nginx
+# This overrides the auto-discovered "soc-thermal"
+temperature "soc-thermal" {
+    warning 70;
+    critical 85;
+}
+```
+
+**Stale sensor cleanup:**
+
+When a sensor disappears (e.g., NVMe removed), it will be automatically removed
+from Home Assistant on the next Penguin Metrics restart. State is stored in:
+- Primary: `/var/lib/penguin-metrics/registered_sensors.json`
+- Fallback: `~/.penguin-metrics/registered_sensors.json`
+
+Custom location:
+```nginx
+homeassistant {
+    state_file "/custom/path/sensors.json";
 }
 ```
 
