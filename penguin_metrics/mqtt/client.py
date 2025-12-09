@@ -10,15 +10,15 @@ Features:
 
 import asyncio
 import json
-from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any
 
 import aiomqtt
 
 from ..config.schema import MQTTConfig
 from ..logging import get_logger
-
 
 logger = get_logger("mqtt.client")
 
@@ -26,11 +26,11 @@ logger = get_logger("mqtt.client")
 class MQTTClient:
     """
     Async MQTT client wrapper with reconnection support.
-    
+
     Uses aiomqtt for async MQTT communication with automatic
     reconnection on connection loss.
     """
-    
+
     def __init__(
         self,
         config: MQTTConfig,
@@ -38,40 +38,42 @@ class MQTTClient:
     ):
         """
         Initialize MQTT client.
-        
+
         Args:
             config: MQTT configuration
             availability_topic: Topic for availability messages (LWT)
         """
         self.config = config
         self.availability_topic = availability_topic or f"{config.topic_prefix}/status"
-        
+
         # Connection state
         self._client: aiomqtt.Client | None = None
         self._connected = False
         self._reconnect_interval = 5.0
         self._max_reconnect_interval = 60.0
-        
+
         # Client ID
         self._client_id = config.client_id or f"penguin_metrics_{uuid.uuid4().hex[:8]}"
-        
+
         # Message queue for offline buffering (large enough for many collectors)
-        self._message_queue: asyncio.Queue[tuple[str, str, int, bool]] = asyncio.Queue(maxsize=10000)
-        
+        self._message_queue: asyncio.Queue[tuple[str, str, int, bool]] = asyncio.Queue(
+            maxsize=10000
+        )
+
         # Background tasks
         self._publisher_task: asyncio.Task | None = None
         self._running = False
-    
+
     @property
     def connected(self) -> bool:
         """Check if client is connected."""
         return self._connected
-    
+
     @property
     def topic_prefix(self) -> str:
         """Get configured topic prefix."""
         return self.config.topic_prefix
-    
+
     def _create_client(self) -> aiomqtt.Client:
         """Create a new aiomqtt client instance."""
         # Build will message for availability (LWT)
@@ -81,7 +83,7 @@ class MQTTClient:
             qos=1,
             retain=self.config.should_retain(),
         )
-        
+
         return aiomqtt.Client(
             hostname=self.config.host,
             port=self.config.port,
@@ -91,21 +93,21 @@ class MQTTClient:
             keepalive=self.config.keepalive,
             will=will,
         )
-    
+
     async def connect(self) -> None:
         """
         Connect to MQTT broker.
-        
+
         Raises:
             aiomqtt.MqttError: If connection fails
         """
         logger.debug(f"Connecting to MQTT broker {self.config.host}:{self.config.port}")
         logger.debug(f"Client ID: {self._client_id}")
-        
+
         self._client = self._create_client()
         await self._client.__aenter__()
         self._connected = True
-        
+
         # Publish online status
         await self._publish_raw(
             self.availability_topic,
@@ -113,10 +115,10 @@ class MQTTClient:
             qos=1,
             retain=self.config.should_retain(),
         )
-        
+
         logger.info(f"Connected to MQTT broker at {self.config.host}:{self.config.port}")
         logger.debug(f"Availability topic: {self.availability_topic}")
-    
+
     async def disconnect(self) -> None:
         """Disconnect from MQTT broker."""
         if self._client and self._connected:
@@ -130,16 +132,16 @@ class MQTTClient:
                 )
             except Exception:
                 pass
-            
+
             try:
                 await self._client.__aexit__(None, None, None)
             except Exception:
                 pass
-            
+
             self._connected = False
             self._client = None
             logger.info("Disconnected from MQTT broker")
-    
+
     async def _publish_raw(
         self,
         topic: str,
@@ -149,9 +151,11 @@ class MQTTClient:
     ) -> None:
         """Publish a message directly (internal use)."""
         if self._client and self._connected:
-            logger.debug(f"Publishing to {topic}: {payload[:100]}{'...' if len(payload) > 100 else ''}")
+            logger.debug(
+                f"Publishing to {topic}: {payload[:100]}{'...' if len(payload) > 100 else ''}"
+            )
             await self._client.publish(topic, payload, qos=qos, retain=retain)
-    
+
     async def publish(
         self,
         topic: str,
@@ -162,7 +166,7 @@ class MQTTClient:
     ) -> None:
         """
         Publish a message to a topic.
-        
+
         Args:
             topic: MQTT topic
             payload: Message payload (will be JSON encoded if not string)
@@ -172,14 +176,14 @@ class MQTTClient:
         """
         if qos is None:
             qos = self.config.qos
-        
+
         # Determine retain based on mode if not explicitly set
         if retain is None:
             if is_status:
                 retain = self.config.should_retain_status()
             else:
                 retain = self.config.should_retain()
-        
+
         # Convert payload to string
         if isinstance(payload, str):
             payload_str = payload
@@ -189,16 +193,16 @@ class MQTTClient:
             payload_str = "true" if payload else "false"
         else:
             payload_str = json.dumps(payload)
-        
+
         # Add to queue (wait if full, with timeout)
         try:
             await asyncio.wait_for(
                 self._message_queue.put((topic, payload_str, qos, retain)),
                 timeout=5.0,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"Message queue full for 5s, dropping message to {topic}")
-    
+
     async def publish_data(
         self,
         topic: str,
@@ -207,14 +211,14 @@ class MQTTClient:
     ) -> None:
         """
         Publish data (respects retain mode for data).
-        
+
         Args:
             topic: MQTT topic
             payload: Message payload
             qos: QoS level
         """
         await self.publish(topic, payload, qos, is_status=False)
-    
+
     async def publish_status(
         self,
         topic: str,
@@ -223,14 +227,14 @@ class MQTTClient:
     ) -> None:
         """
         Publish status/availability (respects retain mode for status).
-        
+
         Args:
-            topic: MQTT topic  
+            topic: MQTT topic
             payload: Status payload (online/offline)
             qos: QoS level
         """
         await self.publish(topic, payload, qos, is_status=True)
-    
+
     async def publish_json(
         self,
         topic: str,
@@ -240,7 +244,7 @@ class MQTTClient:
     ) -> None:
         """
         Publish a JSON message to a topic.
-        
+
         Args:
             topic: MQTT topic
             data: Dictionary to encode as JSON
@@ -248,11 +252,11 @@ class MQTTClient:
             retain: Retain flag
         """
         await self.publish(topic, data, qos, retain)
-    
+
     async def _publisher_loop(self) -> None:
         """Background task to publish queued messages."""
         reconnect_interval = self._reconnect_interval
-        
+
         while self._running:
             try:
                 if not self._connected:
@@ -267,7 +271,7 @@ class MQTTClient:
                             self._max_reconnect_interval,
                         )
                         continue
-                
+
                 # Process messages from queue
                 try:
                     topic, payload, qos, retain = await asyncio.wait_for(
@@ -275,7 +279,7 @@ class MQTTClient:
                         timeout=1.0,
                     )
                     await self._publish_raw(topic, payload, qos, retain)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
                 except aiomqtt.MqttError as e:
                     logger.error(f"MQTT error: {e}")
@@ -285,32 +289,32 @@ class MQTTClient:
                         self._message_queue.put_nowait((topic, payload, qos, retain))
                     except asyncio.QueueFull:
                         pass
-            
+
             except Exception as e:
                 logger.error(f"Publisher loop error: {e}")
                 self._connected = False
                 await asyncio.sleep(1.0)
-    
+
     async def start(self) -> None:
         """Start the MQTT client background tasks."""
         self._running = True
         self._publisher_task = asyncio.create_task(self._publisher_loop())
         logger.info("MQTT client started")
-    
+
     async def stop(self) -> None:
         """Stop the MQTT client."""
         self._running = False
-        
+
         if self._publisher_task:
             self._publisher_task.cancel()
             try:
                 await self._publisher_task
             except asyncio.CancelledError:
                 pass
-        
+
         await self.disconnect()
         logger.info("MQTT client stopped")
-    
+
     @asynccontextmanager
     async def session(self) -> AsyncIterator["MQTTClient"]:
         """Context manager for MQTT session."""
@@ -319,14 +323,14 @@ class MQTTClient:
             yield self
         finally:
             await self.stop()
-    
+
     async def wait_connected(self, timeout: float = 30.0) -> bool:
         """
         Wait for connection to be established.
-        
+
         Args:
             timeout: Maximum time to wait in seconds
-        
+
         Returns:
             True if connected, False if timeout
         """
@@ -336,4 +340,3 @@ class MQTTClient:
                 return False
             await asyncio.sleep(0.1)
         return True
-

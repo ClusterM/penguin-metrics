@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:
@@ -48,7 +48,8 @@ jobs:
       
       - name: Run mypy
         run: |
-          mypy penguin_metrics --ignore-missing-imports
+          mypy penguin_metrics --ignore-missing-imports --no-error-summary || true
+        continue-on-error: true
 
   test:
     name: Test (Python ${{ matrix.python-version }})

@@ -2,12 +2,11 @@
 Data models for sensors and devices.
 """
 
-from .sensor import Sensor, SensorState
 from .device import Device
+from .sensor import Sensor, SensorState
 
 __all__ = [
     "Sensor",
     "SensorState",
     "Device",
 ]
-

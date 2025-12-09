@@ -1,4 +1,3 @@
 """
 Tests for Penguin Metrics.
 """
-

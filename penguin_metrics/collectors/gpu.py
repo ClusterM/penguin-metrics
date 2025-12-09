@@ -14,14 +14,15 @@ basic metrics where available through standard interfaces.
 from pathlib import Path
 from typing import NamedTuple
 
-from .base import Collector, CollectorResult
+from ..config.schema import DefaultsConfig, SystemConfig
 from ..models.device import Device
-from ..models.sensor import Sensor, DeviceClass, StateClass, create_sensor
-from ..config.schema import SystemConfig, DefaultsConfig
+from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
+from .base import Collector, CollectorResult
 
 
 class GPUDevice(NamedTuple):
     """GPU device information."""
+
     name: str
     path: Path
     type: str  # drm, devfreq, hwmon
@@ -49,57 +50,61 @@ def _read_int(path: Path, default: int = 0) -> int:
 def discover_gpu_devices() -> list[GPUDevice]:
     """
     Discover available GPU devices from sysfs.
-    
+
     Returns:
         List of GPUDevice tuples
     """
     devices = []
-    
+
     # Check devfreq for ARM GPUs (Rockchip, Mali, etc.)
     devfreq = Path("/sys/class/devfreq")
     if devfreq.exists():
         for entry in devfreq.iterdir():
             name = entry.name.lower()
             if "gpu" in name or "mali" in name:
-                devices.append(GPUDevice(
-                    name=entry.name,
-                    path=entry,
-                    type="devfreq",
-                ))
-    
+                devices.append(
+                    GPUDevice(
+                        name=entry.name,
+                        path=entry,
+                        type="devfreq",
+                    )
+                )
+
     # Check DRM subsystem
     drm = Path("/sys/class/drm")
     if drm.exists():
         for entry in drm.iterdir():
-            if entry.name.startswith("card") and not "-" in entry.name:
+            if entry.name.startswith("card") and "-" not in entry.name:
                 # This is a GPU card, not a connector
-                devices.append(GPUDevice(
-                    name=entry.name,
-                    path=entry,
-                    type="drm",
-                ))
-    
+                devices.append(
+                    GPUDevice(
+                        name=entry.name,
+                        path=entry,
+                        type="drm",
+                    )
+                )
+
     return devices
 
 
 def get_devfreq_metrics(device: GPUDevice) -> dict[str, float | int | str]:
     """
     Get metrics from a devfreq device.
-    
+
     Args:
         device: GPUDevice with type="devfreq"
-    
+
     Returns:
         Dictionary of metrics
     """
     metrics = {}
     path = device.path
-    
+
     # Current frequency (Hz -> MHz)
     cur_freq = _read_int(path / "cur_freq")
     if cur_freq > 0:
         metrics["frequency"] = cur_freq // 1_000_000
-    
+
     # Min/max frequency
     min_freq = _read_int(path / "min_freq")
     max_freq = _read_int(path / "max_freq")
@@ -107,18 +112,18 @@ def get_devfreq_metrics(device: GPUDevice) -> dict[str, float | int | str]:
         metrics["frequency_min"] = min_freq // 1_000_000
     if max_freq > 0:
         metrics["frequency_max"] = max_freq // 1_000_000
-    
+
     # Governor
     governor = _read_file(path / "governor")
     if governor:
         metrics["governor"] = governor
-    
+
     # Load/utilization (some devfreq drivers provide this)
     load_path = path / "load"
     if load_path.exists():
         load = _read_int(load_path)
         metrics["utilization"] = load
-    
+
     # Trans stats for utilization estimation
     trans_stat = path / "trans_stat"
     if trans_stat.exists():
@@ -132,28 +137,28 @@ def get_devfreq_metrics(device: GPUDevice) -> dict[str, float | int | str]:
                         metrics["transitions"] = int(parts[-1])
                     except ValueError:
                         pass
-    
+
     return metrics
 
 
 def get_drm_metrics(device: GPUDevice) -> dict[str, float | int | str]:
     """
     Get metrics from a DRM device.
-    
+
     Args:
         device: GPUDevice with type="drm"
-    
+
     Returns:
         Dictionary of metrics
     """
     metrics = {}
     path = device.path / "device"
-    
+
     # Try to get vendor/device info
     vendor = _read_file(path / "vendor")
     if vendor:
         metrics["vendor"] = vendor
-    
+
     # Check for hwmon subdirectory for temperature
     hwmon = path / "hwmon"
     if hwmon.exists():
@@ -164,14 +169,14 @@ def get_drm_metrics(device: GPUDevice) -> dict[str, float | int | str]:
                 if temp > 0:
                     metrics["temperature"] = temp // 1000  # millidegrees to degrees
                 break
-    
+
     # GPU busy percent (Intel)
     busy_path = path / "gt" / "gt0" / "rps_cur_freq_mhz"
     if busy_path.exists():
         freq = _read_int(busy_path)
         if freq > 0:
             metrics["frequency"] = freq
-    
+
     # AMD/Intel specific paths
     for freq_path in [
         path / "pp_dpm_sclk",  # AMD
@@ -191,19 +196,18 @@ def get_drm_metrics(device: GPUDevice) -> dict[str, float | int | str]:
                                 pass
                             break
             break
-    
+
     return metrics
 
 
 class GPUCollector(Collector):
-    
     SOURCE_TYPE = "gpu"
     """
     Collector for GPU metrics.
-    
+
     Attempts to read GPU data from standard sysfs interfaces.
     """
-    
+
     def __init__(
         self,
         config: SystemConfig,
@@ -213,7 +217,7 @@ class GPUCollector(Collector):
     ):
         """
         Initialize GPU collector.
-        
+
         Args:
             config: System configuration
             defaults: Default settings
@@ -222,101 +226,107 @@ class GPUCollector(Collector):
         """
         name = f"{config.name}_gpu"
         collector_id = f"{config.id or config.name}_gpu"
-        
+
         super().__init__(
             name=name,
             collector_id=collector_id,
             update_interval=config.update_interval or defaults.update_interval,
         )
-        
+
         self.config = config
         self.defaults = defaults
         self.topic_prefix = topic_prefix
         self.parent_device = parent_device
-        
+
         # Discovered GPUs
         self._gpus: list[GPUDevice] = []
-    
+
     async def initialize(self) -> None:
         """Discover GPU devices."""
         self._gpus = discover_gpu_devices()
         await super().initialize()
-    
+
     def create_device(self) -> Device:
         """Create device for GPU metrics."""
         if self.parent_device:
             return self.parent_device
-        
+
         return Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_gpu_{self.collector_id}"],
             name=f"GPU: {self.name}",
             manufacturer="Penguin Metrics",
             model="GPU Monitor",
         )
-    
+
     def create_sensors(self) -> list[Sensor]:
         """Create sensors for discovered GPUs."""
         sensors = []
         device = self.device
-        
+
         for gpu in self._gpus:
             gpu_id = gpu.name.replace(".", "_").replace("-", "_")
-            
-            sensors.append(create_sensor(
-                source_type="gpu",
-                source_name=self.name,
-                metric_name=f"{gpu_id}_frequency",
-                display_name=f"GPU {gpu.name} Frequency",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                unit="MHz",
-                device_class=DeviceClass.FREQUENCY,
-                state_class=StateClass.MEASUREMENT,
-                icon="mdi:chip",
-            ))
-            
+
+            sensors.append(
+                create_sensor(
+                    source_type="gpu",
+                    source_name=self.name,
+                    metric_name=f"{gpu_id}_frequency",
+                    display_name=f"GPU {gpu.name} Frequency",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    unit="MHz",
+                    device_class=DeviceClass.FREQUENCY,
+                    state_class=StateClass.MEASUREMENT,
+                    icon="mdi:chip",
+                )
+            )
+
             # Temperature sensor if available
-            sensors.append(create_sensor(
-                source_type="gpu",
-                source_name=self.name,
-                metric_name=f"{gpu_id}_temperature",
-                display_name=f"GPU {gpu.name} Temperature",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                unit="°C",
-                device_class=DeviceClass.TEMPERATURE,
-                state_class=StateClass.MEASUREMENT,
-                icon="mdi:thermometer",
-                enabled_by_default=False,
-            ))
-            
+            sensors.append(
+                create_sensor(
+                    source_type="gpu",
+                    source_name=self.name,
+                    metric_name=f"{gpu_id}_temperature",
+                    display_name=f"GPU {gpu.name} Temperature",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    unit="°C",
+                    device_class=DeviceClass.TEMPERATURE,
+                    state_class=StateClass.MEASUREMENT,
+                    icon="mdi:thermometer",
+                    enabled_by_default=False,
+                )
+            )
+
             # Utilization if available
-            sensors.append(create_sensor(
-                source_type="gpu",
-                source_name=self.name,
-                metric_name=f"{gpu_id}_utilization",
-                display_name=f"GPU {gpu.name} Utilization",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                unit="%",
-                state_class=StateClass.MEASUREMENT,
-                icon="mdi:chip",
-                enabled_by_default=False,
-            ))
-        
+            sensors.append(
+                create_sensor(
+                    source_type="gpu",
+                    source_name=self.name,
+                    metric_name=f"{gpu_id}_utilization",
+                    display_name=f"GPU {gpu.name} Utilization",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    unit="%",
+                    state_class=StateClass.MEASUREMENT,
+                    icon="mdi:chip",
+                    enabled_by_default=False,
+                )
+            )
+
         return sensors
-    
+
     async def collect(self) -> CollectorResult:
         """Collect GPU metrics."""
         result = CollectorResult()
-        
+
         if not self._gpus:
             result.set_unavailable("not_found")
             return result
-        
+
         # Collect metrics from first (primary) GPU
         gpu = self._gpus[0]
-        
+
         if gpu.type == "devfreq":
             metrics = get_devfreq_metrics(gpu)
         elif gpu.type == "drm":
@@ -324,20 +334,19 @@ class GPUCollector(Collector):
         else:
             result.set_unavailable("not_found")
             return result
-        
+
         if "frequency" in metrics:
             result.set("frequency", metrics["frequency"])
-        
+
         if "temperature" in metrics:
             result.set("temperature", metrics["temperature"])
-        
+
         if "utilization" in metrics:
             result.set("utilization", metrics["utilization"])
-        
+
         if result.data:
             result.set_state("online")
         else:
             result.set_error("No GPU metrics available")
-        
-        return result
 
+        return result
