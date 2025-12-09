@@ -91,6 +91,27 @@ class ConfigLoader:
         except Exception as e:
             raise ConfigError(f"Failed to load configuration: {e}") from e
     
+    # Known directives for each block type
+    KNOWN_DIRECTIVES = {
+        "mqtt": {"host", "port", "username", "password", "client_id", "topic_prefix", "qos", "retain", "keepalive"},
+        "homeassistant": {"discovery", "discovery_prefix", "device_grouping", "device", "state_file"},
+        "defaults": {"update_interval", "smaps", "availability_topic", "system", "process", "service", "container", "battery", "custom"},
+        "logging": {"level", "file", "file_level", "file_max_size", "file_keep", "colors", "format"},
+        "system": {"id", "device", "cpu", "cpu_per_core", "memory", "swap", "load", "uptime", "gpu", "update_interval"},
+        "process": {"id", "device", "match", "cpu", "memory", "smaps", "io", "fds", "threads", "aggregate", "update_interval"},
+        "service": {"id", "device", "match", "cpu", "memory", "smaps", "state", "restart_count", "update_interval"},
+        "container": {"id", "device", "match", "cpu", "memory", "network", "disk", "state", "health", "uptime", "update_interval"},
+        "temperature": {"id", "zone", "hwmon", "path", "update_interval"},
+        "battery": {"id", "device", "name", "path", "capacity", "status", "voltage", "current", "power", "health", "cycles", "temperature", "time_to_empty", "time_to_full", "update_interval"},
+        "custom": {"id", "device", "command", "script", "type", "unit", "scale", "device_class", "state_class", "update_interval", "timeout"},
+        "temperatures": {"auto", "filter", "exclude"},
+        "batteries": {"auto", "filter", "exclude"},
+        "containers": {"auto", "filter", "exclude"},
+        "services": {"auto", "filter", "exclude"},
+        "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
+        "match": {"name", "pattern", "pid", "pidfile", "cmdline", "unit", "image", "label"},
+    }
+    
     def validate(self, config: Config) -> list[str]:
         """
         Validate configuration and return list of warnings.
@@ -102,6 +123,10 @@ class ConfigLoader:
             List of warning messages (empty if no issues)
         """
         warnings = []
+        
+        # Check for unknown directives in the parsed document
+        if self.last_document:
+            warnings.extend(self._check_unknown_directives(self.last_document))
         
         # Check MQTT configuration
         if not config.mqtt.host:
@@ -149,6 +174,29 @@ class ConfigLoader:
         for custom in config.custom:
             if not custom.command and not custom.script:
                 warnings.append(f"Custom sensor '{custom.name}' has no command or script")
+        
+        return warnings
+
+
+    def _check_unknown_directives(self, document: ConfigDocument) -> list[str]:
+        """Check for unknown directives in parsed document."""
+        warnings = []
+        
+        def check_block(block, parent_path: str = ""):
+            block_path = f"{parent_path}{block.type}" if parent_path else block.type
+            known = self.KNOWN_DIRECTIVES.get(block.type, set())
+            
+            for directive in block.directives:
+                if directive.name not in known:
+                    warnings.append(
+                        f"Unknown directive '{directive.name}' in {block_path} block (line {directive.line})"
+                    )
+            
+            for nested in block.blocks:
+                check_block(nested, f"{block_path}.")
+        
+        for block in document.blocks:
+            check_block(block)
         
         return warnings
 
