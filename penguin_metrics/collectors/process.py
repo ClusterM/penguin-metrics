@@ -329,7 +329,11 @@ class ProcessCollector(MultiSourceCollector):
             
             if self.config.cpu:
                 try:
+                    import os
                     cpu_percent = proc.cpu_percent()
+                    # Normalize to 0-100% (psutil can return >100% for multi-threaded processes)
+                    num_cpus = os.cpu_count() or 1
+                    cpu_percent = min(cpu_percent / num_cpus, 100.0)
                     result.add_metric(f"{prefix}_cpu_percent", round(cpu_percent, 1))
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
@@ -443,6 +447,10 @@ class ProcessCollector(MultiSourceCollector):
                     continue
             
             if self.config.cpu:
+                import os
+                # Normalize to 0-100% (sum of all processes can exceed 100%)
+                num_cpus = os.cpu_count() or 1
+                total_cpu = min(total_cpu / num_cpus, 100.0)
                 result.add_metric(f"{prefix}_cpu_percent", round(total_cpu, 1))
             
             if self.config.memory:
