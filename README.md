@@ -1116,5 +1116,17 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed code documentation.
 
 ## License
 
-MIT License
+GPLv3 License
+
+## Support the Developer and the Project
+
+* [GitHub Sponsors](https://github.com/sponsors/ClusterM)
+
+* [Buy Me A Coffee](https://www.buymeacoffee.com/cluster)
+
+* [Sber](https://messenger.online.sberbank.ru/sl/Lnb2OLE4JsyiEhQgC)
+
+* [Donation Alerts](https://www.donationalerts.com/r/clustermeerkat)
+
+* [Boosty](https://boosty.to/cluster)
 
