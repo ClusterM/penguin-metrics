@@ -55,8 +55,8 @@ class MQTTClient:
         # Client ID
         self._client_id = config.client_id or f"penguin_metrics_{uuid.uuid4().hex[:8]}"
         
-        # Message queue for offline buffering
-        self._message_queue: asyncio.Queue[tuple[str, str, int, bool]] = asyncio.Queue(maxsize=1000)
+        # Message queue for offline buffering (large enough for many collectors)
+        self._message_queue: asyncio.Queue[tuple[str, str, int, bool]] = asyncio.Queue(maxsize=10000)
         
         # Background tasks
         self._publisher_task: asyncio.Task | None = None
@@ -190,11 +190,14 @@ class MQTTClient:
         else:
             payload_str = json.dumps(payload)
         
-        # Add to queue
+        # Add to queue (wait if full, with timeout)
         try:
-            self._message_queue.put_nowait((topic, payload_str, qos, retain))
-        except asyncio.QueueFull:
-            logger.warning("Message queue full, dropping message")
+            await asyncio.wait_for(
+                self._message_queue.put((topic, payload_str, qos, retain)),
+                timeout=5.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Message queue full for 5s, dropping message to {topic}")
     
     async def publish_data(
         self,
