@@ -169,15 +169,24 @@ class Application:
                 # Publish metrics (only if collector is available)
                 if result.available:
                     for metric in result.metrics:
-                        sensor = collector.get_sensor(metric.sensor_id)
-                        if sensor:
-                            await self.ha.publish_sensor_state(sensor)
+                        # Build topic from source type, name, and metric
+                        # metric.sensor_id format: {collector_id}_{metric_name}
+                        # We need: {prefix}/{type}/{name}/{metric_name}
+                        metric_name = metric.sensor_id
+                        if metric_name.startswith(collector.collector_id + "_"):
+                            metric_name = metric_name[len(collector.collector_id) + 1:]
+                        
+                        topic = f"{self.config.mqtt.topic_prefix}/{collector.SOURCE_TYPE}/{collector.name}/{metric_name}"
+                        
+                        value = metric.value
+                        if isinstance(value, float):
+                            value = round(value, 2)
+                        
+                        await self.mqtt.publish_data(topic, value)
                 else:
                     # Source not found - publish state as unavailable
-                    state_sensor = collector.get_sensor(collector.sensor_id("state"))
-                    if state_sensor:
-                        state_sensor.state = "not_found"
-                        await self.ha.publish_sensor_state(state_sensor)
+                    topic = f"{self.config.mqtt.topic_prefix}/{collector.SOURCE_TYPE}/{collector.name}/state"
+                    await self.mqtt.publish_data(topic, "not_found")
                 
                 if not result.available:
                     logger.warning(f"Collector {collector.name} unavailable: {result.error}")
