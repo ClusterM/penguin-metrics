@@ -119,7 +119,30 @@ class Collector(ABC):
         Returns:
             Unique sensor ID matching create_sensor() format
         """
-        return f"{self.SOURCE_TYPE}_{self.name}_{metric}"
+        if metric:
+            return f"{self.SOURCE_TYPE}_{self.name}_{metric}"
+        return f"{self.SOURCE_TYPE}_{self.name}"
+    
+    def metric_topic(self, metric_sensor_id: str, topic_prefix: str) -> str:
+        """
+        Build MQTT topic for a metric.
+        
+        Default format: {prefix}/{type}/{name}/{metric}
+        Override in subclasses for different topic structures.
+        
+        Args:
+            metric_sensor_id: The sensor_id from result.add_metric()
+            topic_prefix: Base topic prefix
+        
+        Returns:
+            Full MQTT topic string
+        """
+        # Extract metric name from sensor_id (format: {collector_id}_{metric})
+        metric_name = metric_sensor_id
+        if metric_sensor_id.startswith(self.collector_id + "_"):
+            metric_name = metric_sensor_id[len(self.collector_id) + 1:]
+        
+        return f"{topic_prefix}/{self.SOURCE_TYPE}/{self.name}/{metric_name}"
     
     @staticmethod
     def _sanitize_id(value: str) -> str:

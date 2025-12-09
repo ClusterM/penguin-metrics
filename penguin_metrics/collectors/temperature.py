@@ -182,46 +182,68 @@ class TemperatureCollector(Collector):
             model="Temperature Monitor",
         )
     
+    def _add_temp_sensors(
+        self,
+        sensors: list[Sensor],
+        sensor_name: str,
+        display_name: str,
+        device: Device,
+        enabled_by_default: bool = True,
+    ) -> None:
+        """Add state and temp sensors for a temperature source."""
+        # State sensor: online/not_found
+        sensors.append(create_sensor(
+            source_type="temperature",
+            source_name=sensor_name,
+            metric_name="state",
+            display_name=f"{display_name} State",
+            device=device,
+            topic_prefix=self.topic_prefix,
+            icon="mdi:thermometer-check",
+            enabled_by_default=enabled_by_default,
+        ))
+        
+        # Temperature value sensor
+        sensors.append(create_sensor(
+            source_type="temperature",
+            source_name=sensor_name,
+            metric_name="temp",
+            display_name=display_name,
+            device=device,
+            topic_prefix=self.topic_prefix,
+            unit="°C",
+            device_class=DeviceClass.TEMPERATURE,
+            state_class=StateClass.MEASUREMENT,
+            icon="mdi:thermometer",
+            enabled_by_default=enabled_by_default,
+        ))
+    
     def create_sensors(self) -> list[Sensor]:
         """Create sensors for discovered thermal zones."""
         sensors = []
         device = self.device
         
-        # Add specific hwmon sensor if configured
+        # Add specific hwmon sensor if configured (manual configuration)
         if self._hwmon_sensors:
             for chip, label, _ in self._hwmon_sensors:
-                sensor_name = f"{chip}_{label}".lower().replace(" ", "_")
-                sensors.append(create_sensor(
-                    source_type="temperature",
-                source_name=self.name,
-                    metric_name="temp",
+                # Manual config: use self.name as the sensor name
+                self._add_temp_sensors(
+                    sensors,
+                    sensor_name=self.name,
                     display_name=f"Temperature: {chip} {label}",
                     device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="°C",
-                    device_class=DeviceClass.TEMPERATURE,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:thermometer",
-                ))
+                )
             return sensors
         
-        # Add thermal zones
+        # Add thermal zones (auto-discovered)
         for zone in self._zones:
-            sensor_id = f"{self.collector_id}_{zone.name}"
-            display_name = f"Temperature: {zone.type}"
-            
-            sensors.append(create_sensor(
-                source_type="temperature",
-                source_name=self.name,
-                metric_name=zone.name,
-                display_name=display_name,
+            zone_label = zone.type if zone.type != zone.name else zone.name
+            self._add_temp_sensors(
+                sensors,
+                sensor_name=zone_label,
+                display_name=f"Temperature: {zone.type}",
                 device=device,
-                topic_prefix=self.topic_prefix,
-                unit="°C",
-                device_class=DeviceClass.TEMPERATURE,
-                state_class=StateClass.MEASUREMENT,
-                icon="mdi:thermometer",
-            ))
+            )
         
         # Add all hwmon sensors only if no specific zone/hwmon configured
         if not self.specific_zone and not self.specific_path and not self.specific_hwmon:
@@ -232,60 +254,75 @@ class TemperatureCollector(Collector):
                         label = entry.label or f"sensor{i}"
                         sensor_name = f"{name}_{label}".lower().replace(" ", "_")
                         
-                        sensors.append(create_sensor(
-                            source_type="temperature",
-                source_name=self.name,
-                            metric_name=f"hwmon_{sensor_name}",
+                        self._add_temp_sensors(
+                            sensors,
+                            sensor_name=sensor_name,
                             display_name=f"Temperature: {name} {label}",
                             device=device,
-                            topic_prefix=self.topic_prefix,
-                            unit="°C",
-                            device_class=DeviceClass.TEMPERATURE,
-                            state_class=StateClass.MEASUREMENT,
-                            icon="mdi:thermometer",
                             enabled_by_default=False,  # Hwmon sensors disabled by default
-                        ))
+                        )
             except Exception:
-                # sensors_temperatures not available on all platforms
                 pass
         
         return sensors
+    
+    def _add_temp_metrics(
+        self,
+        result: CollectorResult,
+        sensor_name: str,
+        temp_value: float | None,
+        high: float | None = None,
+        critical: float | None = None,
+    ) -> None:
+        """Add state and temp metrics for a temperature sensor."""
+        if temp_value is not None:
+            # Sensor is available
+            result.add_metric(f"{sensor_name}_state", "online")
+            result.add_metric(
+                f"{sensor_name}_temp",
+                round(temp_value, 1),
+                high=high,
+                critical=critical,
+            )
+        else:
+            # Sensor not available
+            result.add_metric(f"{sensor_name}_state", "not_found")
     
     async def collect(self) -> CollectorResult:
         """Collect temperature readings."""
         result = CollectorResult()
         
-        # Read specific hwmon sensor if configured
+        # Read specific hwmon sensor if configured (manual)
         if self._hwmon_sensors:
+            found = False
             try:
                 temps = psutil.sensors_temperatures()
                 for chip, label, idx in self._hwmon_sensors:
                     if chip in temps and idx < len(temps[chip]):
                         entry = temps[chip][idx]
-                        result.add_metric(
-                            f"{self.collector_id}_temp",
-                            round(entry.current, 1),
+                        self._add_temp_metrics(
+                            result,
+                            sensor_name=self.name,
+                            temp_value=entry.current,
                             high=entry.high,
                             critical=entry.critical,
                         )
+                        found = True
             except Exception:
                 pass
             
-            if not result.metrics:
-                result.set_error("Hwmon sensor not available")
+            if not found:
+                # Sensor not found - publish not_found state
+                self._add_temp_metrics(result, sensor_name=self.name, temp_value=None)
             return result
         
-        # Read from thermal zones
+        # Read from thermal zones (auto-discovered)
         for zone in self._zones:
+            zone_label = zone.type if zone.type != zone.name else zone.name
             temp = read_thermal_zone_temp(zone)
-            if temp is not None:
-                result.add_metric(
-                    f"{self.collector_id}_{zone.name}",
-                    round(temp, 1),
-                    zone_type=zone.type,
-                )
+            self._add_temp_metrics(result, sensor_name=zone_label, temp_value=temp)
         
-        # Read all hwmon sensors (only if no specific zone/hwmon configured)
+        # Read all hwmon sensors (auto-discovered, only if no specific config)
         if not self.specific_zone and not self.specific_path and not self.specific_hwmon:
             try:
                 temps = psutil.sensors_temperatures()
@@ -294,9 +331,10 @@ class TemperatureCollector(Collector):
                         label = entry.label or f"sensor{i}"
                         sensor_name = f"{name}_{label}".lower().replace(" ", "_")
                         
-                        result.add_metric(
-                            f"{self.collector_id}_hwmon_{sensor_name}",
-                            round(entry.current, 1),
+                        self._add_temp_metrics(
+                            result,
+                            sensor_name=sensor_name,
+                            temp_value=entry.current,
                             high=entry.high,
                             critical=entry.critical,
                         )
@@ -307,4 +345,26 @@ class TemperatureCollector(Collector):
             result.set_error("No temperature sensors available")
         
         return result
+    
+    def metric_topic(self, metric_sensor_id: str, topic_prefix: str) -> str:
+        """
+        Build MQTT topic for temperature metric.
+        
+        Format: {prefix}/temperature/{sensor_name}/{metric}
+        Example: penguin_metrics/temperature/soc-thermal/temp
+        """
+        # metric_sensor_id format: {sensor_name}_{metric} (e.g., "soc-thermal_temp")
+        # Split into sensor_name and metric
+        if "_state" in metric_sensor_id:
+            sensor_name = metric_sensor_id.rsplit("_state", 1)[0]
+            metric = "state"
+        elif "_temp" in metric_sensor_id:
+            sensor_name = metric_sensor_id.rsplit("_temp", 1)[0]
+            metric = "temp"
+        else:
+            # Fallback
+            sensor_name = metric_sensor_id
+            metric = "value"
+        
+        return f"{topic_prefix}/temperature/{sensor_name}/{metric}"
 

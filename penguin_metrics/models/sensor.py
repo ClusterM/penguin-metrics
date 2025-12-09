@@ -263,11 +263,20 @@ def create_sensor(
     Returns:
         Configured Sensor instance
     
-    Topic structure: {prefix}/{type}/{name}/{metric}
-    Example: penguin_metrics/temperature/soc/temp
+    Topic structure: 
+        {prefix}/{type}/{name}/{metric}  - when metric_name is provided
+        {prefix}/{type}/{name}           - when metric_name is empty (e.g., temperature)
+    
+    Examples:
+        penguin_metrics/system/main/cpu_percent
+        penguin_metrics/temperature/thermal_zone0
     """
-    unique_id = f"{source_type}_{source_name}_{metric_name}"
-    state_topic = f"{topic_prefix}/{source_type}/{source_name}/{metric_name}"
+    if metric_name:
+        unique_id = f"{source_type}_{source_name}_{metric_name}"
+        state_topic = f"{topic_prefix}/{source_type}/{source_name}/{metric_name}"
+    else:
+        unique_id = f"{source_type}_{source_name}"
+        state_topic = f"{topic_prefix}/{source_type}/{source_name}"
     
     # Use global availability topic (single LWT for entire service)
     if availability_topic is None:

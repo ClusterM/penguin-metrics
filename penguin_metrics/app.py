@@ -169,14 +169,8 @@ class Application:
                 # Publish metrics (only if collector is available)
                 if result.available:
                     for metric in result.metrics:
-                        # Build topic from source type, name, and metric
-                        # metric.sensor_id format: {collector_id}_{metric_name}
-                        # We need: {prefix}/{type}/{name}/{metric_name}
-                        metric_name = metric.sensor_id
-                        if metric_name.startswith(collector.collector_id + "_"):
-                            metric_name = metric_name[len(collector.collector_id) + 1:]
-                        
-                        topic = f"{self.config.mqtt.topic_prefix}/{collector.SOURCE_TYPE}/{collector.name}/{metric_name}"
+                        # Get topic from collector (allows custom topic structures)
+                        topic = collector.metric_topic(metric.sensor_id, self.config.mqtt.topic_prefix)
                         
                         value = metric.value
                         if isinstance(value, float):
