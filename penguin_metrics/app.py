@@ -87,14 +87,6 @@ class Application:
                 topic_prefix=topic_prefix,
             ))
             
-            # Add temperature collector if enabled (legacy, disabled if auto-discovery)
-            if sys_config.temperature and not self.config.auto_temperatures.enabled:
-                collectors.append(TemperatureCollector(
-                    config=sys_config,
-                    defaults=self.config.defaults,
-                    topic_prefix=topic_prefix,
-                ))
-            
             # Add GPU collector if enabled
             if sys_config.gpu:
                 collectors.append(GPUCollector(

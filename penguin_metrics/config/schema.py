@@ -84,7 +84,7 @@ class MQTTConfig:
     client_id: str | None = None
     topic_prefix: str = "penguin_metrics"
     qos: int = 1
-    retain: RetainMode = RetainMode.FULL
+    retain: RetainMode = RetainMode.ONLINE
     keepalive: int = 60
     
     @classmethod
@@ -96,17 +96,17 @@ class MQTTConfig:
         # Parse retain mode
         retain_val = block.get_value("retain", "full")
         if isinstance(retain_val, bool):
-            # Backwards compatibility: on -> full, off -> off
-            retain_mode = RetainMode.FULL if retain_val else RetainMode.OFF
+            # Backwards compatibility: on -> online, off -> off
+            retain_mode = RetainMode.ONLINE if retain_val else RetainMode.OFF
         else:
             retain_str = str(retain_val).lower()
             retain_map = {
                 "off": RetainMode.OFF,
                 "online": RetainMode.ONLINE,
                 "full": RetainMode.FULL,
-                "on": RetainMode.FULL,  # Backwards compatibility
+                "on": RetainMode.ONLINE,  # Backwards compatibility
             }
-            retain_mode = retain_map.get(retain_str, RetainMode.FULL)
+            retain_mode = retain_map.get(retain_str, RetainMode.ONLINE)
         
         return cls(
             host=block.get_value("host", "localhost"),
@@ -196,7 +196,6 @@ class SystemDefaultsConfig:
     swap: bool = True
     load: bool = True
     uptime: bool = True
-    temperature: bool = True
     gpu: bool = False
     
     @classmethod
@@ -210,7 +209,6 @@ class SystemDefaultsConfig:
             swap=bool(block.get_value("swap", True)),
             load=bool(block.get_value("load", True)),
             uptime=bool(block.get_value("uptime", True)),
-            temperature=bool(block.get_value("temperature", True)),
             gpu=bool(block.get_value("gpu", False)),
         )
 
@@ -450,7 +448,7 @@ class AutoDiscoveryConfig:
         return True
 
 
-@dataclass 
+@dataclass
 class SystemConfig:
     """System-wide metrics configuration."""
     name: str
@@ -464,7 +462,6 @@ class SystemConfig:
     swap: bool = True
     load: bool = True
     uptime: bool = True
-    temperature: bool = True
     gpu: bool = False
     
     # Settings
@@ -495,7 +492,6 @@ class SystemConfig:
             swap=get_bool("swap", sd.swap),
             load=get_bool("load", sd.load),
             uptime=get_bool("uptime", sd.uptime),
-            temperature=get_bool("temperature", sd.temperature),
             gpu=get_bool("gpu", sd.gpu),
             update_interval=float(interval) if interval else None,
         )
@@ -786,8 +782,6 @@ class TemperatureConfig:
     zone: str | None = None       # Thermal zone name (e.g., "soc-thermal", "thermal_zone0")
     hwmon: str | None = None      # Hwmon sensor name (e.g., "soc_thermal_sensor0")
     path: str | None = None       # Direct path to temp file
-    warning: float | None = None
-    critical: float | None = None
     update_interval: float | None = None
     
     @classmethod
@@ -805,8 +799,6 @@ class TemperatureConfig:
             zone=block.get_value("zone"),
             hwmon=block.get_value("hwmon"),
             path=block.get_value("path"),
-            warning=block.get_value("warning"),
-            critical=block.get_value("critical"),
             update_interval=float(interval) if interval else None,
         )
 

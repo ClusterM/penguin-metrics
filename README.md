@@ -202,7 +202,7 @@ mqtt {
 | `client_id` | *(auto-generated)* | MQTT client identifier |
 | `topic_prefix` | `"penguin_metrics"` | Base topic for all messages |
 | `qos` | `1` | Quality of Service (0, 1, 2) |
-| `retain` | `full` | Retain mode: `off`, `online`, `full` |
+| `retain` | `online` | Retain mode: `off`, `online`, `full` |
 | `keepalive` | `60` | Keepalive interval (seconds) |
 
 **Retain modes:**

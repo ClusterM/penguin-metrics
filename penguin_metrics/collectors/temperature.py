@@ -140,17 +140,14 @@ class TemperatureCollector(Collector):
             self.specific_zone = config.zone
             self.specific_hwmon = config.hwmon
             self.specific_path = config.path
-            self.warning_temp = config.warning
-            self.critical_temp = config.critical
         else:
+            # Legacy: SystemConfig passed (should not happen anymore)
             name = f"{config.name}_temperature"
             collector_id = f"{config.id or config.name}_temp" if config.id else f"{config.name}_temp"
             update_interval = config.update_interval
             self.specific_zone = None
             self.specific_hwmon = None
             self.specific_path = None
-            self.warning_temp = None
-            self.critical_temp = None
         
         super().__init__(
             name=name,
