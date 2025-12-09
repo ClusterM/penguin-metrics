@@ -155,7 +155,7 @@ class BatteryCollector(Collector):
         battery_name = self._battery.name if self._battery else "Unknown"
         
         return Device(
-            identifiers=[f"penguin_metrics_battery_{self.collector_id}"],
+            identifiers=[f"battery_{self.collector_id}"],
             name=device_config.name or f"Battery: {battery_name}",
             manufacturer=device_config.manufacturer or "Unknown",
             model="Battery",

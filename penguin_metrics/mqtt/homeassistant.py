@@ -157,25 +157,6 @@ class HomeAssistantDiscovery:
         for sensor in sensors:
             await self.publish_sensor_state(sensor)
     
-    async def publish_device_availability(
-        self,
-        device: Device,
-        available: bool,
-        topic_prefix: str = "penguin_metrics",
-    ) -> None:
-        """
-        Publish device availability status.
-        
-        Args:
-            device: Device to publish availability for
-            available: Whether device is available
-            topic_prefix: Base topic prefix
-        """
-        topic = f"{topic_prefix}/{device.primary_identifier}/status"
-        payload = "online" if available else "offline"
-        
-        await self.mqtt.publish(topic, payload, qos=1, retain=True)
-    
     async def publish_state_batch(
         self,
         states: dict[str, Any],

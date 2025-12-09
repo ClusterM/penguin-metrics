@@ -115,7 +115,7 @@ class ContainerCollector(Collector):
         container_name = self._container.name if self._container else self.config.name
         
         return Device(
-            identifiers=[f"penguin_metrics_container_{self.collector_id}"],
+            identifiers=[f"container_{self.collector_id}"],
             name=device_config.name or f"Container: {container_name}",
             manufacturer=device_config.manufacturer or "Docker",
             model="Container",

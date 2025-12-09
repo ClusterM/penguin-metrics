@@ -138,7 +138,7 @@ def create_device(
         Configured Device instance
     """
     device_id = source_id or Device._sanitize_id(source_name)
-    identifier = f"penguin_metrics_{source_type}_{device_id}"
+    identifier = f"{source_type}_{device_id}"
     
     return Device(
         identifiers=[identifier],

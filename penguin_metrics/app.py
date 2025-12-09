@@ -166,19 +166,18 @@ class Application:
             try:
                 result = await collector.safe_collect()
                 
-                # Publish metrics
-                for metric in result.metrics:
-                    sensor = collector.get_sensor(metric.sensor_id)
-                    if sensor:
-                        await self.ha.publish_sensor_state(sensor)
-                
-                # Publish device availability
-                if collector.device:
-                    await self.ha.publish_device_availability(
-                        collector.device,
-                        result.available,
-                        self.config.mqtt.topic_prefix,
-                    )
+                # Publish metrics (only if collector is available)
+                if result.available:
+                    for metric in result.metrics:
+                        sensor = collector.get_sensor(metric.sensor_id)
+                        if sensor:
+                            await self.ha.publish_sensor_state(sensor)
+                else:
+                    # Source not found - publish state as unavailable
+                    state_sensor = collector.get_sensor(f"{collector.collector_id}_state")
+                    if state_sensor:
+                        state_sensor.state = "not_found"
+                        await self.ha.publish_sensor_state(state_sensor)
                 
                 if not result.available:
                     logger.warning(f"Collector {collector.name} unavailable: {result.error}")
@@ -253,17 +252,8 @@ class Application:
         
         self._tasks.clear()
         
-        # Publish offline status for all devices
-        for collector in self.collectors:
-            if collector.device:
-                try:
-                    await self.ha.publish_device_availability(
-                        collector.device,
-                        False,
-                        self.config.mqtt.topic_prefix,
-                    )
-                except Exception:
-                    pass
+        # Note: LWT (Last Will and Testament) automatically publishes offline status
+        # to {prefix}/status when connection is lost, making all sensors unavailable
         
         # Stop MQTT client
         await self.mqtt.stop()

@@ -69,7 +69,7 @@ class CustomCollector(Collector):
         device_config = self.config.device
         
         return Device(
-            identifiers=[f"penguin_metrics_custom_{self.collector_id}"],
+            identifiers=[f"custom_{self.collector_id}"],
             name=device_config.name or f"Custom: {self.config.name}",
             manufacturer=device_config.manufacturer,
             model="Custom Sensor",
