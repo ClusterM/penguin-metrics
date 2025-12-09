@@ -310,12 +310,11 @@ class Application:
         
         # Require filter for services (too many otherwise)
         if not auto_cfg.filters:
-            logger.warning("Service auto-discovery requires at least one filter pattern")
+            logger.warning(
+                "Service auto-discovery requires a filter pattern. "
+                "Use 'filter \"docker*\";' for specific services, or 'filter \"*\";' for ALL services."
+            )
             return []
-        
-        # Warn about overly broad filters
-        if "*" in auto_cfg.filters or "*.service" in auto_cfg.filters:
-            logger.warning("Service filter '*' matches ALL services (hundreds!). Use specific pattern like 'docker*'")
         
         collectors = []
         
