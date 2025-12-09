@@ -68,7 +68,7 @@ class Application:
         self._tasks: list[asyncio.Task] = []
         self._shutdown_event = asyncio.Event()
     
-    def _create_collectors(self) -> list[Collector]:
+    async def _create_collectors(self) -> list[Collector]:
         """Create all configured collectors."""
         collectors: list[Collector] = []
         topic_prefix = self.config.mqtt.topic_prefix
@@ -137,7 +137,7 @@ class Application:
             ))
         
         # Auto-discover containers
-        collectors.extend(self._auto_discover_containers(manual_containers, topic_prefix))
+        collectors.extend(await self._auto_discover_containers(manual_containers, topic_prefix))
         
         # Battery collectors (manual)
         for bat_config in self.config.batteries:
@@ -253,7 +253,7 @@ class Application:
         
         return collectors
     
-    def _auto_discover_containers(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+    async def _auto_discover_containers(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
         """Auto-discover Docker containers."""
         from .utils.docker_api import DockerClient
         
@@ -269,10 +269,7 @@ class Application:
             return []
         
         try:
-            import asyncio
-            containers = asyncio.get_event_loop().run_until_complete(
-                docker.list_containers(all=False)  # Only running containers
-            )
+            containers = await docker.list_containers(all=False)  # Only running containers
         except Exception as e:
             logger.warning(f"Failed to list containers: {e}")
             return []
@@ -284,10 +281,10 @@ class Application:
             if not auto_cfg.matches(name):
                 continue
             
-            from .config.schema import ContainerConfig, ContainerMatch, ContainerMatchType
+            from .config.schema import ContainerConfig, ContainerMatchConfig, ContainerMatchType
             config = ContainerConfig(
                 name=name,
-                match=ContainerMatch(type=ContainerMatchType.NAME, value=name),
+                match=ContainerMatchConfig(type=ContainerMatchType.NAME, value=name),
                 update_interval=self.config.defaults.update_interval,
             )
             collectors.append(ContainerCollector(
@@ -343,10 +340,10 @@ class Application:
                 if not auto_cfg.matches(unit_name) and not auto_cfg.matches(name):
                     continue
                 
-                from .config.schema import ServiceConfig, ServiceMatch, ServiceMatchType
+                from .config.schema import ServiceConfig, ServiceMatchConfig, ServiceMatchType
                 config = ServiceConfig(
                     name=name,
-                    match=ServiceMatch(type=ServiceMatchType.UNIT, value=unit_name),
+                    match=ServiceMatchConfig(type=ServiceMatchType.UNIT, value=unit_name),
                     update_interval=self.config.defaults.update_interval,
                 )
                 collectors.append(ServiceCollector(
@@ -428,7 +425,7 @@ class Application:
         logger.info("Starting Penguin Metrics")
         
         # Create collectors
-        self.collectors = self._create_collectors()
+        self.collectors = await self._create_collectors()
         logger.info(f"Created {len(self.collectors)} collectors")
         
         # Start MQTT client
