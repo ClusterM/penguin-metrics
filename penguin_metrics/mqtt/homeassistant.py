@@ -18,6 +18,7 @@ from .client import MQTTClient
 from ..models.sensor import Sensor
 from ..models.device import Device
 from ..config.schema import HomeAssistantConfig
+from ..const import APP_NAME, APP_VERSION, APP_URL
 
 
 logger = logging.getLogger(__name__)
@@ -175,9 +176,9 @@ class HomeAssistantDiscovery:
         
         # Add origin info
         payload["origin"] = {
-            "name": "Penguin Metrics",
-            "sw_version": "0.1.0",
-            "support_url": "https://github.com/clusterm/penguin-metrics",
+            "name": APP_NAME,
+            "sw_version": APP_VERSION,
+            "support_url": APP_URL,
         }
         
         return payload
@@ -309,8 +310,9 @@ def build_sensor_discovery(
     
     payload = sensor.to_discovery_dict(discovery_prefix)
     payload["origin"] = {
-        "name": "Penguin Metrics",
-        "sw_version": "0.1.0",
+        "name": APP_NAME,
+        "sw_version": APP_VERSION,
+        "support_url": APP_URL,
     }
     
     return topic, payload
