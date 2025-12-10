@@ -359,7 +359,7 @@ class ContainerCollector(Collector):
                 source_type="docker",
                 source_name=self.name,
                 metric_name="pids",
-                display_name=f"{self.config.name} Processes",
+                display_name="Processes",
                 device=device,
                 topic_prefix=self.topic_prefix,
                 state_class=StateClass.MEASUREMENT,
