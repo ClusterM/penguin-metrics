@@ -424,7 +424,6 @@ class DefaultsConfig:
 
     update_interval: float = 10.0  # seconds
     smaps: bool = False
-    availability_topic: bool = True
 
     # Per-source-type defaults
     # Note: system defaults removed - system block appears only once
@@ -448,7 +447,6 @@ class DefaultsConfig:
         return cls(
             update_interval=float(interval),
             smaps=bool(block.get_value("smaps", False)),
-            availability_topic=bool(block.get_value("availability_topic", True)),
             # system defaults removed - system block appears only once
             process=ProcessDefaultsConfig.from_block(block.get_block("process")),
             service=ServiceDefaultsConfig.from_block(block.get_block("service")),

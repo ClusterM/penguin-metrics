@@ -343,7 +343,6 @@ process "nginx" {
 defaults {
     update_interval 10s;       # Collection interval (supports: ms, s, m, h, d)
     smaps off;                 # PSS/USS memory metrics (requires root)
-    availability_topic on;     # Publish online/offline status
 }
 ```
 
@@ -352,7 +351,6 @@ defaults {
 |-----------|---------|-------------|
 | `update_interval` | `10s` | Collection interval |
 | `smaps` | `off` | PSS/USS memory (requires root) |
-| `availability_topic` | `on` | Publish online/offline status |
 
 **Duration formats:** `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours), `d` (days)
 

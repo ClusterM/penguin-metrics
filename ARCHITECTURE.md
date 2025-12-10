@@ -302,7 +302,6 @@ class HomeAssistantConfig:
 class DefaultsConfig:
     update_interval: float = 10.0
     smaps: bool = False
-    availability_topic: bool = True
     # Per-source-type defaults
     # Note: system defaults removed - system block appears only once
     process: ProcessDefaultsConfig

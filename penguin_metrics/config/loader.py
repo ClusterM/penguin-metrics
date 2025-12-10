@@ -115,7 +115,6 @@ class ConfigLoader:
         "defaults": {
             "update_interval",
             "smaps",
-            "availability_topic",
             "system",
             "process",
             "service",
