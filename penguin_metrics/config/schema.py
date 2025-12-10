@@ -353,10 +353,10 @@ class BatteryDefaultsConfig:
 
     capacity: bool = True
     status: bool = True
-    voltage: bool = False
-    current: bool = False
-    power: bool = False
-    health: bool = False
+    voltage: bool = True
+    current: bool = True
+    power: bool = True
+    health: bool = True
     cycles: bool = False
     temperature: bool = False
     time_to_empty: bool = False
@@ -1022,10 +1022,10 @@ class BatteryConfig:
     # Metrics flags
     capacity: bool = True
     status: bool = True
-    voltage: bool = False
-    current: bool = False
-    power: bool = False
-    health: bool = False
+    voltage: bool = True
+    current: bool = True
+    power: bool = True
+    health: bool = True
     cycles: bool = False
     temperature: bool = False
     time_to_empty: bool = False

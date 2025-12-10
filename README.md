@@ -799,10 +799,10 @@ battery "main" {
 | `name` | *(auto-detect)* | Battery name (BAT0, etc.) |
 | `capacity` | `on` | Charge percentage |
 | `status` | `on` | Charging/Discharging/Full (published as `state` in JSON) |
-| `voltage` | `off` | Current voltage |
-| `current` | `off` | Current amperage |
-| `power` | `off` | Power consumption |
-| `health` | `off` | Battery health |
+| `voltage` | `on` | Current voltage |
+| `current` | `on` | Current amperage |
+| `power` | `on` | Power consumption |
+| `health` | `on` | Battery health |
 | `cycles` | `off` | Charge cycle count |
 | `temperature` | `off` | Battery temperature |
 | `time_to_empty` | `off` | Time remaining |
