@@ -187,7 +187,13 @@ class ContainerCollector(Collector):
             add("health", "Health", icon="mdi:heart-pulse")
 
         if self.config.cpu:
-            add("cpu_percent", "CPU Usage", unit="%", state_class=StateClass.MEASUREMENT, icon="mdi:chip")
+            add(
+                "cpu_percent",
+                "CPU Usage",
+                unit="%",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:chip",
+            )
 
         if self.config.memory:
             add(
@@ -198,7 +204,13 @@ class ContainerCollector(Collector):
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:memory",
             )
-            add("memory_percent", "Memory %", unit="%", state_class=StateClass.MEASUREMENT, icon="mdi:memory")
+            add(
+                "memory_percent",
+                "Memory %",
+                unit="%",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:memory",
+            )
             add(
                 "memory_limit",
                 "Memory Limit",
@@ -330,9 +342,7 @@ class ContainerCollector(Collector):
 
         # Current timestamp for rate calculation
         now = datetime.now()
-        time_delta = (
-            (now - self._prev_timestamp).total_seconds() if self._prev_timestamp else None
-        )
+        time_delta = (now - self._prev_timestamp).total_seconds() if self._prev_timestamp else None
 
         if self.config.cpu:
             result.set("cpu_percent", round(stats.cpu_percent, 1))
