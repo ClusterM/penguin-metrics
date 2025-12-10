@@ -238,12 +238,25 @@ class GPUCollector(Collector):
         self.topic_prefix = topic_prefix
         self.parent_device = parent_device
 
-        # Discovered GPUs
+        # Discovered GPUs and available metrics
         self._gpus: list[GPUDevice] = []
+        self._available_metrics: set[str] = set()
 
     async def initialize(self) -> None:
-        """Discover GPU devices."""
+        """Discover GPU devices and available metrics."""
         self._gpus = discover_gpu_devices()
+
+        # Probe available metrics from first GPU
+        if self._gpus:
+            gpu = self._gpus[0]
+            if gpu.type == "devfreq":
+                metrics = get_devfreq_metrics(gpu)
+            elif gpu.type == "drm":
+                metrics = get_drm_metrics(gpu)
+            else:
+                metrics = {}
+            self._available_metrics = set(metrics.keys())
+
         await super().initialize()
 
     def create_device(self) -> Device:
@@ -259,60 +272,60 @@ class GPUCollector(Collector):
         )
 
     def create_sensors(self) -> list[Sensor]:
-        """Create sensors for GPU metrics."""
+        """Create sensors only for available GPU metrics."""
         sensors = []
         device = self.device
 
-        # GPU is part of system device, use simple metric names
-        # that match the JSON keys from collect()
-        if not self._gpus:
+        if not self._gpus or not self._available_metrics:
             return sensors
 
-        sensors.append(
-            create_sensor(
-                source_type="gpu",
-                source_name=self.name,
-                metric_name="frequency",
-                display_name="GPU Frequency",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                unit="MHz",
-                device_class=DeviceClass.FREQUENCY,
-                state_class=StateClass.MEASUREMENT,
-                icon="mdi:chip",
+        # Only create sensors for metrics that are actually available
+        if "frequency" in self._available_metrics:
+            sensors.append(
+                create_sensor(
+                    source_type="gpu",
+                    source_name=self.name,
+                    metric_name="frequency",
+                    display_name="GPU Frequency",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    unit="MHz",
+                    device_class=DeviceClass.FREQUENCY,
+                    state_class=StateClass.MEASUREMENT,
+                    icon="mdi:chip",
+                )
             )
-        )
 
-        sensors.append(
-            create_sensor(
-                source_type="gpu",
-                source_name=self.name,
-                metric_name="temperature",
-                display_name="GPU Temperature",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                unit="°C",
-                device_class=DeviceClass.TEMPERATURE,
-                state_class=StateClass.MEASUREMENT,
-                icon="mdi:thermometer",
-                enabled_by_default=False,
+        if "temperature" in self._available_metrics:
+            sensors.append(
+                create_sensor(
+                    source_type="gpu",
+                    source_name=self.name,
+                    metric_name="temperature",
+                    display_name="GPU Temperature",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    unit="°C",
+                    device_class=DeviceClass.TEMPERATURE,
+                    state_class=StateClass.MEASUREMENT,
+                    icon="mdi:thermometer",
+                )
             )
-        )
 
-        sensors.append(
-            create_sensor(
-                source_type="gpu",
-                source_name=self.name,
-                metric_name="utilization",
-                display_name="GPU Utilization",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                unit="%",
-                state_class=StateClass.MEASUREMENT,
-                icon="mdi:chip",
-                enabled_by_default=False,
+        if "utilization" in self._available_metrics:
+            sensors.append(
+                create_sensor(
+                    source_type="gpu",
+                    source_name=self.name,
+                    metric_name="utilization",
+                    display_name="GPU Utilization",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    unit="%",
+                    state_class=StateClass.MEASUREMENT,
+                    icon="mdi:chip",
+                )
             )
-        )
 
         return sensors
 
