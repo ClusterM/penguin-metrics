@@ -31,7 +31,7 @@ def discover_thermal_zones() -> list[ThermalZone]:
     Returns:
         List of ThermalZone tuples
     """
-    zones = []
+    zones: list[ThermalZone] = []
     thermal_path = Path("/sys/class/thermal")
 
     if not thermal_path.exists():
@@ -85,7 +85,7 @@ class HwmonSensor(NamedTuple):
 
     chip: str  # Chip name (e.g., soc_thermal, nvme)
     label: str  # Sensor label (e.g., sensor0, Composite)
-    index: int  # Index in the chip's sensor list
+    sensor_index: int  # Index in the chip's sensor list
 
 
 def discover_hwmon_sensors() -> list[HwmonSensor]:
@@ -95,7 +95,7 @@ def discover_hwmon_sensors() -> list[HwmonSensor]:
     Returns:
         List of HwmonSensor tuples
     """
-    sensors = []
+    sensors: list[HwmonSensor] = []
 
     try:
         temps = psutil.sensors_temperatures()
@@ -106,7 +106,7 @@ def discover_hwmon_sensors() -> list[HwmonSensor]:
                     HwmonSensor(
                         chip=chip_name,
                         label=label,
-                        index=i,
+                        sensor_index=i,
                     )
                 )
     except Exception:
@@ -263,7 +263,7 @@ class TemperatureCollector(Collector):
         sensors: list[Sensor],
         sensor_name: str,
         display_name: str,
-        device: Device,
+        device: Device | None,
     ) -> None:
         """Add temperature sensor (state is in JSON but no HA sensor for it)."""
         sensors.append(
@@ -283,7 +283,7 @@ class TemperatureCollector(Collector):
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors for discovered thermal zones."""
-        sensors = []
+        sensors: list[Sensor] = []
         device = self.device
 
         # Add specific hwmon sensor if configured (manual configuration)
@@ -297,7 +297,7 @@ class TemperatureCollector(Collector):
                     device=device,
                 )
             # Apply HA overrides from config to all sensors
-            if self.config.ha_config:
+            if isinstance(self.config, TemperatureConfig) and self.config.ha_config:
                 for sensor in sensors:
                     sensor.apply_ha_overrides(self.config.ha_config)
             return sensors
@@ -331,7 +331,7 @@ class TemperatureCollector(Collector):
                 pass
 
         # Apply HA overrides from config to all sensors
-        if self.config.ha_config:
+        if isinstance(self.config, TemperatureConfig) and self.config.ha_config:
             for sensor in sensors:
                 sensor.apply_ha_overrides(self.config.ha_config)
 

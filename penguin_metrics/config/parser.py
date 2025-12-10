@@ -244,9 +244,11 @@ class ConfigParser:
                 else:
                     doc.directives.append(result)
             else:
+                token = self.current_token
+                token_name = token.type.name if token is not None else "EOF"
                 raise ParseError(
-                    f"Expected block, directive, or include; got {self.current_token.type.name}",
-                    self.current_token,
+                    f"Expected block, directive, or include; got {token_name}",
+                    token,
                 )
 
         return doc

@@ -119,8 +119,9 @@ class Sensor:
     _state: Any = field(default=None, repr=False, compare=False)
     _availability: SensorState = field(default=SensorState.UNKNOWN, repr=False, compare=False)
     _ha_extra_fields: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
+    _dual_availability: dict[str, Any] | None = field(default=None, repr=False, compare=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize topics if not set."""
         if not self.state_topic:
             self.state_topic = f"penguin_metrics/sensor/{self.unique_id}/state"
@@ -135,7 +136,7 @@ class Sensor:
         return self._state
 
     @state.setter
-    def state(self, value: Any):
+    def state(self, value: Any) -> None:
         """Set sensor state/value."""
         self._state = value
         if value is not None:
@@ -147,11 +148,11 @@ class Sensor:
         return self._availability
 
     @availability.setter
-    def availability(self, value: SensorState):
+    def availability(self, value: SensorState) -> None:
         """Set sensor availability."""
         self._availability = value
 
-    def set_unavailable(self):
+    def set_unavailable(self) -> None:
         """Mark sensor as unavailable."""
         self._availability = SensorState.OFFLINE
         self._state = None
@@ -331,7 +332,7 @@ def create_sensor(
     availability_topic: str | None = None,
     use_json: bool = True,
     entity_type: str = "sensor",
-    **kwargs,
+    **kwargs: Any,
 ) -> Sensor:
     """
     Factory function to create a sensor for a metric.

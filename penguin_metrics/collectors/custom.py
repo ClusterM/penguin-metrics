@@ -61,7 +61,7 @@ class CustomCollector(Collector):
 
         # Build command
         if config.script:
-            self._command = config.script
+            self._command: str | None = config.script
         elif config.command:
             self._command = config.command
         else:
@@ -113,7 +113,7 @@ class CustomCollector(Collector):
         device = self.device
 
         # Determine device class
-        device_class = None
+        device_class: DeviceClass | str | None = None
         if self.config.device_class:
             try:
                 device_class = DeviceClass(self.config.device_class)
@@ -121,7 +121,7 @@ class CustomCollector(Collector):
                 device_class = self.config.device_class
 
         # Determine state class
-        state_class = None
+        state_class: StateClass | str | None = None
         if self.config.state_class:
             try:
                 state_class = StateClass(self.config.state_class)

@@ -40,7 +40,7 @@ def discover_batteries() -> list[BatteryInfo]:
     Returns:
         List of BatteryInfo for battery devices
     """
-    batteries = []
+    batteries: list[BatteryInfo] = []
     power_supply = Path("/sys/class/power_supply")
 
     if not power_supply.exists():

@@ -64,7 +64,7 @@ class Device:
     # Arbitrary extra fields (for any other HA device fields)
     extra_fields: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Ensure at least one identifier exists."""
         if not self.identifiers and self.name:
             # Use sanitized name as identifier if none provided
@@ -161,7 +161,7 @@ def create_device(
     topic_prefix: str = "penguin_metrics",
     manufacturer: str = "Penguin Metrics",
     model: str = "Linux Monitor",
-    **kwargs,
+    **kwargs: Any,
 ) -> Device:
     """
     Factory function to create a device for a metric source.

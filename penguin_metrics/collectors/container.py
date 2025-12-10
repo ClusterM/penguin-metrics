@@ -456,7 +456,11 @@ class ContainerCollector(Collector):
 
         # Network rate (MiB/s)
         if self.config.network_rate:
-            if self._prev_timestamp and self._prev_network_rx is not None:
+            if (
+                self._prev_timestamp
+                and self._prev_network_rx is not None
+                and self._prev_network_tx is not None
+            ):
                 time_delta = (now - self._prev_timestamp).total_seconds()
                 if time_delta > 0:
                     rx_rate = (
@@ -479,7 +483,11 @@ class ContainerCollector(Collector):
 
         # Disk rate (MiB/s)
         if self.config.disk_rate:
-            if self._prev_timestamp and self._prev_disk_read is not None:
+            if (
+                self._prev_timestamp
+                and self._prev_disk_read is not None
+                and self._prev_disk_write is not None
+            ):
                 time_delta = (now - self._prev_timestamp).total_seconds()
                 if time_delta > 0:
                     read_rate = (

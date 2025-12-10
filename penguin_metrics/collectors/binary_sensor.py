@@ -59,7 +59,7 @@ class BinarySensorCollector(Collector):
 
         # Build command
         if config.script:
-            self._command = config.script
+            self._command: str | None = config.script
         elif config.command:
             self._command = config.command
         else:

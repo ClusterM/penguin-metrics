@@ -179,7 +179,7 @@ class Collector(ABC):
         self._initialized = True
 
     @abstractmethod
-    def create_device(self) -> Device:
+    def create_device(self) -> Device | None:
         """
         Create the Home Assistant device for this collector.
 

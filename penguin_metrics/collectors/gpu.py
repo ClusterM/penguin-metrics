@@ -97,7 +97,7 @@ def get_devfreq_metrics(device: GPUDevice) -> dict[str, float | int | str]:
     Returns:
         Dictionary of metrics
     """
-    metrics = {}
+    metrics: dict[str, float | int | str] = {}
     path = device.path
 
     # Current frequency (Hz -> MHz)
@@ -151,7 +151,7 @@ def get_drm_metrics(device: GPUDevice) -> dict[str, float | int | str]:
     Returns:
         Dictionary of metrics
     """
-    metrics = {}
+    metrics: dict[str, float | int | str] = {}
     path = device.path / "device"
 
     # Try to get vendor/device info
@@ -278,7 +278,7 @@ class GPUCollector(Collector):
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors only for available GPU metrics."""
-        sensors = []
+        sensors: list[Sensor] = []
         device = self.device
 
         if not self._gpus or not self._available_metrics:

@@ -5,7 +5,7 @@ Configuration loader with file reading and validation.
 from pathlib import Path
 
 from .lexer import LexerError
-from .parser import ConfigDocument, ParseError, parse_config, parse_config_file
+from .parser import Block, ConfigDocument, ParseError, parse_config, parse_config_file
 from .schema import Config
 
 
@@ -26,7 +26,7 @@ class ConfigLoader:
         config = loader.load_string(config_text)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.last_document: ConfigDocument | None = None
 
     def load_file(self, path: str | Path) -> Config:
@@ -335,7 +335,7 @@ class ConfigLoader:
         reserved_device_refs = {"system", "auto", "none"}
         template_names = set(config.device_templates.keys())
 
-        def validate_device_ref(device_ref: str | None, source_type: str, source_name: str):
+        def validate_device_ref(device_ref: str | None, source_type: str, source_name: str) -> None:
             if device_ref is None:
                 return  # Default behavior, valid
             if device_ref in reserved_device_refs:
@@ -385,7 +385,7 @@ class ConfigLoader:
         """Check for unknown directives in parsed document."""
         warnings = []
 
-        def check_block(block, parent_path: str = ""):
+        def check_block(block: Block, parent_path: str = "") -> None:
             block_path = f"{parent_path}{block.type}" if parent_path else block.type
 
             # Special handling for blocks that allow extra fields:

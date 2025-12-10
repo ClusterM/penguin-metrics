@@ -270,7 +270,7 @@ class Application:
         if not auto_cfg.enabled:
             return []
 
-        collectors = []
+        collectors: list[Collector] = []
         device_templates = self.config.device_templates
 
         if auto_cfg.source == "thermal":
@@ -344,7 +344,7 @@ class Application:
         if not auto_cfg.enabled:
             return []
 
-        collectors = []
+        collectors: list[Collector] = []
         device_templates = self.config.device_templates
 
         for battery in discover_batteries():
@@ -388,7 +388,7 @@ class Application:
         if not auto_cfg.enabled:
             return []
 
-        collectors = []
+        collectors: list[Collector] = []
         device_templates = self.config.device_templates
 
         for disk in discover_disks():
@@ -433,7 +433,7 @@ class Application:
         if not auto_cfg.enabled:
             return []
 
-        collectors = []
+        collectors: list[Collector] = []
         docker = DockerClient()
         device_templates = self.config.device_templates
 
@@ -497,7 +497,7 @@ class Application:
             )
             return []
 
-        collectors = []
+        collectors: list[Collector] = []
         device_templates = self.config.device_templates
 
         try:
@@ -578,7 +578,7 @@ class Application:
             )
             return []
 
-        collectors = []
+        collectors: list[Collector] = []
         device_templates = self.config.device_templates
 
         try:
@@ -692,12 +692,12 @@ class Application:
 
         # Get manually configured IDs (these should not be auto-removed)
         manual_ids: set[str] = set()
-        for cfg in self.config.services:
-            manual_ids.add(cfg.id or cfg.name)
-        for cfg in self.config.containers:
-            manual_ids.add(cfg.id or cfg.name)
-        for cfg in self.config.processes:
-            manual_ids.add(cfg.id or cfg.name)
+        for svc_cfg in self.config.services:
+            manual_ids.add(svc_cfg.id or svc_cfg.name)
+        for cont_cfg in self.config.containers:
+            manual_ids.add(cont_cfg.id or cont_cfg.name)
+        for proc_cfg in self.config.processes:
+            manual_ids.add(proc_cfg.id or proc_cfg.name)
 
         # Get system device from first system collector (if any)
         system_device = None
