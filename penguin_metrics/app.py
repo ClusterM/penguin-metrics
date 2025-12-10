@@ -175,7 +175,7 @@ class Application:
             logger.info(f"Auto-discovered {len(auto_containers)} containers")
         collectors.extend(auto_containers)
 
-        # Battery collectors (manual)
+        # Battery collectors (manual) - part of system device
         for bat_config in self.config.batteries:
             manual_batteries.add(bat_config.name)
             collectors.append(
@@ -183,11 +183,12 @@ class Application:
                     config=bat_config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    parent_device=system_device,
                 )
             )
 
-        # Auto-discover batteries
-        auto_batteries = self._auto_discover_batteries(manual_batteries, topic_prefix)
+        # Auto-discover batteries - always use system device
+        auto_batteries = self._auto_discover_batteries(manual_batteries, topic_prefix, system_device)
         if auto_batteries:
             logger.info(f"Auto-discovered {len(auto_batteries)} batteries")
         collectors.extend(auto_batteries)
@@ -273,7 +274,9 @@ class Application:
 
         return collectors
 
-    def _auto_discover_batteries(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+    def _auto_discover_batteries(
+        self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
+    ) -> list[Collector]:
         """Auto-discover battery devices."""
         from .collectors.battery import discover_batteries
 
@@ -302,6 +305,7 @@ class Application:
                     config=config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    parent_device=parent_device,
                 )
             )
             logger.debug(f"Auto-discovered battery: {name}")

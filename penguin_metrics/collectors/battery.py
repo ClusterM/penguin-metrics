@@ -107,6 +107,7 @@ class BatteryCollector(Collector):
         config: BatteryConfig,
         defaults: DefaultsConfig,
         topic_prefix: str = "penguin_metrics",
+        parent_device: Device | None = None,
     ):
         """
         Initialize battery collector.
@@ -115,6 +116,7 @@ class BatteryCollector(Collector):
             config: Battery configuration
             defaults: Default settings
             topic_prefix: MQTT topic prefix
+            parent_device: Parent device (system device)
         """
         super().__init__(
             name=config.name,
@@ -125,6 +127,7 @@ class BatteryCollector(Collector):
         self.config = config
         self.defaults = defaults
         self.topic_prefix = topic_prefix
+        self.parent_device = parent_device
 
         # Battery device info
         self._battery: BatteryInfo | None = None
@@ -155,7 +158,11 @@ class BatteryCollector(Collector):
         await super().initialize()
 
     def create_device(self) -> Device:
-        """Create device for battery metrics."""
+        """Create device for battery metrics (uses system device)."""
+        if self.parent_device:
+            return self.parent_device
+
+        # Fallback if no parent device
         device_config = self.config.device
         battery_name = self._battery.name if self._battery else "Unknown"
 
