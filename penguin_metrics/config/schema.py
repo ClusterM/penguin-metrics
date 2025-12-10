@@ -960,8 +960,8 @@ class BatteryConfig:
 class CustomSensorConfig:
     """Custom command/script sensor configuration."""
 
-    name: str
-    id: str | None = None
+    name: str  # Sensor ID, used for MQTT topics
+    ha_name: str | None = None  # Display name for Home Assistant (optional)
     command: str | None = None
     script: str | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
@@ -1002,7 +1002,7 @@ class CustomSensorConfig:
 
         return cls(
             name=name,
-            id=block.get_value("id"),
+            ha_name=block.get_value("ha_name"),
             command=block.get_value("command"),
             script=block.get_value("script"),
             device_ref=device_ref,

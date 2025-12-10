@@ -775,9 +775,15 @@ battery "main" {
 
 ### Custom Sensors
 
+The block name (e.g., `"room_temp"`) is the sensor ID, used for MQTT topics.
+Use `ha_name` to set a custom display name in Home Assistant.
+
 ```nginx
 # Read from command output
+# MQTT topic: {prefix}/custom/room_temp
 custom "room_temp" {
+    ha_name "Room Temperature";  # Display name in HA (optional)
+    
     command "cat /sys/bus/w1/devices/28-*/temperature";
     
     type number;               # number, string, json
@@ -800,6 +806,7 @@ custom "disk_health" {
 
 # Get external IP
 custom "wan_ip" {
+    ha_name "WAN IP Address";
     command "curl -s ifconfig.me";
     type string;
     update_interval 5m;
@@ -809,6 +816,7 @@ custom "wan_ip" {
 **Default values:**
 | Directive | Default | Description |
 |-----------|---------|-------------|
+| `ha_name` | *(use ID)* | Display name in Home Assistant |
 | `command` | *(required)* | Shell command to execute |
 | `script` | *(none)* | Script path (alternative to command) |
 | `type` | `"number"` | Output type: `number`, `string`, `json` |

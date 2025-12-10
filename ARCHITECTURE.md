@@ -412,7 +412,8 @@ class DiskConfig:
 
 @dataclass
 class CustomSensorConfig:
-    name: str
+    name: str  # Sensor ID, used for MQTT topics
+    ha_name: str | None = None  # Display name for Home Assistant (optional)
     command: str | None = None
     script: str | None = None
     type: str = "number"  # number, string, json

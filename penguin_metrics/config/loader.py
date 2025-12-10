@@ -203,7 +203,7 @@ class ConfigLoader:
             "update_interval",
         },
         "custom": {
-            "id",
+            "ha_name",
             "device",
             "command",
             "script",

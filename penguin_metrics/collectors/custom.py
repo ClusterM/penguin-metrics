@@ -49,7 +49,7 @@ class CustomCollector(Collector):
         """
         super().__init__(
             name=config.name,
-            collector_id=config.id or config.name,
+            collector_id=config.name,  # name is the ID, used for MQTT topics
             update_interval=config.update_interval or defaults.update_interval,
         )
 
@@ -96,9 +96,10 @@ class CustomCollector(Collector):
                 )
 
         # Default for custom: auto-create device
+        display_name = self.config.ha_name or self.config.name
         return Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_custom_{self.collector_id}"],
-            name=f"Custom: {self.config.name}",
+            name=f"Custom: {display_name}",
             manufacturer="Penguin Metrics",
             model="Custom Sensor",
         )
@@ -123,11 +124,14 @@ class CustomCollector(Collector):
             except ValueError:
                 state_class = self.config.state_class
 
+        # Display name: use ha_name if specified, otherwise use name (ID)
+        display_name = self.config.ha_name or self.config.name
+
         sensor = create_sensor(
             source_type="custom",
-            source_name=self.name,
+            source_name=self.collector_id,  # Use collector_id for MQTT topic
             metric_name="value",
-            display_name=self.config.name,
+            display_name=display_name,  # Human-readable name for HA
             device=device,
             topic_prefix=self.topic_prefix,
             unit=self.config.unit,
