@@ -22,10 +22,10 @@ from pathlib import Path
 import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, ProcessConfig, ProcessMatchType
-from ..models.device import Device, _add_via_device_if_needed
+from ..models.device import Device, create_device_from_ref
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from ..utils.smaps import get_process_memory
-from .base import CollectorResult, MultiSourceCollector
+from .base import CollectorResult, MultiSourceCollector, apply_overrides_to_sensors
 
 
 def find_processes_by_name(name: str) -> list[psutil.Process]:
@@ -139,36 +139,17 @@ class ProcessCollector(MultiSourceCollector):
 
     def create_device(self) -> Device | None:
         """Create device for process metrics."""
-        device_ref = self.config.device_ref
-
-        # Handle "none" - no device
-        if device_ref == "none":
-            return None
-
-        # Handle "system" - use parent device
-        if device_ref == "system" and self.parent_device:
-            return self.parent_device
-
-        # Handle template reference
-        if device_ref and device_ref not in ("system", "auto"):
-            if device_ref in self.device_templates:
-                template = self.device_templates[device_ref]
-                device = Device(
-                    identifiers=template.identifiers.copy(),
-                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
-                )
-                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-                return device
-
-        # Default for process: auto-create device
-        device = Device(
-            identifiers=[f"penguin_metrics_{self.topic_prefix}_process_{self.collector_id}"],
-            name=f"Process: {self.config.name}",
+        return create_device_from_ref(
+            device_ref=self.config.device_ref,
+            source_type=self.SOURCE_TYPE,
+            collector_id=self.collector_id,
+            topic_prefix=self.topic_prefix,
+            default_name=f"Process: {self.config.name}",
             manufacturer="Penguin Metrics",
             model="Process Monitor",
+            parent_device=self.parent_device,
+            device_templates=self.device_templates,
         )
-        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors based on configuration."""
@@ -336,9 +317,7 @@ class ProcessCollector(MultiSourceCollector):
             )
 
         # Apply HA overrides from config to all sensors
-        if self.config.ha_config:
-            for sensor in sensors:
-                sensor.apply_ha_overrides(self.config.ha_config)
+        apply_overrides_to_sensors(sensors, self.config.ha_config)
 
         return sensors
 

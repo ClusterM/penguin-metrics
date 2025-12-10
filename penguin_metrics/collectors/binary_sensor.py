@@ -14,9 +14,9 @@ Supports:
 import asyncio
 
 from ..config.schema import BinarySensorConfig, DefaultsConfig, DeviceConfig
-from ..models.device import Device, _add_via_device_if_needed
+from ..models.device import Device, create_device_from_ref
 from ..models.sensor import Sensor, create_sensor
-from .base import Collector, CollectorResult
+from .base import Collector, CollectorResult, apply_overrides_to_sensors
 
 
 class BinarySensorCollector(Collector):
@@ -70,41 +70,22 @@ class BinarySensorCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for binary sensor."""
-        device_ref = self.config.device_ref
-
-        # Handle "none" - no device
-        if device_ref == "none":
-            return None
-
-        # Handle "system" - use parent device
-        if device_ref == "system" and self.parent_device:
-            return self.parent_device
-
-        # Handle template reference
-        if device_ref and device_ref not in ("system", "auto"):
-            if device_ref in self.device_templates:
-                template = self.device_templates[device_ref]
-                device = Device(
-                    identifiers=template.identifiers.copy(),
-                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
-                )
-                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-                return device
-
-        # Default for binary_sensor: auto-create device
         display_name = (
             self.config.ha_config.name
             if self.config.ha_config and self.config.ha_config.name
             else self.config.name
         )
-        device = Device(
-            identifiers=[f"penguin_metrics_{self.topic_prefix}_binary_sensor_{self.collector_id}"],
-            name=f"Binary Sensor: {display_name}",
+        return create_device_from_ref(
+            device_ref=self.config.device_ref,
+            source_type=self.SOURCE_TYPE,
+            collector_id=self.collector_id,
+            topic_prefix=self.topic_prefix,
+            default_name=f"Binary Sensor: {display_name}",
             manufacturer="Penguin Metrics",
             model="Binary Sensor",
+            parent_device=self.parent_device,
+            device_templates=self.device_templates,
         )
-        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create binary sensor."""
@@ -127,8 +108,7 @@ class BinarySensorCollector(Collector):
         )
 
         # Apply HA overrides from config (this will override any fields set above)
-        if self.config.ha_config:
-            sensor.apply_ha_overrides(self.config.ha_config)
+        apply_overrides_to_sensors([sensor], self.config.ha_config)
 
         return [sensor]
 

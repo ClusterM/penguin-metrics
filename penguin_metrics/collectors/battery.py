@@ -20,9 +20,9 @@ from pathlib import Path
 from typing import NamedTuple
 
 from ..config.schema import BatteryConfig, DefaultsConfig, DeviceConfig
-from ..models.device import Device, _add_via_device_if_needed
+from ..models.device import Device, create_device_from_ref
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
-from .base import Collector, CollectorResult
+from .base import Collector, CollectorResult, apply_overrides_to_sensors
 
 
 class BatteryInfo(NamedTuple):
@@ -162,48 +162,19 @@ class BatteryCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for battery metrics (uses system device by default)."""
-        device_ref = self.config.device_ref
         battery_name = self._battery.name if self._battery else "Unknown"
-
-        # Handle "none" - no device
-        if device_ref == "none":
-            return None
-
-        # Handle "auto" - create unique device
-        if device_ref == "auto":
-            device = Device(
-                identifiers=[f"penguin_metrics_{self.topic_prefix}_battery_{self.collector_id}"],
-                name=f"Battery: {battery_name}",
-                manufacturer="Unknown",
-                model="Battery",
-            )
-            _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-            return device
-
-        # Handle template reference
-        if device_ref and device_ref not in ("system", "auto", "none"):
-            if device_ref in self.device_templates:
-                template = self.device_templates[device_ref]
-                device = Device(
-                    identifiers=template.identifiers.copy(),
-                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
-                )
-                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-                return device
-
-        # Default for battery: use parent device (system)
-        if self.parent_device:
-            return self.parent_device
-
-        # Fallback if no parent device
-        device = Device(
-            identifiers=[f"penguin_metrics_{self.topic_prefix}_battery_{self.collector_id}"],
-            name=f"Battery: {battery_name}",
+        return create_device_from_ref(
+            device_ref=self.config.device_ref,
+            source_type=self.SOURCE_TYPE,
+            collector_id=self.collector_id,
+            topic_prefix=self.topic_prefix,
+            default_name=f"Battery: {battery_name}",
             manufacturer="Unknown",
             model="Battery",
+            parent_device=self.parent_device,
+            device_templates=self.device_templates,
+            use_parent_as_default=True,
         )
-        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors based on configuration."""
@@ -406,9 +377,7 @@ class BatteryCollector(Collector):
         )
 
         # Apply HA overrides from config to all sensors
-        if self.config.ha_config:
-            for sensor in sensors:
-                sensor.apply_ha_overrides(self.config.ha_config)
+        apply_overrides_to_sensors(sensors, self.config.ha_config)
 
         return sensors
 

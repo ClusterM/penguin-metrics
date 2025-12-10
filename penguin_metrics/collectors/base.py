@@ -7,7 +7,7 @@ the collect() method to gather metrics from various sources.
 
 import asyncio
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -290,6 +290,14 @@ class Collector(ABC):
     def __repr__(self) -> str:
         status = "enabled" if self.enabled else "disabled"
         return f"{self.__class__.__name__}({self.name!r}, {status}, {self.update_interval}s)"
+
+
+def apply_overrides_to_sensors(sensors: Iterable[Sensor], ha_config: Any) -> None:
+    """Apply Home Assistant overrides to all sensors in iterable."""
+    if not ha_config:
+        return
+    for sensor in sensors:
+        sensor.apply_ha_overrides(ha_config)
 
 
 class MultiSourceCollector(Collector):

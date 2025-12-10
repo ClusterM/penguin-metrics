@@ -11,9 +11,9 @@ from typing import NamedTuple
 import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig, TemperatureConfig
-from ..models.device import Device, _add_via_device_if_needed
+from ..models.device import Device, create_device_from_ref
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
-from .base import Collector, CollectorResult
+from .base import Collector, CollectorResult, apply_overrides_to_sensors
 
 
 class ThermalZone(NamedTuple):
@@ -214,49 +214,18 @@ class TemperatureCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for temperature metrics."""
-        device_ref = self._device_ref
-
-        # Handle "none" - no device
-        if device_ref == "none":
-            return None
-
-        # Handle "auto" - create unique device
-        if device_ref == "auto":
-            device = Device(
-                identifiers=[
-                    f"penguin_metrics_{self.topic_prefix}_temperature_{self.collector_id}"
-                ],
-                name=f"Temperature: {self.name}",
-                manufacturer="Penguin Metrics",
-                model="Temperature Sensor",
-            )
-            _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-            return device
-
-        # Handle template reference
-        if device_ref and device_ref not in ("system", "auto", "none"):
-            if device_ref in self.device_templates:
-                template = self.device_templates[device_ref]
-                device = Device(
-                    identifiers=template.identifiers.copy(),
-                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
-                )
-                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-                return device
-
-        # Default for temperature: use parent device (system)
-        if self.parent_device:
-            return self.parent_device
-
-        # Fallback if no parent device
-        device = Device(
-            identifiers=[f"penguin_metrics_{self.topic_prefix}_temperature_{self.collector_id}"],
-            name=f"Temperature: {self.name}",
+        return create_device_from_ref(
+            device_ref=self._device_ref,
+            source_type=self.SOURCE_TYPE,
+            collector_id=self.collector_id,
+            topic_prefix=self.topic_prefix,
+            default_name=f"Temperature: {self.name}",
             manufacturer="Penguin Metrics",
-            model="Temperature Monitor",
+            model="Temperature Sensor",
+            parent_device=self.parent_device,
+            device_templates=self.device_templates,
+            use_parent_as_default=True,
         )
-        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-        return device
 
     def _add_temp_sensor(
         self,
@@ -297,9 +266,8 @@ class TemperatureCollector(Collector):
                     device=device,
                 )
             # Apply HA overrides from config to all sensors
-            if isinstance(self.config, TemperatureConfig) and self.config.ha_config:
-                for sensor in sensors:
-                    sensor.apply_ha_overrides(self.config.ha_config)
+            if isinstance(self.config, TemperatureConfig):
+                apply_overrides_to_sensors(sensors, self.config.ha_config)
             return sensors
 
         # Add thermal zones (auto-discovered)
@@ -331,9 +299,8 @@ class TemperatureCollector(Collector):
                 pass
 
         # Apply HA overrides from config to all sensors
-        if isinstance(self.config, TemperatureConfig) and self.config.ha_config:
-            for sensor in sensors:
-                sensor.apply_ha_overrides(self.config.ha_config)
+        if isinstance(self.config, TemperatureConfig):
+            apply_overrides_to_sensors(sensors, self.config.ha_config)
 
         return sensors
 

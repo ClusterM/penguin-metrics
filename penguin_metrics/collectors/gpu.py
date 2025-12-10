@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig
-from ..models.device import Device
+from ..models.device import Device, create_device_from_ref
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult
 
@@ -264,16 +264,17 @@ class GPUCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for GPU metrics."""
-        # GPU always defaults to system device
-        if self.parent_device:
-            return self.parent_device
-
-        # Fallback if no parent device
-        return Device(
-            identifiers=[f"penguin_metrics_{self.topic_prefix}_gpu_{self.collector_id}"],
-            name=f"GPU: {self.name}",
+        return create_device_from_ref(
+            device_ref=self.config.device_ref if hasattr(self.config, "device_ref") else None,
+            source_type=self.SOURCE_TYPE,
+            collector_id=self.collector_id,
+            topic_prefix=self.topic_prefix,
+            default_name=f"GPU: {self.name}",
             manufacturer="Penguin Metrics",
             model="GPU Monitor",
+            parent_device=self.parent_device,
+            device_templates=self.device_templates,
+            use_parent_as_default=True,
         )
 
     def create_sensors(self) -> list[Sensor]:

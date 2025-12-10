@@ -7,6 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..config.schema import DeviceConfig
+
 
 def _add_via_device_if_needed(
     device: Device, parent_device: Device | None, source_type: str
@@ -188,3 +190,62 @@ def create_device(
         model=model,
         **kwargs,
     )
+
+
+def create_device_from_ref(
+    *,
+    device_ref: str | None,
+    source_type: str,
+    collector_id: str,
+    topic_prefix: str,
+    default_name: str,
+    manufacturer: str,
+    model: str,
+    parent_device: Device | None = None,
+    device_templates: dict[str, DeviceConfig] | None = None,
+    use_parent_as_default: bool = False,
+) -> Device | None:
+    """
+    Shared helper to resolve device_ref logic across collectors.
+
+    Args:
+        device_ref: Requested device reference ("system"/"auto"/"none"/template/None)
+        source_type: Collector source type (system, process, etc.)
+        collector_id: Collector identifier
+        topic_prefix: MQTT topic prefix
+        default_name: Default device name
+        manufacturer: Manufacturer string
+        model: Model string
+        parent_device: Parent (system) device if available
+        device_templates: Templates map
+        use_parent_as_default: If True, fall back to parent_device when ref is None
+    """
+    templates = device_templates or {}
+
+    if device_ref == "none":
+        return None
+
+    if device_ref == "system" and parent_device:
+        return parent_device
+
+    if device_ref and device_ref not in ("system", "auto", "none"):
+        if device_ref in templates:
+            template = templates[device_ref]
+            device = Device(
+                identifiers=template.identifiers.copy(),
+                extra_fields=template.extra_fields.copy() if template.extra_fields else {},
+            )
+            _add_via_device_if_needed(device, parent_device, source_type)
+            return device
+
+    if use_parent_as_default and parent_device:
+        return parent_device
+
+    device = Device(
+        identifiers=[f"penguin_metrics_{topic_prefix}_{source_type}_{collector_id}"],
+        name=default_name,
+        manufacturer=manufacturer,
+        model=model,
+    )
+    _add_via_device_if_needed(device, parent_device, source_type)
+    return device

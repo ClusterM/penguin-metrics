@@ -17,10 +17,21 @@ import re
 from datetime import datetime
 
 from ..config.schema import ContainerConfig, ContainerMatchType, DefaultsConfig, DeviceConfig
-from ..models.device import Device, _add_via_device_if_needed
+from ..models.device import Device, create_device_from_ref
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from ..utils.docker_api import ContainerInfo, DockerClient, DockerError
 from .base import Collector, CollectorResult
+
+
+def _calc_rate(
+    current: int,
+    previous: float | None,
+    time_delta: float | None,
+) -> float | None:
+    """Calculate MiB/s rate based on previous value and time delta."""
+    if previous is None or time_delta is None or time_delta <= 0:
+        return None
+    return max(0.0, (current - previous) / (1024 * 1024) / time_delta)
 
 
 class ContainerCollector(Collector):
@@ -125,37 +136,18 @@ class ContainerCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for container metrics."""
-        device_ref = self.config.device_ref
         container_name = self._container.name if self._container else self.config.name
-
-        # Handle "none" - no device
-        if device_ref == "none":
-            return None
-
-        # Handle "system" - use parent device
-        if device_ref == "system" and self.parent_device:
-            return self.parent_device
-
-        # Handle template reference
-        if device_ref and device_ref not in ("system", "auto"):
-            if device_ref in self.device_templates:
-                template = self.device_templates[device_ref]
-                device = Device(
-                    identifiers=template.identifiers.copy(),
-                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
-                )
-                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-                return device
-
-        # Default for container: auto-create device
-        device = Device(
-            identifiers=[f"penguin_metrics_{self.topic_prefix}_container_{self.collector_id}"],
-            name=f"Container: {container_name}",
+        return create_device_from_ref(
+            device_ref=self.config.device_ref,
+            source_type=self.SOURCE_TYPE,
+            collector_id=self.collector_id,
+            topic_prefix=self.topic_prefix,
+            default_name=f"Container: {container_name}",
             manufacturer="Docker",
             model="Container",
+            parent_device=self.parent_device,
+            device_templates=self.device_templates,
         )
-        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors based on configuration."""
@@ -438,6 +430,9 @@ class ContainerCollector(Collector):
 
         # Current timestamp for rate calculation
         now = datetime.now()
+        time_delta = (
+            (now - self._prev_timestamp).total_seconds() if self._prev_timestamp else None
+        )
 
         if self.config.cpu:
             result.set("cpu_percent", round(stats.cpu_percent, 1))
@@ -456,21 +451,12 @@ class ContainerCollector(Collector):
 
         # Network rate (MiB/s)
         if self.config.network_rate:
-            if (
-                self._prev_timestamp
-                and self._prev_network_rx is not None
-                and self._prev_network_tx is not None
-            ):
-                time_delta = (now - self._prev_timestamp).total_seconds()
-                if time_delta > 0:
-                    rx_rate = (
-                        (network_rx_bytes - self._prev_network_rx) / (1024 * 1024) / time_delta
-                    )
-                    tx_rate = (
-                        (network_tx_bytes - self._prev_network_tx) / (1024 * 1024) / time_delta
-                    )
-                    result.set("network_rx_rate", round(max(0, rx_rate), 2))
-                    result.set("network_tx_rate", round(max(0, tx_rate), 2))
+            rx_rate = _calc_rate(network_rx_bytes, self._prev_network_rx, time_delta)
+            tx_rate = _calc_rate(network_tx_bytes, self._prev_network_tx, time_delta)
+            if rx_rate is not None:
+                result.set("network_rx_rate", round(rx_rate, 2))
+            if tx_rate is not None:
+                result.set("network_tx_rate", round(tx_rate, 2))
             self._prev_network_rx = network_rx_bytes
             self._prev_network_tx = network_tx_bytes
 
@@ -483,21 +469,12 @@ class ContainerCollector(Collector):
 
         # Disk rate (MiB/s)
         if self.config.disk_rate:
-            if (
-                self._prev_timestamp
-                and self._prev_disk_read is not None
-                and self._prev_disk_write is not None
-            ):
-                time_delta = (now - self._prev_timestamp).total_seconds()
-                if time_delta > 0:
-                    read_rate = (
-                        (disk_read_bytes - self._prev_disk_read) / (1024 * 1024) / time_delta
-                    )
-                    write_rate = (
-                        (disk_write_bytes - self._prev_disk_write) / (1024 * 1024) / time_delta
-                    )
-                    result.set("disk_read_rate", round(max(0, read_rate), 2))
-                    result.set("disk_write_rate", round(max(0, write_rate), 2))
+            read_rate = _calc_rate(disk_read_bytes, self._prev_disk_read, time_delta)
+            write_rate = _calc_rate(disk_write_bytes, self._prev_disk_write, time_delta)
+            if read_rate is not None:
+                result.set("disk_read_rate", round(read_rate, 2))
+            if write_rate is not None:
+                result.set("disk_write_rate", round(write_rate, 2))
             self._prev_disk_read = disk_read_bytes
             self._prev_disk_write = disk_write_bytes
 
