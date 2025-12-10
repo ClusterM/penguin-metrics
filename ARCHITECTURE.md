@@ -24,6 +24,7 @@ penguin_metrics/
 │   ├── base.py              # Abstract collector interface
 │   ├── system.py            # System metrics (CPU, RAM, etc.)
 │   ├── temperature.py       # Thermal zones
+│   ├── disk.py              # Disk space monitoring
 │   ├── process.py           # Process monitoring
 │   ├── service.py           # Systemd services
 │   ├── container.py         # Docker containers
@@ -127,6 +128,7 @@ class Application:
     async def _auto_discover_containers(exclude, topic_prefix) -> list[Collector]
     def _auto_discover_services(exclude, topic_prefix) -> list[Collector]
     def _auto_discover_processes(exclude, topic_prefix) -> list[Collector]
+    def _auto_discover_disks(exclude, topic_prefix) -> list[Collector]
 ```
 
 **Functions:**
@@ -325,6 +327,7 @@ class Config:
     auto_containers: AutoDiscoveryConfig
     auto_services: AutoDiscoveryConfig
     auto_processes: AutoDiscoveryConfig
+    auto_disks: AutoDiscoveryConfig
 
 @dataclass
 class SystemConfig:
@@ -400,6 +403,17 @@ class BatteryConfig:
     ...
 
 @dataclass
+class DiskConfig:
+    name: str
+    device: str | None = None  # Device name: sda1, nvme0n1p1
+    mountpoint: str | None = None  # Mount point: /, /home
+    total: bool = True
+    used: bool = True
+    free: bool = True
+    percent: bool = True
+    update_interval: float | None = None
+
+@dataclass
 class CustomSensorConfig:
     name: str
     command: str | None = None
@@ -444,6 +458,7 @@ class Config:
     auto_containers: AutoDiscoveryConfig
     auto_services: AutoDiscoveryConfig
     auto_processes: AutoDiscoveryConfig
+    auto_disks: AutoDiscoveryConfig
     
     # Manual collectors
     system: list[SystemConfig]
@@ -452,6 +467,7 @@ class Config:
     containers: list[ContainerConfig]
     temperatures: list[TemperatureConfig]
     batteries: list[BatteryConfig]
+    disks: list[DiskConfig]
     custom: list[CustomSensorConfig]
     
     @classmethod
@@ -708,6 +724,28 @@ Metrics:
 - `time_to_empty` - Minutes remaining
 - `time_to_full` - Minutes to full charge
 - `energy_now`, `energy_full`, `energy_full_design` - Energy (Wh)
+
+---
+
+### `disk.py` - Disk Collector
+
+Reads disk space from mounted partitions via psutil.
+
+**Functions:**
+- `discover_disks()` - Find mounted block device partitions
+- `get_disk_by_name(name)` - Find disk by device name (sda1, nvme0n1p1)
+- `get_disk_by_mountpoint(mountpoint)` - Find disk by mountpoint
+
+**Class: `DiskCollector`**
+
+Metrics:
+- `state` - online/not_found
+- `total` - Total size (GB)
+- `used` - Used space (GB)
+- `free` - Free space (GB)
+- `percent` - Usage percentage (%)
+
+Topic: `{prefix}/disk/{name}` → JSON: `{"total": 100.0, "used": 50.0, "free": 50.0, "percent": 50.0, "state": "online"}`
 
 ---
 
@@ -1164,6 +1202,12 @@ services {
 processes {
     auto on;
     filter "python*";  # Required for processes
+}
+
+disks {
+    auto on;
+    filter "*";  # All partitions
+    # filter "nvme*";  # Only NVMe
 }
 ```
 

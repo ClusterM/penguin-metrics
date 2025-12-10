@@ -15,6 +15,7 @@ from .collectors.base import Collector
 from .collectors.battery import BatteryCollector
 from .collectors.container import ContainerCollector
 from .collectors.custom import CustomCollector
+from .collectors.disk import DiskCollector
 from .collectors.gpu import GPUCollector
 from .collectors.process import ProcessCollector
 from .collectors.service import ServiceCollector
@@ -188,10 +189,31 @@ class Application:
             )
 
         # Auto-discover batteries - always use system device
-        auto_batteries = self._auto_discover_batteries(manual_batteries, topic_prefix, system_device)
+        auto_batteries = self._auto_discover_batteries(
+            manual_batteries, topic_prefix, system_device
+        )
         if auto_batteries:
             logger.info(f"Auto-discovered {len(auto_batteries)} batteries")
         collectors.extend(auto_batteries)
+
+        # Disk collectors (manual) - part of system device
+        manual_disks: set[str] = set()
+        for disk_config in self.config.disks:
+            manual_disks.add(disk_config.name)
+            collectors.append(
+                DiskCollector(
+                    config=disk_config,
+                    defaults=self.config.defaults,
+                    topic_prefix=topic_prefix,
+                    parent_device=system_device,
+                )
+            )
+
+        # Auto-discover disks - always use system device
+        auto_disks = self._auto_discover_disks(manual_disks, topic_prefix, system_device)
+        if auto_disks:
+            logger.info(f"Auto-discovered {len(auto_disks)} disks")
+        collectors.extend(auto_disks)
 
         # Custom collectors
         for custom_config in self.config.custom:
@@ -312,6 +334,47 @@ class Application:
 
         if collectors:
             logger.debug(f"Found {len(collectors)} batteries")
+
+        return collectors
+
+    def _auto_discover_disks(
+        self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
+    ) -> list[Collector]:
+        """Auto-discover disk partitions."""
+        from .collectors.disk import discover_disks
+
+        auto_cfg = self.config.auto_disks
+        if not auto_cfg.enabled:
+            return []
+
+        collectors = []
+
+        for disk in discover_disks():
+            name = disk.name  # sda1, nvme0n1p1, etc.
+            if name in exclude:
+                continue
+            if not auto_cfg.matches(name):
+                continue
+
+            from .config.schema import DiskConfig
+
+            config = DiskConfig.from_defaults(
+                name=name,
+                device=name,
+                defaults=self.config.defaults,
+            )
+            collectors.append(
+                DiskCollector(
+                    config=config,
+                    defaults=self.config.defaults,
+                    topic_prefix=topic_prefix,
+                    parent_device=parent_device,
+                )
+            )
+            logger.debug(f"Auto-discovered disk: {name} ({disk.mountpoint})")
+
+        if collectors:
+            logger.debug(f"Found {len(collectors)} disks")
 
         return collectors
 

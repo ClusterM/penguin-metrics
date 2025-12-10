@@ -9,6 +9,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 ### Data Collection
 - **System Metrics**: CPU (overall and per-core), RAM, swap, load average, uptime
 - **Temperature**: Thermal zones and hwmon sensors (auto-discovery supported)
+- **Disk Space**: Total, used, free space and usage percentage (auto-discovery supported)
 - **Process Monitoring**: By name, regex pattern, PID, or pidfile
 - **Memory Details**: 
   - Standard RSS (Resident Set Size)
@@ -34,6 +35,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 
 ### Auto-Discovery
 - **Temperature Sensors**: Automatic detection with filter/exclude patterns
+- **Disk Partitions**: Auto-discovery of mounted block devices
 - **Batteries**: Auto-discovery of all power supplies
 - **Docker Containers**: Auto-discovery with name/image/label filters
 - **Systemd Services**: Auto-discovery with required filter (safety)

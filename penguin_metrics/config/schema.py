@@ -324,6 +324,27 @@ class CustomDefaultsConfig:
 
 
 @dataclass
+class DiskDefaultsConfig:
+    """Default settings for disk collectors."""
+
+    total: bool = True
+    used: bool = True
+    free: bool = True
+    percent: bool = True
+
+    @classmethod
+    def from_block(cls, block: Block | None) -> "DiskDefaultsConfig":
+        if block is None:
+            return cls()
+        return cls(
+            total=bool(block.get_value("total", True)),
+            used=bool(block.get_value("used", True)),
+            free=bool(block.get_value("free", True)),
+            percent=bool(block.get_value("percent", True)),
+        )
+
+
+@dataclass
 class DefaultsConfig:
     """Default settings inherited by collectors."""
 
@@ -338,6 +359,7 @@ class DefaultsConfig:
     container: ContainerDefaultsConfig = field(default_factory=ContainerDefaultsConfig)
     battery: BatteryDefaultsConfig = field(default_factory=BatteryDefaultsConfig)
     custom: CustomDefaultsConfig = field(default_factory=CustomDefaultsConfig)
+    disk: DiskDefaultsConfig = field(default_factory=DiskDefaultsConfig)
 
     @classmethod
     def from_block(cls, block: Block | None) -> "DefaultsConfig":
@@ -359,6 +381,7 @@ class DefaultsConfig:
             container=ContainerDefaultsConfig.from_block(block.get_block("container")),
             battery=BatteryDefaultsConfig.from_block(block.get_block("battery")),
             custom=CustomDefaultsConfig.from_block(block.get_block("custom")),
+            disk=DiskDefaultsConfig.from_block(block.get_block("disk")),
         )
 
 
@@ -982,6 +1005,65 @@ class CustomSensorConfig:
 
 
 @dataclass
+class DiskConfig:
+    """Disk space monitoring configuration."""
+
+    name: str
+    id: str | None = None
+    device: str | None = None  # Device name: sda1, nvme0n1p1
+    mountpoint: str | None = None  # Mount point: /, /home
+
+    # Metrics flags
+    total: bool = True
+    used: bool = True
+    free: bool = True
+    percent: bool = True
+
+    # Settings
+    update_interval: float | None = None
+
+    @classmethod
+    def from_block(cls, block: Block, defaults: DefaultsConfig) -> "DiskConfig":
+        """Create DiskConfig from a parsed 'disk' block."""
+        name = block.name or "disk"
+        dd = defaults.disk  # Disk-specific defaults
+
+        interval = block.get_value("update_interval")
+        if interval is None:
+            interval = defaults.update_interval
+
+        def get_bool(name: str, dd_val: bool) -> bool:
+            val = block.get_value(name)
+            return bool(val) if val is not None else dd_val
+
+        return cls(
+            name=name,
+            id=block.get_value("id"),
+            device=block.get_value("device"),
+            mountpoint=block.get_value("mountpoint"),
+            total=get_bool("total", dd.total),
+            used=get_bool("used", dd.used),
+            free=get_bool("free", dd.free),
+            percent=get_bool("percent", dd.percent),
+            update_interval=float(interval) if interval else None,
+        )
+
+    @classmethod
+    def from_defaults(cls, name: str, device: str, defaults: DefaultsConfig) -> "DiskConfig":
+        """Create DiskConfig from defaults (for auto-discovery)."""
+        dd = defaults.disk
+        return cls(
+            name=name,
+            device=device,
+            total=dd.total,
+            used=dd.used,
+            free=dd.free,
+            percent=dd.percent,
+            update_interval=defaults.update_interval,
+        )
+
+
+@dataclass
 class Config:
     """Complete application configuration."""
 
@@ -998,9 +1080,8 @@ class Config:
     auto_batteries: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_containers: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_services: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
-    auto_processes: AutoDiscoveryConfig = field(
-        default_factory=AutoDiscoveryConfig
-    )  # Not implemented
+    auto_processes: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
+    auto_disks: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
 
     # Manual collectors (singular blocks: temperature, battery, etc.)
     system: list[SystemConfig] = field(default_factory=list)
@@ -1009,6 +1090,7 @@ class Config:
     containers: list[ContainerConfig] = field(default_factory=list)
     temperatures: list[TemperatureConfig] = field(default_factory=list)
     batteries: list[BatteryConfig] = field(default_factory=list)
+    disks: list[DiskConfig] = field(default_factory=list)
     custom: list[CustomSensorConfig] = field(default_factory=list)
 
     @classmethod
@@ -1034,6 +1116,7 @@ class Config:
         config.auto_containers = AutoDiscoveryConfig.from_block(doc.get_block("containers"))
         config.auto_services = AutoDiscoveryConfig.from_block(doc.get_block("services"))
         config.auto_processes = AutoDiscoveryConfig.from_block(doc.get_block("processes"))
+        config.auto_disks = AutoDiscoveryConfig.from_block(doc.get_block("disks"))
 
         # Parse collector blocks (singular names for manual configuration)
         for block in doc.get_blocks("system"):
@@ -1053,6 +1136,9 @@ class Config:
 
         for block in doc.get_blocks("battery"):
             config.batteries.append(BatteryConfig.from_block(block, config.defaults))
+
+        for block in doc.get_blocks("disk"):
+            config.disks.append(DiskConfig.from_block(block, config.defaults))
 
         for block in doc.get_blocks("custom"):
             config.custom.append(CustomSensorConfig.from_block(block, config.defaults))
