@@ -16,7 +16,7 @@ import json
 from typing import Any
 
 from ..config.schema import CustomSensorConfig, DefaultsConfig, DeviceConfig
-from ..models.device import Device
+from ..models.device import Device, _add_via_device_if_needed
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult
 
@@ -86,19 +86,25 @@ class CustomCollector(Collector):
         if device_ref and device_ref not in ("system", "auto"):
             if device_ref in self.device_templates:
                 template = self.device_templates[device_ref]
-                return Device(
+                device = Device(
                     identifiers=template.identifiers.copy(),
                     extra_fields=template.extra_fields.copy() if template.extra_fields else {},
                 )
+                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+                return device
 
         # Default for custom: auto-create device
-        display_name = self.config.ha_name or self.config.name
-        return Device(
+        display_name = (
+            self.config.ha_config.name if self.config.ha_config and self.config.ha_config.name else self.config.name
+        )
+        device = Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_custom_{self.collector_id}"],
             name=f"Custom: {display_name}",
             manufacturer="Penguin Metrics",
             model="Custom Sensor",
         )
+        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensor for custom command."""

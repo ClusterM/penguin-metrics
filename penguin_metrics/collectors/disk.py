@@ -17,7 +17,7 @@ from typing import NamedTuple
 import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, DiskConfig
-from ..models.device import Device
+from ..models.device import Device, _add_via_device_if_needed
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult
 
@@ -148,33 +148,39 @@ class DiskCollector(Collector):
 
         # Handle "auto" - create unique device
         if device_ref == "auto":
-            return Device(
+            device = Device(
                 identifiers=[f"penguin_metrics_{self.topic_prefix}_disk_{self.collector_id}"],
                 name=f"Disk: {disk_name}",
                 manufacturer="Penguin Metrics",
                 model="Disk Monitor",
             )
+            _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+            return device
 
         # Handle template reference
         if device_ref and device_ref not in ("system", "auto", "none"):
             if device_ref in self.device_templates:
                 template = self.device_templates[device_ref]
-                return Device(
+                device = Device(
                     identifiers=template.identifiers.copy(),
                     extra_fields=template.extra_fields.copy() if template.extra_fields else {},
                 )
+                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+                return device
 
         # Default for disk: use parent device (system)
         if self.parent_device:
             return self.parent_device
 
         # Fallback if no parent device
-        return Device(
+        device = Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_disk_{self.collector_id}"],
             name=f"Disk: {disk_name}",
             manufacturer="Penguin Metrics",
             model="Disk Monitor",
         )
+        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors for disk metrics."""

@@ -22,7 +22,7 @@ from pathlib import Path
 import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, ProcessConfig, ProcessMatchType
-from ..models.device import Device
+from ..models.device import Device, _add_via_device_if_needed
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from ..utils.smaps import get_process_memory
 from .base import CollectorResult, MultiSourceCollector
@@ -153,18 +153,22 @@ class ProcessCollector(MultiSourceCollector):
         if device_ref and device_ref not in ("system", "auto"):
             if device_ref in self.device_templates:
                 template = self.device_templates[device_ref]
-                return Device(
+                device = Device(
                     identifiers=template.identifiers.copy(),
                     extra_fields=template.extra_fields.copy() if template.extra_fields else {},
                 )
+                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+                return device
 
         # Default for process: auto-create device
-        return Device(
+        device = Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_process_{self.collector_id}"],
             name=f"Process: {self.config.name}",
             manufacturer="Penguin Metrics",
             model="Process Monitor",
         )
+        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors based on configuration."""

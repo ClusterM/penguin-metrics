@@ -17,7 +17,7 @@ import re
 from datetime import datetime
 
 from ..config.schema import ContainerConfig, ContainerMatchType, DefaultsConfig, DeviceConfig
-from ..models.device import Device
+from ..models.device import Device, _add_via_device_if_needed
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from ..utils.docker_api import ContainerInfo, DockerClient, DockerError
 from .base import Collector, CollectorResult
@@ -140,18 +140,22 @@ class ContainerCollector(Collector):
         if device_ref and device_ref not in ("system", "auto"):
             if device_ref in self.device_templates:
                 template = self.device_templates[device_ref]
-                return Device(
+                device = Device(
                     identifiers=template.identifiers.copy(),
                     extra_fields=template.extra_fields.copy() if template.extra_fields else {},
                 )
+                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+                return device
 
         # Default for container: auto-create device
-        return Device(
+        device = Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_container_{self.collector_id}"],
             name=f"Container: {container_name}",
             manufacturer="Docker",
             model="Container",
         )
+        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors based on configuration."""

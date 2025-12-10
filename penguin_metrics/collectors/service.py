@@ -16,7 +16,7 @@ import asyncio
 import fnmatch
 
 from ..config.schema import DefaultsConfig, DeviceConfig, ServiceConfig, ServiceMatchType
-from ..models.device import Device
+from ..models.device import Device, _add_via_device_if_needed
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from ..utils.cgroup import (
     get_cgroup_pids,
@@ -230,18 +230,22 @@ class ServiceCollector(Collector):
         if device_ref and device_ref not in ("system", "auto"):
             if device_ref in self.device_templates:
                 template = self.device_templates[device_ref]
-                return Device(
+                device = Device(
                     identifiers=template.identifiers.copy(),
                     extra_fields=template.extra_fields.copy() if template.extra_fields else {},
                 )
+                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+                return device
 
         # Default for service: auto-create device
-        return Device(
+        device = Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_service_{self.collector_id}"],
             name=f"Service: {unit}",
             manufacturer="Penguin Metrics",
             model="Systemd Service",
         )
+        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
+        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors based on configuration."""
