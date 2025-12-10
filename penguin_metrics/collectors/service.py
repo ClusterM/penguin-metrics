@@ -224,13 +224,14 @@ class ServiceCollector(Collector):
         sensors = []
         device = self.device
 
+        # Service sensors use short names - device name provides context
         if self.config.state:
             sensors.append(
                 create_sensor(
                     source_type="service",
                     source_name=self.name,
                     metric_name="state",
-                    display_name=f"{self.config.name} State",
+                    display_name="State",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     icon="mdi:cog",
@@ -243,7 +244,7 @@ class ServiceCollector(Collector):
                     source_type="service",
                     source_name=self.name,
                     metric_name="restarts",
-                    display_name=f"{self.config.name} Restart Count",
+                    display_name="Restart Count",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     state_class=StateClass.TOTAL_INCREASING,
@@ -257,7 +258,7 @@ class ServiceCollector(Collector):
                     source_type="service",
                     source_name=self.name,
                     metric_name="cpu_percent",
-                    display_name=f"{self.config.name} CPU",
+                    display_name="CPU",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="%",
@@ -273,7 +274,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory",
-                        display_name=f"{self.config.name} Memory",
+                        display_name="Memory",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="MB",
@@ -285,7 +286,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory_cache",
-                        display_name=f"{self.config.name} Cache",
+                        display_name="Cache",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="MB",
@@ -304,7 +305,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory_pss",
-                        display_name=f"{self.config.name} Memory PSS",
+                        display_name="Memory PSS",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="MB",
@@ -316,7 +317,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory_uss",
-                        display_name=f"{self.config.name} Memory USS",
+                        display_name="Memory USS",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="MB",
@@ -333,7 +334,7 @@ class ServiceCollector(Collector):
                 source_type="service",
                 source_name=self.name,
                 metric_name="processes",
-                display_name=f"{self.config.name} Processes",
+                display_name="Processes",
                 device=device,
                 topic_prefix=self.topic_prefix,
                 state_class=StateClass.MEASUREMENT,

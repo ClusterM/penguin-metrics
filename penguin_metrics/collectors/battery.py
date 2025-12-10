@@ -171,12 +171,13 @@ class BatteryCollector(Collector):
         sensors = []
         device = self.device
 
+        # Battery sensors use short names - device name provides context
         if self.config.capacity:
             sensors.append(
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="capacity",
-                    display_name=f"{self.config.name} Capacity",
+                    display_name="Capacity",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="%",
@@ -191,7 +192,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="status",
-                    display_name=f"{self.config.name} Status",
+                    display_name="Status",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     icon="mdi:battery-charging",
@@ -203,7 +204,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="voltage",
-                    display_name=f"{self.config.name} Voltage",
+                    display_name="Voltage",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="V",
@@ -218,7 +219,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="current",
-                    display_name=f"{self.config.name} Current",
+                    display_name="Current",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="A",
@@ -233,7 +234,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="power",
-                    display_name=f"{self.config.name} Power",
+                    display_name="Power",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="W",
@@ -248,7 +249,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="health",
-                    display_name=f"{self.config.name} Health",
+                    display_name="Health",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     icon="mdi:battery-heart-variant",
@@ -260,7 +261,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="cycles",
-                    display_name=f"{self.config.name} Cycle Count",
+                    display_name="Cycle Count",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     state_class=StateClass.TOTAL_INCREASING,
@@ -273,7 +274,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="temperature",
-                    display_name=f"{self.config.name} Temperature",
+                    display_name="Temperature",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="°C",
@@ -288,7 +289,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="time_to_empty",
-                    display_name=f"{self.config.name} Time to Empty",
+                    display_name="Time to Empty",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="min",
@@ -303,7 +304,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="time_to_full",
-                    display_name=f"{self.config.name} Time to Full",
+                    display_name="Time to Full",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="min",
@@ -319,7 +320,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="energy_now",
-                    display_name=f"{self.config.name} Energy Now",
+                    display_name="Energy Now",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="Wh",
@@ -331,7 +332,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="energy_full",
-                    display_name=f"{self.config.name} Energy Full",
+                    display_name="Energy Full",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="Wh",
@@ -343,7 +344,7 @@ class BatteryCollector(Collector):
                 create_sensor(
                     source_id=self.collector_id,
                     metric_name="energy_full_design",
-                    display_name=f"{self.config.name} Energy Full (Design)",
+                    display_name="Energy Full (Design)",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="Wh",
