@@ -257,7 +257,7 @@ class ContainerCollector(Collector):
                         display_name="Network RX Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="kB/s",
+                        unit="MiB/s",
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:download",
@@ -269,7 +269,7 @@ class ContainerCollector(Collector):
                         display_name="Network TX Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="kB/s",
+                        unit="MiB/s",
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:upload",
@@ -317,7 +317,7 @@ class ContainerCollector(Collector):
                         display_name="Disk Read Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="kB/s",
+                        unit="MiB/s",
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
@@ -329,7 +329,7 @@ class ContainerCollector(Collector):
                         display_name="Disk Write Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="kB/s",
+                        unit="MiB/s",
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
@@ -421,15 +421,15 @@ class ContainerCollector(Collector):
             result.set("network_rx", round(network_rx_bytes / (1024 * 1024), 2))
             result.set("network_tx", round(network_tx_bytes / (1024 * 1024), 2))
 
-        # Network rate (KB/s)
+        # Network rate (MiB/s)
         if self.config.network_rate:
             if self._prev_timestamp and self._prev_network_rx is not None:
                 time_delta = (now - self._prev_timestamp).total_seconds()
                 if time_delta > 0:
-                    rx_rate = (network_rx_bytes - self._prev_network_rx) / 1024 / time_delta
-                    tx_rate = (network_tx_bytes - self._prev_network_tx) / 1024 / time_delta
-                    result.set("network_rx_rate", round(max(0, rx_rate), 1))
-                    result.set("network_tx_rate", round(max(0, tx_rate), 1))
+                    rx_rate = (network_rx_bytes - self._prev_network_rx) / (1024 * 1024) / time_delta
+                    tx_rate = (network_tx_bytes - self._prev_network_tx) / (1024 * 1024) / time_delta
+                    result.set("network_rx_rate", round(max(0, rx_rate), 2))
+                    result.set("network_tx_rate", round(max(0, tx_rate), 2))
             self._prev_network_rx = network_rx_bytes
             self._prev_network_tx = network_tx_bytes
 
@@ -440,15 +440,15 @@ class ContainerCollector(Collector):
             result.set("disk_read", round(disk_read_bytes / (1024 * 1024), 2))
             result.set("disk_write", round(disk_write_bytes / (1024 * 1024), 2))
 
-        # Disk rate (KB/s)
+        # Disk rate (MiB/s)
         if self.config.disk_rate:
             if self._prev_timestamp and self._prev_disk_read is not None:
                 time_delta = (now - self._prev_timestamp).total_seconds()
                 if time_delta > 0:
-                    read_rate = (disk_read_bytes - self._prev_disk_read) / 1024 / time_delta
-                    write_rate = (disk_write_bytes - self._prev_disk_write) / 1024 / time_delta
-                    result.set("disk_read_rate", round(max(0, read_rate), 1))
-                    result.set("disk_write_rate", round(max(0, write_rate), 1))
+                    read_rate = (disk_read_bytes - self._prev_disk_read) / (1024 * 1024) / time_delta
+                    write_rate = (disk_write_bytes - self._prev_disk_write) / (1024 * 1024) / time_delta
+                    result.set("disk_read_rate", round(max(0, read_rate), 2))
+                    result.set("disk_write_rate", round(max(0, write_rate), 2))
             self._prev_disk_read = disk_read_bytes
             self._prev_disk_write = disk_write_bytes
 
