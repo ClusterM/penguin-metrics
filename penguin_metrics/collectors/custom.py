@@ -95,7 +95,9 @@ class CustomCollector(Collector):
 
         # Default for custom: auto-create device
         display_name = (
-            self.config.ha_config.name if self.config.ha_config and self.config.ha_config.name else self.config.name
+            self.config.ha_config.name
+            if self.config.ha_config and self.config.ha_config.name
+            else self.config.name
         )
         device = Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_custom_{self.collector_id}"],

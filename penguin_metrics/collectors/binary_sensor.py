@@ -93,7 +93,9 @@ class BinarySensorCollector(Collector):
 
         # Default for binary_sensor: auto-create device
         display_name = (
-            self.config.ha_config.name if self.config.ha_config and self.config.ha_config.name else self.config.name
+            self.config.ha_config.name
+            if self.config.ha_config and self.config.ha_config.name
+            else self.config.name
         )
         device = Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_binary_sensor_{self.collector_id}"],
@@ -222,4 +224,3 @@ class BinarySensorCollector(Collector):
         result.set_state("online")
 
         return result
-
