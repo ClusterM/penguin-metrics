@@ -5,9 +5,9 @@ Reads disk usage from mounted partitions via psutil.
 Supports auto-discovery of block devices.
 
 Collects:
-- Total size (GB)
-- Used space (GB)
-- Free space (GB)
+- Total size (GiB)
+- Used space (GiB)
+- Free space (GiB)
 - Usage percentage (%)
 """
 
@@ -167,7 +167,7 @@ class DiskCollector(Collector):
                     display_name=f"{name_prefix} Total",
                     device=device,
                     topic_prefix=self.topic_prefix,
-                    unit="GB",
+                    unit="GiB",
                     device_class=DeviceClass.DATA_SIZE,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:harddisk",
@@ -183,7 +183,7 @@ class DiskCollector(Collector):
                     display_name=f"{name_prefix} Used",
                     device=device,
                     topic_prefix=self.topic_prefix,
-                    unit="GB",
+                    unit="GiB",
                     device_class=DeviceClass.DATA_SIZE,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:harddisk",
@@ -199,7 +199,7 @@ class DiskCollector(Collector):
                     display_name=f"{name_prefix} Free",
                     device=device,
                     topic_prefix=self.topic_prefix,
-                    unit="GB",
+                    unit="GiB",
                     device_class=DeviceClass.DATA_SIZE,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:harddisk",
