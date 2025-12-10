@@ -381,7 +381,7 @@ class AutoDiscoveryConfig:
     excludes: list[str] = field(default_factory=list)  # Exclude matching (glob patterns)
     # Temperature-specific options
     thermal: bool = True  # Search /sys/class/thermal
-    hwmon: bool = True  # Search hwmon via psutil
+    hwmon: bool = False  # Search hwmon via psutil (often duplicates thermal)
 
     @classmethod
     def from_block(cls, block: Block | None) -> "AutoDiscoveryConfig":
