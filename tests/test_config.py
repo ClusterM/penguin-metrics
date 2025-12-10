@@ -13,6 +13,7 @@ def test_load_example_config():
     loader = ConfigLoader()
     config_path = Path(__file__).parent.parent / "config.example.conf"
 
+    # load (alias) should work
     config = loader.load(str(config_path))
 
     assert config is not None
@@ -30,3 +31,15 @@ def test_validate_example_config():
 
     # Should have no critical errors (warnings are OK)
     assert config is not None
+
+
+def test_load_alias_matches_load_file():
+    """Ensure load() delegates to load_file() for backward compatibility."""
+    loader = ConfigLoader()
+    config_path = Path(__file__).parent.parent / "config.example.conf"
+
+    via_alias = loader.load(str(config_path))
+    via_direct = loader.load_file(str(config_path))
+
+    assert isinstance(via_alias, Config)
+    assert via_alias.mqtt.host == via_direct.mqtt.host

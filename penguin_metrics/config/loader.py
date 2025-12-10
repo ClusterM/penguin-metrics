@@ -59,6 +59,19 @@ class ConfigLoader:
         except Exception as e:
             raise ConfigError(f"Failed to load configuration: {e}") from e
 
+    # Backwards compatibility alias for older callers/tests
+    def load(self, path: str | Path) -> Config:
+        """
+        Alias for load_file to maintain backward compatibility.
+
+        Args:
+            path: Path to the configuration file
+
+        Returns:
+            Validated Config object
+        """
+        return self.load_file(path)
+
     def load_string(
         self,
         source: str,

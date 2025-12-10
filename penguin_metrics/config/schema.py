@@ -128,6 +128,15 @@ class MQTTConfig:
         """Check if messages should be retained."""
         return self.retain == RetainMode.ON
 
+    def should_retain_status(self) -> bool:
+        """
+        Check if availability/status messages should be retained.
+
+        Currently mirrors retain mode for data; kept separate for future
+        configurability.
+        """
+        return self.should_retain()
+
 
 @dataclass
 class HomeAssistantConfig:
