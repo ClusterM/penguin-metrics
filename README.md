@@ -28,6 +28,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 - **Docker Containers**: CPU, memory, network, disk I/O with optional rate metrics (KB/s)
 - **Battery**: Capacity, status, voltage, current, health (auto-discovery supported)
 - **Custom Sensors**: Run shell commands or scripts
+- **Binary Sensors**: ON/OFF states from command execution (e.g., ping checks)
 - **GPU**: Basic metrics via sysfs (frequency, temperature) - minimal implementation
 
 ### MQTT Integration
@@ -889,6 +890,67 @@ custom "wan_ip" {
 Custom sensors publish JSON with:
 - `value`: The parsed command output
 - `state`: `"online"` (command succeeded) or `"not_found"` (command failed)
+
+### Binary Sensors
+
+Binary sensors interpret command execution results as ON/OFF states. Perfect for connectivity checks, service status, or any boolean condition.
+
+The block name (e.g., `"server_ping"`) is the sensor ID, used for MQTT topics.
+Use the `homeassistant {}` block to override any Home Assistant discovery fields.
+
+```nginx
+# Ping check (returns ON if host is reachable, OFF if not)
+# MQTT topic: {prefix}/binary_sensor/server_ping
+binary_sensor "server_ping" {
+    command "ping -c 1 -W 1 8.8.8.8 > /dev/null 2>&1";
+    
+    value_source returncode;         # Default: "returncode" (0=ON, non-zero=OFF)
+    # value_source output;          # Alternative: parse command output
+    
+    # invert on;                    # Invert ON ↔ OFF
+    
+    # Home Assistant sensor overrides
+    homeassistant {
+        name "Server Reachability";
+        icon "mdi:network";
+        device_class connectivity;   # Optional: connectivity, motion, etc.
+    }
+    
+    update_interval 30s;
+    timeout 5s;
+}
+
+# Check service status using output parsing
+binary_sensor "nginx_running" {
+    command "systemctl is-active nginx";
+    value_source output;            # Parse output: "active" = ON, other = OFF
+    update_interval 10s;
+}
+```
+
+**Default values:**
+| Directive | Default | Description |
+|-----------|---------|-------------|
+| `command` | *(required)* | Shell command to execute |
+| `script` | *(none)* | Script path (alternative to command) |
+| `value_source` | `"returncode"` | How to interpret result: `returncode` or `output` |
+| `invert` | `off` | Invert the value (ON ↔ OFF) |
+| `timeout` | `5s` | Command timeout |
+| `update_interval` | *(from defaults)* | Override default interval |
+
+**Value sources:**
+| Source | Description |
+|-------|-------------|
+| `returncode` | `0` = ON, non-zero = OFF |
+| `output` | Parse stdout: `on`/`true`/`1`/`yes`/`ok`/`online`/`up` = ON, `off`/`false`/`0`/`no`/`error`/`offline`/`down` = OFF, empty = OFF |
+
+**Home Assistant overrides** (in `homeassistant {}` block):
+Same as custom sensors (see above). Binary sensors are automatically registered as `binary_sensor` entities in Home Assistant.
+
+**JSON payload:**
+Binary sensors publish JSON with:
+- `state`: `"ON"` or `"OFF"` (the binary value)
+- `state`: `"online"` (always online, even if command failed - failed = OFF)
 
 ### Temperature Zones (Standalone)
 

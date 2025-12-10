@@ -103,6 +103,7 @@ class Sensor:
     icon: str | None = None
 
     # Entity configuration
+    entity_type: str = "sensor"  # "sensor" or "binary_sensor"
     enabled_by_default: bool = True
     entity_category: str | None = None  # "config", "diagnostic"
 
@@ -264,7 +265,7 @@ class Sensor:
         Returns:
             Discovery topic string
         """
-        return f"{prefix}/sensor/{self.unique_id}/config"
+        return f"{prefix}/{self.entity_type}/{self.unique_id}/config"
 
     def apply_ha_overrides(self, ha_config: Any) -> None:
         """
@@ -329,6 +330,7 @@ def create_sensor(
     icon: str | None = None,
     availability_topic: str | None = None,
     use_json: bool = True,
+    entity_type: str = "sensor",
     **kwargs,
 ) -> Sensor:
     """
@@ -398,6 +400,7 @@ def create_sensor(
         device_class=device_class,
         state_class=state_class,
         icon=icon,
+        entity_type=entity_type,
         **kwargs,
     )
 

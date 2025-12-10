@@ -413,7 +413,6 @@ class DiskConfig:
 @dataclass
 class CustomSensorConfig:
     name: str  # Sensor ID, used for MQTT topics
-    ha_name: str | None = None  # Display name for Home Assistant (optional)
     command: str | None = None
     script: str | None = None
     type: str = "number"  # number, string, json
@@ -422,6 +421,18 @@ class CustomSensorConfig:
     device_class: str | None = None
     state_class: str | None = None
     timeout: float = 5.0
+    ha_config: HomeAssistantSensorConfig | None = None
+    ...
+
+@dataclass
+class BinarySensorConfig:
+    name: str  # Sensor ID, used for MQTT topics
+    command: str | None = None
+    script: str | None = None
+    value_source: str = "returncode"  # "returncode" or "output"
+    invert: bool = False  # Invert the value (ON ↔ OFF)
+    timeout: float = 5.0
+    ha_config: HomeAssistantSensorConfig | None = None
     ...
 
 @dataclass
@@ -467,6 +478,7 @@ class Config:
     batteries: list[BatteryConfig]
     disks: list[DiskConfig]
     custom: list[CustomSensorConfig]
+    binary_sensors: list[BinarySensorConfig]
     
     @classmethod
     def from_document(doc: ConfigDocument) -> Config
@@ -759,6 +771,25 @@ Methods:
 Metrics:
 - `state` - online/error/not_found
 - `value` - Parsed command output
+
+---
+
+### `binary_sensor.py` - Binary Sensor Collector
+
+Executes user-defined commands and interprets results as ON/OFF states.
+
+**Class: `BinarySensorCollector`**
+
+Methods:
+- `_execute_command()` - Run command with timeout
+- `_parse_binary_value(returncode, output)` - Parse as ON/OFF based on value_source
+
+Metrics:
+- `state` - "ON" or "OFF" (always "online" availability)
+
+Value sources:
+- `returncode`: 0 = ON, non-zero = OFF
+- `output`: Parse stdout for ON/OFF patterns
 
 ---
 

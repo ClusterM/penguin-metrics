@@ -130,8 +130,10 @@ class HomeAssistantDiscovery:
 
         for sensor_id in stale:
             # Publish empty payload to remove sensor from HA
-            topic = f"{self.discovery_prefix}/sensor/{sensor_id}/config"
-            await self.mqtt.publish(topic, "", qos=1, retain=True)
+            # Try both sensor and binary_sensor (we don't know which it was)
+            for entity_type in ("sensor", "binary_sensor"):
+                topic = f"{self.discovery_prefix}/{entity_type}/{sensor_id}/config"
+                await self.mqtt.publish(topic, "", qos=1, retain=True)
             logger.info(f"Removed stale sensor: {sensor_id}")
 
         return len(stale)
@@ -163,7 +165,7 @@ class HomeAssistantDiscovery:
         Returns:
             Discovery topic string
         """
-        return f"{self.discovery_prefix}/sensor/{sensor.unique_id}/config"
+        return f"{self.discovery_prefix}/{sensor.entity_type}/{sensor.unique_id}/config"
 
     def _build_discovery_payload(self, sensor: Sensor) -> dict[str, Any]:
         """
@@ -309,7 +311,7 @@ def build_sensor_discovery(
     Returns:
         Tuple of (topic, payload)
     """
-    topic = f"{discovery_prefix}/sensor/{sensor.unique_id}/config"
+    topic = f"{discovery_prefix}/{sensor.entity_type}/{sensor.unique_id}/config"
 
     payload = sensor.to_discovery_dict(discovery_prefix)
     payload["origin"] = {

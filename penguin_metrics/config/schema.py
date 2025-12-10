@@ -1143,6 +1143,62 @@ class CustomSensorConfig:
 
 
 @dataclass
+class BinarySensorConfig:
+    """Binary sensor configuration (on/off states)."""
+
+    name: str  # Sensor ID, used for MQTT topics
+    command: str | None = None
+    script: str | None = None
+    device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+    ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
+
+    # Value source
+    value_source: str = "returncode"  # "returncode" or "output"
+    invert: bool = False  # Invert the value (ON ↔ OFF)
+
+    # Settings
+    update_interval: float | None = None
+    timeout: float = 5.0
+
+    @classmethod
+    def from_block(cls, block: Block, defaults: DefaultsConfig) -> "BinarySensorConfig":
+        """Create BinarySensorConfig from a parsed 'binary_sensor' block."""
+        name = block.name or "binary_sensor"
+
+        interval = block.get_value("update_interval")
+        if interval is None:
+            interval = defaults.update_interval
+
+        # Get value_source (default: returncode)
+        value_source = block.get_value("value_source", "returncode")
+        if value_source not in ("returncode", "output"):
+            value_source = "returncode"
+
+        # Get timeout
+        timeout_val = block.get_value("timeout")
+        timeout = float(timeout_val) if timeout_val is not None else 5.0
+
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
+        # Parse homeassistant block for sensor overrides
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
+        return cls(
+            name=name,
+            command=block.get_value("command"),
+            script=block.get_value("script"),
+            device_ref=device_ref,
+            ha_config=ha_config,
+            value_source=value_source,
+            invert=bool(block.get_value("invert", False)),
+            update_interval=float(interval) if interval else None,
+            timeout=timeout,
+        )
+
+
+@dataclass
 class DiskConfig:
     """Disk space monitoring configuration."""
 
@@ -1244,6 +1300,7 @@ class Config:
     batteries: list[BatteryConfig] = field(default_factory=list)
     disks: list[DiskConfig] = field(default_factory=list)
     custom: list[CustomSensorConfig] = field(default_factory=list)
+    binary_sensors: list[BinarySensorConfig] = field(default_factory=list)
 
     @staticmethod
     def _sanitize_id(value: str) -> str:
@@ -1323,5 +1380,8 @@ class Config:
 
         for block in doc.get_blocks("custom"):
             config.custom.append(CustomSensorConfig.from_block(block, config.defaults))
+
+        for block in doc.get_blocks("binary_sensor"):
+            config.binary_sensors.append(BinarySensorConfig.from_block(block, config.defaults))
 
         return config
