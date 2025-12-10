@@ -302,7 +302,6 @@ class TemperatureCollector(Collector):
                             sensor_name=sensor_name,
                             display_name=f"Temperature: {name} {label}",
                             device=device,
-                            enabled_by_default=False,  # Hwmon sensors disabled by default
                         )
             except Exception:
                 pass

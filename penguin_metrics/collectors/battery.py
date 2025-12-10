@@ -327,7 +327,6 @@ class BatteryCollector(Collector):
                     device_class=DeviceClass.ENERGY,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
-                    enabled_by_default=False,
                 ),
                 create_sensor(
                     source_id=self.collector_id,
@@ -339,7 +338,6 @@ class BatteryCollector(Collector):
                     device_class=DeviceClass.ENERGY,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
-                    enabled_by_default=False,
                 ),
                 create_sensor(
                     source_id=self.collector_id,
@@ -351,7 +349,6 @@ class BatteryCollector(Collector):
                     device_class=DeviceClass.ENERGY,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
-                    enabled_by_default=False,
                 ),
             ]
         )

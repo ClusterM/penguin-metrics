@@ -120,7 +120,6 @@ class SystemCollector(Collector):
                             unit="%",
                             state_class=StateClass.MEASUREMENT,
                             icon="mdi:chip",
-                            enabled_by_default=False,  # Disabled by default to reduce clutter
                         )
                     )
 
@@ -161,7 +160,6 @@ class SystemCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
-                        enabled_by_default=False,
                     ),
                     create_sensor(
                         source_type="system",
@@ -174,7 +172,6 @@ class SystemCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
-                        enabled_by_default=False,
                     ),
                 ]
             )
@@ -204,7 +201,6 @@ class SystemCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
-                        enabled_by_default=False,
                     ),
                 ]
             )
@@ -231,7 +227,6 @@ class SystemCollector(Collector):
                         topic_prefix=self.topic_prefix,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:gauge",
-                        enabled_by_default=False,
                     ),
                     create_sensor(
                         source_type="system",
@@ -242,7 +237,6 @@ class SystemCollector(Collector):
                         topic_prefix=self.topic_prefix,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:gauge",
-                        enabled_by_default=False,
                     ),
                 ]
             )

@@ -206,7 +206,6 @@ class ContainerCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
-                        enabled_by_default=False,
                     ),
                 ]
             )
@@ -298,7 +297,6 @@ class ContainerCollector(Collector):
                 topic_prefix=self.topic_prefix,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:application-outline",
-                enabled_by_default=False,
             )
         )
 
