@@ -6,14 +6,14 @@ and from psutil's sensors_temperatures() for hwmon sensors.
 """
 
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig, TemperatureConfig
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
-from .base import Collector, CollectorResult, apply_overrides_to_sensors
+from ..models.sensor import DeviceClass, Sensor, StateClass
+from .base import Collector, CollectorResult, build_sensor
 
 
 class ThermalZone(NamedTuple):
@@ -233,10 +233,11 @@ class TemperatureCollector(Collector):
         sensor_name: str,
         display_name: str,
         device: Device | None,
+        ha_config: Any,
     ) -> None:
         """Add temperature sensor (state is in JSON but no HA sensor for it)."""
         sensors.append(
-            create_sensor(
+            build_sensor(
                 source_type="temperature",
                 source_name=sensor_name,
                 metric_name="temp",
@@ -247,6 +248,7 @@ class TemperatureCollector(Collector):
                 device_class=DeviceClass.TEMPERATURE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:thermometer",
+                ha_config=ha_config,
             )
         )
 
@@ -254,6 +256,8 @@ class TemperatureCollector(Collector):
         """Create sensors for discovered thermal zones."""
         sensors: list[Sensor] = []
         device = self.device
+
+        ha_cfg = self.config.ha_config if isinstance(self.config, TemperatureConfig) else None
 
         # Add specific hwmon sensor if configured (manual configuration)
         if self._hwmon_sensors:
@@ -264,10 +268,8 @@ class TemperatureCollector(Collector):
                     sensor_name=self.name,
                     display_name=f"Temperature {chip} {label}",
                     device=device,
+                    ha_config=ha_cfg,
                 )
-            # Apply HA overrides from config to all sensors
-            if isinstance(self.config, TemperatureConfig):
-                apply_overrides_to_sensors(sensors, self.config.ha_config)
             return sensors
 
         # Add thermal zones (auto-discovered)
@@ -278,6 +280,7 @@ class TemperatureCollector(Collector):
                 sensor_name=zone_label,
                 display_name=f"Temperature {zone.type}",
                 device=device,
+                ha_config=ha_cfg,
             )
 
         # Add all hwmon sensors only if no specific zone/hwmon configured
@@ -294,13 +297,10 @@ class TemperatureCollector(Collector):
                             sensor_name=sensor_name,
                             display_name=f"Temperature {name} {label}",
                             device=device,
+                            ha_config=ha_cfg,
                         )
             except Exception:
                 pass
-
-        # Apply HA overrides from config to all sensors
-        if isinstance(self.config, TemperatureConfig):
-            apply_overrides_to_sensors(sensors, self.config.ha_config)
 
         return sensors
 
