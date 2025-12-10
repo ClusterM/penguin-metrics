@@ -781,6 +781,25 @@ container "monitored" {
 
 ### Battery Monitoring
 
+**Metrics (published as JSON fields):**
+- `state` - charging/discharging/full/not charging/not_found
+- `capacity` - charge level (%)
+- `voltage` - current voltage (V)
+- `current` - current (A, sign preserved)
+- `power` - power (W, sign preserved)
+- `health` - battery health
+- `cycles` - charge cycle count
+- `temperature` - battery temperature (°C)
+- `time_to_empty` - minutes remaining
+- `time_to_full` - minutes to full charge
+- `energy_now`, `energy_full`, `energy_full_design` - energy (Wh, always published)
+- `present` - presence flag (0/1)
+- `technology` - chemistry (e.g., Li-ion)
+- `voltage_max`, `voltage_min` - current voltage limits (V)
+- `voltage_max_design`, `voltage_min_design` - design voltage limits (V)
+- `constant_charge_current`, `constant_charge_current_max` - charge currents (A)
+- `charge_full_design` - design full charge (mAh)
+
 ```nginx
 battery "main" {
     # Auto-detect first battery, or specify:
@@ -836,6 +855,8 @@ battery "main" {
 | `constant_charge_current_max` | `off` | Max charge current |
 | `charge_full_design` | `off` | Design full charge (mAh) |
 | `update_interval` | *(from defaults)* | Override default interval |
+
+Energy metrics `energy_now`, `energy_full`, and `energy_full_design` are always published (no toggle).
 
 ### Custom Sensors
 

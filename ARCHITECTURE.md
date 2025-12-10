@@ -732,6 +732,7 @@ Metrics:
 - `time_to_empty` - Minutes remaining
 - `time_to_full` - Minutes to full charge
 - `energy_now`, `energy_full`, `energy_full_design` - Energy (Wh)
+- `charge_full_design` - Design full charge (mAh)
 - `present` - Presence flag (0/1)
 - `technology` - Chemistry (e.g., Li-ion)
 - `voltage_max`, `voltage_min` - Current voltage limits (V)
