@@ -236,12 +236,12 @@ class ConfigLoader:
             "update_interval",
             "timeout",
         },
-        "temperatures": {"auto", "filter", "exclude", "source", "device"},
-        "batteries": {"auto", "filter", "exclude", "device"},
-        "containers": {"auto", "filter", "exclude", "device"},
-        "services": {"auto", "filter", "exclude", "device"},
-        "processes": {"auto", "filter", "exclude", "device"},
-        "disks": {"auto", "filter", "exclude", "device"},
+        "temperatures": {"auto", "filter", "exclude", "source", "device", "update_interval"},
+        "batteries": {"auto", "filter", "exclude", "device", "update_interval"},
+        "containers": {"auto", "filter", "exclude", "device", "update_interval"},
+        "services": {"auto", "filter", "exclude", "device", "update_interval"},
+        "processes": {"auto", "filter", "exclude", "device", "update_interval"},
+        "disks": {"auto", "filter", "exclude", "device", "update_interval"},
         "disk": {
             "id",
             "path",
@@ -391,6 +391,9 @@ class ConfigLoader:
                 known = None  # None means allow all
             elif block.type == "device":
                 # Device blocks allow any directives (extra_fields for HA device)
+                known = None
+            elif block.type in {"temperatures", "batteries", "containers", "services", "processes", "disks"}:
+                # Auto-discovery blocks allow arbitrary boolean overrides and update_interval
                 known = None
             else:
                 known = self.KNOWN_DIRECTIVES.get(block.type, set())
