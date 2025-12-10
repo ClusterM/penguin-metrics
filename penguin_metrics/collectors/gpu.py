@@ -365,6 +365,7 @@ class GPUCollector(Collector):
         if result.data:
             result.set_state("online")
         else:
-            result.set_error("No GPU metrics available")
+            # GPU found but no metrics available (e.g., VideoCore on Raspberry Pi)
+            result.set_unavailable("no_metrics")
 
         return result
