@@ -297,6 +297,43 @@ custom "room_temp" {
 | `device system;` | Group with the system device (default for temperature, GPU, disks, battery) |
 | `device auto;` | Create a dedicated device (default for services, containers, processes, custom) |
 | `device none;` | No device — create "orphan" entities without device association |
+
+### Home Assistant Sensor Overrides
+
+Override any Home Assistant discovery fields for sensors using the `homeassistant {}` block:
+
+```nginx
+process "nginx" {
+    homeassistant {
+        name "Web Server";           # Override display name
+        icon "mdi:web";             # Change icon
+        unit_of_measurement "%";     # Override unit
+        device_class "power";        # Change device class
+        state_class "measurement";   # Change state class
+        entity_category "diagnostic"; # Set entity category
+        enabled_by_default false;    # Disable by default
+        # Any other HA discovery fields can be added here
+    }
+    match name "nginx";
+    cpu on;
+    memory on;
+}
+```
+
+**Available fields in `homeassistant {}` block:**
+
+| Field | Description |
+|-------|-------------|
+| `name` | Display name in Home Assistant (default: auto-generated) |
+| `icon` | MDI icon name (e.g., `"mdi:thermometer"`) |
+| `unit_of_measurement` | Unit of measurement |
+| `device_class` | HA device class (e.g., `temperature`, `power`, `energy`) |
+| `state_class` | HA state class (e.g., `measurement`, `total`, `total_increasing`) |
+| `entity_category` | Entity category (`diagnostic`, `config`) |
+| `enabled_by_default` | Enable sensor by default (`true`/`false`, default: `true`) |
+| *Any other field* | Additional fields are passed directly to HA discovery payload |
+
+**Note:** The `homeassistant {}` block applies to all sensors created by the collector. For collectors that create multiple sensors (e.g., process, container), the overrides are applied to all of them.
 | `device "name";` | Use a device template defined with `device "name" { ... }` |
 
 ### Default Settings
@@ -776,22 +813,26 @@ battery "main" {
 ### Custom Sensors
 
 The block name (e.g., `"room_temp"`) is the sensor ID, used for MQTT topics.
-Use `ha_name` to set a custom display name in Home Assistant.
+Use the `homeassistant {}` block to override any Home Assistant discovery fields.
 
 ```nginx
 # Read from command output
 # MQTT topic: {prefix}/custom/room_temp
 custom "room_temp" {
-    ha_name "Room Temperature";  # Display name in HA (optional)
-    
     command "cat /sys/bus/w1/devices/28-*/temperature";
     
     type number;               # number, string, json
-    unit "°C";
     scale 0.001;               # Multiply result
     
-    device_class temperature;
-    state_class measurement;
+    # Home Assistant sensor overrides
+    homeassistant {
+        name "Room Temperature";  # Display name in HA (default: use ID)
+        icon "mdi:thermometer";
+        unit_of_measurement "°C";
+        device_class temperature;
+        state_class measurement;
+        # Any other HA discovery fields can be added here
+    }
     
     update_interval 30s;
     timeout 5s;
@@ -806,7 +847,9 @@ custom "disk_health" {
 
 # Get external IP
 custom "wan_ip" {
-    ha_name "WAN IP Address";
+    homeassistant {
+        name "WAN IP Address";
+    }
     command "curl -s ifconfig.me";
     type string;
     update_interval 5m;
@@ -816,16 +859,24 @@ custom "wan_ip" {
 **Default values:**
 | Directive | Default | Description |
 |-----------|---------|-------------|
-| `ha_name` | *(use ID)* | Display name in Home Assistant |
 | `command` | *(required)* | Shell command to execute |
 | `script` | *(none)* | Script path (alternative to command) |
 | `type` | `"number"` | Output type: `number`, `string`, `json` |
-| `unit` | *(none)* | Unit of measurement |
 | `scale` | `1.0` | Multiply numeric result by this |
-| `device_class` | *(none)* | HA device class |
-| `state_class` | *(none)* | HA state class |
 | `timeout` | `5s` | Command timeout |
 | `update_interval` | *(from defaults)* | Override default interval |
+
+**Home Assistant overrides** (in `homeassistant {}` block):
+| Field | Description |
+|-------|-------------|
+| `name` | Display name in Home Assistant (default: use sensor ID) |
+| `icon` | MDI icon name (e.g., `"mdi:thermometer"`) |
+| `unit_of_measurement` | Unit of measurement |
+| `device_class` | HA device class (e.g., `temperature`, `power`) |
+| `state_class` | HA state class (e.g., `measurement`, `total`) |
+| `entity_category` | Entity category (e.g., `diagnostic`, `config`) |
+| `enabled_by_default` | Enable sensor by default (default: `true`) |
+| *Any other field* | Additional fields are passed directly to HA discovery |
 
 **Output types:**
 | Type | Description |

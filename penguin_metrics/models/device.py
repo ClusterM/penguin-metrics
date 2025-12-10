@@ -30,6 +30,9 @@ class Device:
     configuration_url: str | None = None
     via_device: str | None = None  # Parent device identifier
 
+    # Arbitrary extra fields (for any other HA device fields)
+    extra_fields: dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self):
         """Ensure at least one identifier exists."""
         if not self.identifiers and self.name:
@@ -90,6 +93,10 @@ class Device:
         if self.via_device:
             result["via_device"] = self.via_device
 
+        # Apply extra fields
+        if self.extra_fields:
+            result.update(self.extra_fields)
+
         return result
 
     @property
@@ -112,6 +119,7 @@ class Device:
             suggested_area=self.suggested_area,
             configuration_url=self.configuration_url,
             via_device=self.via_device,
+            extra_fields=self.extra_fields.copy() if self.extra_fields else {},
         )
 
 

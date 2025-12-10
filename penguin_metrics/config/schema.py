@@ -6,6 +6,7 @@ Defines all configuration sections, their fields, defaults, and validation.
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from .parser import Block, ConfigDocument, Directive
 
@@ -47,12 +48,9 @@ class RetainMode(Enum):
 class DeviceConfig:
     """Home Assistant device configuration."""
 
-    name: str | None = None
-    manufacturer: str = "Penguin Metrics"
-    model: str = "Linux Monitor"
-    hw_version: str | None = None
-    sw_version: str | None = None
     identifiers: list[str] = field(default_factory=list)
+    # All fields (including name, manufacturer, model, etc.) go to extra_fields
+    extra_fields: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_block(cls, block: Block | None) -> "DeviceConfig":
@@ -60,12 +58,23 @@ class DeviceConfig:
         if block is None:
             return cls()
 
+        # Collect all fields into extra_fields
+        extra_fields: dict[str, Any] = {}
+        for directive in block.directives:
+            if directive.name == "identifiers":
+                # identifiers is special - it's a list
+                continue
+            elif len(directive.values) == 1:
+                extra_fields[directive.name] = directive.values[0]
+            else:
+                extra_fields[directive.name] = directive.values
+
+        # Get identifiers separately (if specified)
+        identifiers = block.get_all_values("identifiers")
+
         return cls(
-            name=block.get_value("name"),
-            manufacturer=block.get_value("manufacturer", "Penguin Metrics"),
-            model=block.get_value("model", "Linux Monitor"),
-            hw_version=block.get_value("hw_version"),
-            sw_version=block.get_value("sw_version"),
+            identifiers=identifiers,
+            extra_fields=extra_fields,
         )
 
 
@@ -140,6 +149,89 @@ class HomeAssistantConfig:
             state_file=block.get_value(
                 "state_file", "/var/lib/penguin-metrics/registered_sensors.json"
             ),
+        )
+
+
+@dataclass
+class HomeAssistantSensorConfig:
+    """
+    Home Assistant sensor overrides.
+
+    Allows overriding any Home Assistant discovery fields for sensors.
+    Fields are passed directly to the discovery payload.
+
+    Example:
+        homeassistant {
+            name "Custom Name";
+            icon "mdi:custom-icon";
+            unit_of_measurement "custom_unit";
+            device_class "power";
+            state_class "measurement";
+            entity_category "diagnostic";
+            enabled_by_default false;
+        }
+    """
+
+    # Common fields (for convenience and validation)
+    name: str | None = None
+    icon: str | None = None
+    unit_of_measurement: str | None = None
+    device_class: str | None = None
+    state_class: str | None = None
+    entity_category: str | None = None
+    enabled_by_default: bool | None = None
+
+    # Arbitrary fields (for any other HA discovery fields)
+    extra_fields: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_block(cls, block: Block | None) -> "HomeAssistantSensorConfig":
+        """Create HomeAssistantSensorConfig from a parsed 'homeassistant' block."""
+        if block is None:
+            return cls()
+
+        # Known fields
+        name = block.get_value("name")
+        icon = block.get_value("icon")
+        unit_of_measurement = block.get_value("unit_of_measurement")
+        device_class = block.get_value("device_class")
+        state_class = block.get_value("state_class")
+        entity_category = block.get_value("entity_category")
+        enabled_by_default = block.get_value("enabled_by_default")
+
+        # Convert enabled_by_default to bool if present
+        if enabled_by_default is not None:
+            enabled_by_default = bool(enabled_by_default)
+
+        # Collect all other directives as extra fields
+        extra_fields: dict[str, Any] = {}
+        known_fields = {
+            "name",
+            "icon",
+            "unit_of_measurement",
+            "device_class",
+            "state_class",
+            "entity_category",
+            "enabled_by_default",
+        }
+
+        for directive in block.directives:
+            if directive.name not in known_fields:
+                # Store as string if single value, list if multiple
+                if len(directive.values) == 1:
+                    extra_fields[directive.name] = directive.values[0]
+                else:
+                    extra_fields[directive.name] = directive.values
+
+        return cls(
+            name=name,
+            icon=icon,
+            unit_of_measurement=unit_of_measurement,
+            device_class=device_class,
+            state_class=state_class,
+            entity_category=entity_category,
+            enabled_by_default=enabled_by_default,
+            extra_fields=extra_fields,
         )
 
 
@@ -550,6 +642,7 @@ class ProcessConfig:
     match: ProcessMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     sensor_prefix: str | None = None
+    ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
     # Metrics flags
     cpu: bool = True
@@ -590,12 +683,17 @@ class ProcessConfig:
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
+        # Parse homeassistant block for sensor overrides
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
         return cls(
             name=name,
             id=block.get_value("id"),
             match=ProcessMatchConfig.from_directive(block.get_directive("match")),
             device_ref=device_ref,
             sensor_prefix=block.get_value("sensor_prefix"),
+            ha_config=ha_config,
             cpu=get_bool("cpu", pd.cpu),
             memory=get_bool("memory", pd.memory),
             smaps=smaps,
@@ -671,6 +769,7 @@ class ServiceConfig:
     id: str | None = None
     match: ServiceMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+    ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
     # Metrics flags
     cpu: bool = True
@@ -708,11 +807,16 @@ class ServiceConfig:
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
+        # Parse homeassistant block for sensor overrides
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
         return cls(
             name=name,
             id=block.get_value("id"),
             match=ServiceMatchConfig.from_directive(block.get_directive("match")),
             device_ref=device_ref,
+            ha_config=ha_config,
             cpu=get_bool("cpu", svd.cpu),
             memory=get_bool("memory", svd.memory),
             smaps=smaps,
@@ -786,6 +890,7 @@ class ContainerConfig:
     id: str | None = None
     match: ContainerMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+    ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
     auto_discover: bool = False
 
     # Metrics flags
@@ -819,11 +924,16 @@ class ContainerConfig:
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
+        # Parse homeassistant block for sensor overrides
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
         return cls(
             name=name,
             id=block.get_value("id"),
             match=ContainerMatchConfig.from_directive(block.get_directive("match")),
             device_ref=device_ref,
+            ha_config=ha_config,
             auto_discover=bool(block.get_value("auto_discover", False)),
             cpu=get_bool("cpu", cd.cpu),
             memory=get_bool("memory", cd.memory),
@@ -869,6 +979,7 @@ class TemperatureConfig:
     hwmon: str | None = None  # Hwmon sensor name (e.g., "soc_thermal_sensor0")
     path: str | None = None  # Direct path to temp file
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+    ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
     update_interval: float | None = None
 
     @classmethod
@@ -883,6 +994,10 @@ class TemperatureConfig:
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
+        # Parse homeassistant block for sensor overrides
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
         return cls(
             name=name,
             id=block.get_value("id"),
@@ -890,6 +1005,7 @@ class TemperatureConfig:
             hwmon=block.get_value("hwmon"),
             path=block.get_value("path"),
             device_ref=device_ref,
+            ha_config=ha_config,
             update_interval=float(interval) if interval else None,
         )
 
@@ -903,6 +1019,7 @@ class BatteryConfig:
     path: str | None = None
     battery_name: str | None = None  # BAT0, BAT1, etc.
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+    ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
     # Metrics flags
     capacity: bool = True
@@ -936,12 +1053,17 @@ class BatteryConfig:
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
+        # Parse homeassistant block for sensor overrides
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
         return cls(
             name=name,
             id=block.get_value("id"),
             path=block.get_value("path"),
             battery_name=block.get_value("name"),  # the battery name like BAT0
             device_ref=device_ref,
+            ha_config=ha_config,
             capacity=get_bool("capacity", bd.capacity),
             status=get_bool("status", bd.status),
             voltage=get_bool("voltage", bd.voltage),
@@ -961,17 +1083,17 @@ class CustomSensorConfig:
     """Custom command/script sensor configuration."""
 
     name: str  # Sensor ID, used for MQTT topics
-    ha_name: str | None = None  # Display name for Home Assistant (optional)
     command: str | None = None
     script: str | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+    ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
     # Output parsing
     type: str = "number"  # number, string, json
     unit: str | None = None
     scale: float = 1.0
 
-    # Home Assistant
+    # Home Assistant (deprecated, use ha_config instead)
     device_class: str | None = None
     state_class: str | None = None
 
@@ -1000,17 +1122,21 @@ class CustomSensorConfig:
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
+        # Parse homeassistant block for sensor overrides
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
         return cls(
             name=name,
-            ha_name=block.get_value("ha_name"),
             command=block.get_value("command"),
             script=block.get_value("script"),
             device_ref=device_ref,
+            ha_config=ha_config,
             type=type_str,
             unit=block.get_value("unit"),
             scale=float(block.get_value("scale", 1.0)),
-            device_class=block.get_value("device_class"),
-            state_class=block.get_value("state_class"),
+            device_class=block.get_value("device_class"),  # Legacy
+            state_class=block.get_value("state_class"),  # Legacy
             update_interval=float(interval) if interval else None,
             timeout=timeout,
         )
@@ -1025,6 +1151,7 @@ class DiskConfig:
     path: str | None = None  # Device name: sda1, nvme0n1p1
     mountpoint: str | None = None  # Mount point: /, /home
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+    ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
     # Metrics flags
     total: bool = True
@@ -1052,12 +1179,17 @@ class DiskConfig:
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
+        # Parse homeassistant block for sensor overrides
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
         return cls(
             name=name,
             id=block.get_value("id"),
             path=block.get_value("path"),
             mountpoint=block.get_value("mountpoint"),
             device_ref=device_ref,
+            ha_config=ha_config,
             total=get_bool("total", dd.total),
             used=get_bool("used", dd.used),
             free=get_bool("free", dd.free),
@@ -1155,8 +1287,8 @@ class Config:
                 identifier = f"penguin_metrics_{topic_prefix}_device_{sanitized_name}"
                 device_config.identifiers = [identifier]
                 # Set name if not specified
-                if not device_config.name:
-                    device_config.name = template_name
+                if "name" not in device_config.extra_fields:
+                    device_config.extra_fields["name"] = template_name
                 config.device_templates[template_name] = device_config
 
         # Parse auto-discovery blocks (plural names)

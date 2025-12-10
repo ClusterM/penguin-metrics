@@ -237,11 +237,7 @@ class TemperatureCollector(Collector):
                 template = self.device_templates[device_ref]
                 return Device(
                     identifiers=template.identifiers.copy(),
-                    name=template.name,
-                    manufacturer=template.manufacturer,
-                    model=template.model,
-                    hw_version=template.hw_version,
-                    sw_version=template.sw_version,
+                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
                 )
 
         # Default for temperature: use parent device (system)
@@ -294,6 +290,10 @@ class TemperatureCollector(Collector):
                     display_name=f"Temperature {chip} {label}",
                     device=device,
                 )
+            # Apply HA overrides from config to all sensors
+            if self.config.ha_config:
+                for sensor in sensors:
+                    sensor.apply_ha_overrides(self.config.ha_config)
             return sensors
 
         # Add thermal zones (auto-discovered)
@@ -323,6 +323,11 @@ class TemperatureCollector(Collector):
                         )
             except Exception:
                 pass
+
+        # Apply HA overrides from config to all sensors
+        if self.config.ha_config:
+            for sensor in sensors:
+                sensor.apply_ha_overrides(self.config.ha_config)
 
         return sensors
 

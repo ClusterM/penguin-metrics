@@ -184,11 +184,7 @@ class BatteryCollector(Collector):
                 template = self.device_templates[device_ref]
                 return Device(
                     identifiers=template.identifiers.copy(),
-                    name=template.name,
-                    manufacturer=template.manufacturer,
-                    model=template.model,
-                    hw_version=template.hw_version,
-                    sw_version=template.sw_version,
+                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
                 )
 
         # Default for battery: use parent device (system)
@@ -389,6 +385,11 @@ class BatteryCollector(Collector):
                 ),
             ]
         )
+
+        # Apply HA overrides from config to all sensors
+        if self.config.ha_config:
+            for sensor in sensors:
+                sensor.apply_ha_overrides(self.config.ha_config)
 
         return sensors
 

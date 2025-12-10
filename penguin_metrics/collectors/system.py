@@ -175,11 +175,7 @@ class SystemCollector(Collector):
                 template = self.device_templates[device_ref]
                 return Device(
                     identifiers=template.identifiers.copy(),
-                    name=template.name,
-                    manufacturer=template.manufacturer,
-                    model=template.model,
-                    hw_version=template.hw_version,
-                    sw_version=template.sw_version,
+                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
                 )
 
         # Default: auto-create system device based on system info

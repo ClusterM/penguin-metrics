@@ -117,6 +117,7 @@ class Sensor:
     # Current state (not part of discovery)
     _state: Any = field(default=None, repr=False, compare=False)
     _availability: SensorState = field(default=SensorState.UNKNOWN, repr=False, compare=False)
+    _ha_extra_fields: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):
         """Initialize topics if not set."""
@@ -247,6 +248,10 @@ class Sensor:
         if self.json_attributes_template:
             result["json_attributes_template"] = self.json_attributes_template
 
+        # Apply extra fields from ha_config
+        if hasattr(self, "_ha_extra_fields") and self._ha_extra_fields:
+            result.update(self._ha_extra_fields)
+
         return result
 
     def get_discovery_topic(self, prefix: str = "homeassistant") -> str:
@@ -260,6 +265,36 @@ class Sensor:
             Discovery topic string
         """
         return f"{prefix}/sensor/{self.unique_id}/config"
+
+    def apply_ha_overrides(self, ha_config: Any) -> None:
+        """
+        Apply Home Assistant sensor overrides from config.
+
+        Args:
+            ha_config: HomeAssistantSensorConfig instance with overrides
+        """
+        if ha_config is None:
+            return
+
+        # Apply known fields
+        if ha_config.name is not None:
+            self.name = ha_config.name
+        if ha_config.icon is not None:
+            self.icon = ha_config.icon
+        if ha_config.unit_of_measurement is not None:
+            self.unit_of_measurement = ha_config.unit_of_measurement
+        if ha_config.device_class is not None:
+            self.device_class = ha_config.device_class
+        if ha_config.state_class is not None:
+            self.state_class = ha_config.state_class
+        if ha_config.entity_category is not None:
+            self.entity_category = ha_config.entity_category
+        if ha_config.enabled_by_default is not None:
+            self.enabled_by_default = ha_config.enabled_by_default
+
+        # Store extra fields for later use in to_discovery_dict
+        if ha_config.extra_fields:
+            self._ha_extra_fields = ha_config.extra_fields
 
     def format_state(self) -> str:
         """

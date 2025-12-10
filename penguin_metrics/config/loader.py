@@ -203,7 +203,6 @@ class ConfigLoader:
             "update_interval",
         },
         "custom": {
-            "ha_name",
             "device",
             "command",
             "script",
@@ -234,6 +233,18 @@ class ConfigLoader:
         },
         "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
         "match": {"name", "pattern", "pid", "pidfile", "cmdline", "unit", "image", "label"},
+    }
+
+    # Home Assistant sensor override block (nested inside collectors)
+    KNOWN_HA_SENSOR_DIRECTIVES = {
+        "name",
+        "icon",
+        "unit_of_measurement",
+        "device_class",
+        "state_class",
+        "entity_category",
+        "enabled_by_default",
+        # Allow any other fields (will be in extra_fields)
     }
 
     def validate(self, config: Config) -> list[str]:
@@ -355,13 +366,25 @@ class ConfigLoader:
 
         def check_block(block, parent_path: str = ""):
             block_path = f"{parent_path}{block.type}" if parent_path else block.type
-            known = self.KNOWN_DIRECTIVES.get(block.type, set())
 
-            for directive in block.directives:
-                if directive.name not in known:
-                    warnings.append(
-                        f"Unknown directive '{directive.name}' in {block_path} block (line {directive.line})"
-                    )
+            # Special handling for blocks that allow extra fields:
+            # - homeassistant (nested): allow any directives (they go to extra_fields)
+            # - device: allow any directives (they go to extra_fields)
+            if block.type == "homeassistant" and parent_path:
+                # Nested homeassistant block inside collector - allow any directives
+                known = None  # None means allow all
+            elif block.type == "device":
+                # Device blocks allow any directives (extra_fields for HA device)
+                known = None
+            else:
+                known = self.KNOWN_DIRECTIVES.get(block.type, set())
+
+            if known is not None:  # Only validate if we have a known set
+                for directive in block.directives:
+                    if directive.name not in known:
+                        warnings.append(
+                            f"Unknown directive '{directive.name}' in {block_path} block (line {directive.line})"
+                        )
 
             for nested in block.blocks:
                 check_block(nested, f"{block_path}.")

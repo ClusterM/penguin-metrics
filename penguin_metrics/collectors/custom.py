@@ -88,11 +88,7 @@ class CustomCollector(Collector):
                 template = self.device_templates[device_ref]
                 return Device(
                     identifiers=template.identifiers.copy(),
-                    name=template.name,
-                    manufacturer=template.manufacturer,
-                    model=template.model,
-                    hw_version=template.hw_version,
-                    sw_version=template.sw_version,
+                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
                 )
 
         # Default for custom: auto-create device
@@ -124,8 +120,10 @@ class CustomCollector(Collector):
             except ValueError:
                 state_class = self.config.state_class
 
-        # Display name: use ha_name if specified, otherwise use name (ID)
-        display_name = self.config.ha_name or self.config.name
+        # Display name: use ha_config.name if specified, otherwise use name (ID)
+        display_name = self.config.name
+        if self.config.ha_config and self.config.ha_config.name:
+            display_name = self.config.ha_config.name
 
         sensor = create_sensor(
             source_type="custom",
@@ -134,11 +132,18 @@ class CustomCollector(Collector):
             display_name=display_name,  # Human-readable name for HA
             device=device,
             topic_prefix=self.topic_prefix,
-            unit=self.config.unit,
-            device_class=device_class,
-            state_class=state_class,
+            unit=self.config.unit
+            or (self.config.ha_config.unit_of_measurement if self.config.ha_config else None),
+            device_class=device_class
+            or (self.config.ha_config.device_class if self.config.ha_config else None),
+            state_class=state_class
+            or (self.config.ha_config.state_class if self.config.ha_config else None),
             icon="mdi:cog-outline",
         )
+
+        # Apply HA overrides from config (this will override any fields set above)
+        if self.config.ha_config:
+            sensor.apply_ha_overrides(self.config.ha_config)
 
         return [sensor]
 
