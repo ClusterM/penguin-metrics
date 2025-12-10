@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any
 
 from ..models.device import Device
-from ..models.sensor import Sensor, SensorState
+from ..models.sensor import Sensor, SensorState, create_sensor
 
 
 @dataclass
@@ -298,6 +298,44 @@ def apply_overrides_to_sensors(sensors: Iterable[Sensor], ha_config: Any) -> Non
         return
     for sensor in sensors:
         sensor.apply_ha_overrides(ha_config)
+
+
+def build_sensor(
+    *,
+    source_type: str,
+    source_name: str,
+    metric_name: str,
+    display_name: str,
+    device: Device | None,
+    topic_prefix: str,
+    unit: str | None = None,
+    device_class: Any = None,
+    state_class: Any = None,
+    icon: str | None = None,
+    entity_type: str = "sensor",
+    availability_topic: str | None = None,
+    use_json: bool = True,
+    ha_config: Any = None,
+) -> Sensor:
+    """Wrapper around create_sensor with optional HA overrides."""
+    sensor = create_sensor(
+        source_type=source_type,
+        source_name=source_name,
+        metric_name=metric_name,
+        display_name=display_name,
+        device=device,
+        topic_prefix=topic_prefix,
+        unit=unit,
+        device_class=device_class,
+        state_class=state_class,
+        icon=icon,
+        availability_topic=availability_topic,
+        use_json=use_json,
+        entity_type=entity_type,
+    )
+    if ha_config:
+        sensor.apply_ha_overrides(ha_config)
+    return sensor
 
 
 class MultiSourceCollector(Collector):

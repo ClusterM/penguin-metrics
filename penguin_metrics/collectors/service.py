@@ -17,14 +17,14 @@ import fnmatch
 
 from ..config.schema import DefaultsConfig, DeviceConfig, ServiceConfig, ServiceMatchType
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
+from ..models.sensor import DeviceClass, Sensor, StateClass
 from ..utils.cgroup import (
     get_cgroup_pids,
     get_cgroup_stats,
     get_systemd_service_cgroup,
 )
 from ..utils.smaps import aggregate_smaps
-from .base import Collector, CollectorResult, apply_overrides_to_sensors
+from .base import Collector, CollectorResult, build_sensor
 
 
 async def run_systemctl(*args: str) -> tuple[int, str]:
@@ -236,7 +236,7 @@ class ServiceCollector(Collector):
         # Service sensors use short names - device name provides context
         if self.config.state:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="service",
                     source_name=self.name,
                     metric_name="state",
@@ -244,12 +244,13 @@ class ServiceCollector(Collector):
                     device=device,
                     topic_prefix=self.topic_prefix,
                     icon="mdi:cog",
+                    ha_config=self.config.ha_config,
                 )
             )
 
         if self.config.restart_count:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="service",
                     source_name=self.name,
                     metric_name="restarts",
@@ -258,12 +259,13 @@ class ServiceCollector(Collector):
                     topic_prefix=self.topic_prefix,
                     state_class=StateClass.TOTAL_INCREASING,
                     icon="mdi:restart",
+                    ha_config=self.config.ha_config,
                 )
             )
 
         if self.config.cpu:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="service",
                     source_name=self.name,
                     metric_name="cpu_percent",
@@ -273,13 +275,14 @@ class ServiceCollector(Collector):
                     unit="%",
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:chip",
+                    ha_config=self.config.ha_config,
                 )
             )
 
         if self.config.memory:
             sensors.extend(
                 [
-                    create_sensor(
+                    build_sensor(
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory",
@@ -290,8 +293,9 @@ class ServiceCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=self.config.ha_config,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory_cache",
@@ -302,6 +306,7 @@ class ServiceCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=self.config.ha_config,
                     ),
                 ]
             )
@@ -309,7 +314,7 @@ class ServiceCollector(Collector):
         if self.use_smaps:
             sensors.extend(
                 [
-                    create_sensor(
+                    build_sensor(
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory_pss",
@@ -320,8 +325,9 @@ class ServiceCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=self.config.ha_config,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory_uss",
@@ -332,13 +338,14 @@ class ServiceCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=self.config.ha_config,
                     ),
                 ]
             )
 
         # Process count
         sensors.append(
-            create_sensor(
+            build_sensor(
                 source_type="service",
                 source_name=self.name,
                 metric_name="processes",
@@ -347,11 +354,9 @@ class ServiceCollector(Collector):
                 topic_prefix=self.topic_prefix,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:application-outline",
+                ha_config=self.config.ha_config,
             )
         )
-
-        # Apply HA overrides from config to all sensors
-        apply_overrides_to_sensors(sensors, self.config.ha_config)
 
         return sensors
 

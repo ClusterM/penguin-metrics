@@ -23,9 +23,13 @@ import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, ProcessConfig, ProcessMatchType
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
+from ..models.sensor import DeviceClass, Sensor, StateClass
 from ..utils.smaps import get_process_memory
-from .base import CollectorResult, MultiSourceCollector, apply_overrides_to_sensors
+from .base import (
+    CollectorResult,
+    MultiSourceCollector,
+    build_sensor,
+)
 
 
 def find_processes_by_name(name: str) -> list[psutil.Process]:
@@ -158,7 +162,7 @@ class ProcessCollector(MultiSourceCollector):
 
         # Process sensors use short names - device name provides context
         sensors.append(
-            create_sensor(
+            build_sensor(
                 source_type="process",
                 source_name=self.name,
                 metric_name="state",
@@ -166,13 +170,14 @@ class ProcessCollector(MultiSourceCollector):
                 device=device,
                 topic_prefix=self.topic_prefix,
                 icon="mdi:application",
+                ha_config=self.config.ha_config,
             )
         )
 
         # Process count (for aggregate mode)
         if self.config.aggregate:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="process",
                     source_name=self.name,
                     metric_name="count",
@@ -181,12 +186,13 @@ class ProcessCollector(MultiSourceCollector):
                     topic_prefix=self.topic_prefix,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:counter",
+                    ha_config=self.config.ha_config,
                 )
             )
 
         if self.config.cpu:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="process",
                     source_name=self.name,
                     metric_name="cpu_percent",
@@ -196,13 +202,14 @@ class ProcessCollector(MultiSourceCollector):
                     unit="%",
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:chip",
+                    ha_config=self.config.ha_config,
                 )
             )
 
         if self.config.memory:
             sensors.extend(
                 [
-                    create_sensor(
+                    build_sensor(
                         source_type="process",
                         source_name=self.name,
                         metric_name="memory_rss",
@@ -213,8 +220,9 @@ class ProcessCollector(MultiSourceCollector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=self.config.ha_config,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="process",
                         source_name=self.name,
                         metric_name="memory_percent",
@@ -224,6 +232,7 @@ class ProcessCollector(MultiSourceCollector):
                         unit="%",
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=self.config.ha_config,
                     ),
                 ]
             )
@@ -231,7 +240,7 @@ class ProcessCollector(MultiSourceCollector):
         if self.use_smaps:
             sensors.extend(
                 [
-                    create_sensor(
+                    build_sensor(
                         source_type="process",
                         source_name=self.name,
                         metric_name="memory_pss",
@@ -242,8 +251,9 @@ class ProcessCollector(MultiSourceCollector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=self.config.ha_config,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="process",
                         source_name=self.name,
                         metric_name="memory_uss",
@@ -254,6 +264,7 @@ class ProcessCollector(MultiSourceCollector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=self.config.ha_config,
                     ),
                 ]
             )
@@ -261,7 +272,7 @@ class ProcessCollector(MultiSourceCollector):
         if self.config.io:
             sensors.extend(
                 [
-                    create_sensor(
+                    build_sensor(
                         source_type="process",
                         source_name=self.name,
                         metric_name="io_read",
@@ -272,8 +283,9 @@ class ProcessCollector(MultiSourceCollector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.TOTAL_INCREASING,
                         icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="process",
                         source_name=self.name,
                         metric_name="io_write",
@@ -284,13 +296,14 @@ class ProcessCollector(MultiSourceCollector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.TOTAL_INCREASING,
                         icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
                     ),
                 ]
             )
 
         if self.config.fds:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="process",
                     source_name=self.name,
                     metric_name="num_fds",
@@ -299,12 +312,13 @@ class ProcessCollector(MultiSourceCollector):
                     topic_prefix=self.topic_prefix,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:file-multiple",
+                    ha_config=self.config.ha_config,
                 )
             )
 
         if self.config.threads:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="process",
                     source_name=self.name,
                     metric_name="num_threads",
@@ -313,11 +327,9 @@ class ProcessCollector(MultiSourceCollector):
                     topic_prefix=self.topic_prefix,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:cpu-64-bit",
+                    ha_config=self.config.ha_config,
                 )
             )
-
-        # Apply HA overrides from config to all sensors
-        apply_overrides_to_sensors(sensors, self.config.ha_config)
 
         return sensors
 
