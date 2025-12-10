@@ -230,6 +230,46 @@ class BatteryCollector(Collector):
                 icon="mdi:flash",
             )
 
+        if self.config.voltage_max:
+            add(
+                "voltage_max",
+                "Voltage Max",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:flash",
+            )
+
+        if self.config.voltage_min:
+            add(
+                "voltage_min",
+                "Voltage Min",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:flash",
+            )
+
+        if self.config.voltage_max_design:
+            add(
+                "voltage_max_design",
+                "Voltage Max (Design)",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:flash",
+            )
+
+        if self.config.voltage_min_design:
+            add(
+                "voltage_min_design",
+                "Voltage Min (Design)",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:flash",
+            )
+
         if self.config.current:
             add(
                 "current",
@@ -250,8 +290,34 @@ class BatteryCollector(Collector):
                 icon="mdi:lightning-bolt",
             )
 
+        if self.config.constant_charge_current:
+            add(
+                "constant_charge_current",
+                "Const Charge Current",
+                unit="A",
+                device_class=DeviceClass.CURRENT,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:current-dc",
+            )
+
+        if self.config.constant_charge_current_max:
+            add(
+                "constant_charge_current_max",
+                "Const Charge Current Max",
+                unit="A",
+                device_class=DeviceClass.CURRENT,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:current-dc",
+            )
+
         if self.config.health:
             add("health", "Health", icon="mdi:battery-heart-variant")
+
+        if self.config.present:
+            add("present", "Present", icon="mdi:battery-check")
+
+        if self.config.technology:
+            add("technology", "Technology", icon="mdi:battery")
 
         if self.config.cycles:
             add(
@@ -333,6 +399,19 @@ class BatteryCollector(Collector):
                     icon="mdi:battery",
                     ha_config=ha_cfg,
                 ),
+                build_sensor(
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
+                    metric_name="charge_full_design",
+                    display_name="Charge Full (Design)",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    unit="mAh",
+                    device_class=DeviceClass.ENERGY,
+                    state_class=StateClass.MEASUREMENT,
+                    icon="mdi:battery",
+                    ha_config=ha_cfg,
+                ),
             ]
         )
 
@@ -365,6 +444,26 @@ class BatteryCollector(Collector):
             if voltage is not None:
                 result.set("voltage", round(voltage, 2))
 
+        if self.config.voltage_max:
+            v_max = read_sysfs_float(path / "voltage_max", scale=0.000001)
+            if v_max is not None:
+                result.set("voltage_max", round(v_max, 2))
+
+        if self.config.voltage_min:
+            v_min = read_sysfs_float(path / "voltage_min", scale=0.000001)
+            if v_min is not None:
+                result.set("voltage_min", round(v_min, 2))
+
+        if self.config.voltage_max_design:
+            v_max_d = read_sysfs_float(path / "voltage_max_design", scale=0.000001)
+            if v_max_d is not None:
+                result.set("voltage_max_design", round(v_max_d, 2))
+
+        if self.config.voltage_min_design:
+            v_min_d = read_sysfs_float(path / "voltage_min_design", scale=0.000001)
+            if v_min_d is not None:
+                result.set("voltage_min_design", round(v_min_d, 2))
+
         if self.config.current:
             current = read_sysfs_float(path / "current_now", scale=0.000001)
             if current is not None:
@@ -387,6 +486,26 @@ class BatteryCollector(Collector):
             health = read_sysfs_value(path / "health")
             if health:
                 result.set("health", health)
+
+        if self.config.present:
+            present = read_sysfs_int(path / "present")
+            if present is not None:
+                result.set("present", present)
+
+        if self.config.technology:
+            tech = read_sysfs_value(path / "technology")
+            if tech:
+                result.set("technology", tech)
+
+        if self.config.constant_charge_current:
+            ccc = read_sysfs_float(path / "constant_charge_current", scale=0.000001)
+            if ccc is not None:
+                result.set("constant_charge_current", round(ccc, 3))
+
+        if self.config.constant_charge_current_max:
+            ccc_max = read_sysfs_float(path / "constant_charge_current_max", scale=0.000001)
+            if ccc_max is not None:
+                result.set("constant_charge_current_max", round(ccc_max, 3))
 
         if self.config.cycles:
             cycles = read_sysfs_int(path / "cycle_count")
@@ -420,6 +539,12 @@ class BatteryCollector(Collector):
         energy_full_design = read_sysfs_float(path / "energy_full_design", scale=0.000001)
         if energy_full_design is not None:
             result.set("energy_full_design", round(energy_full_design, 2))
+
+        if self.config.charge_full_design:
+            charge_full_design = read_sysfs_int(path / "charge_full_design")
+            if charge_full_design is not None:
+                # sysfs reports in µAh → convert to mAh
+                result.set("charge_full_design", round(charge_full_design / 1000, 0))
 
         if len(result.data) <= 1:  # Only state
             result.set_error("Failed to read battery data")

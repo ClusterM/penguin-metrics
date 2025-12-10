@@ -370,6 +370,15 @@ class BatteryDefaultsConfig:
     temperature: bool = False
     time_to_empty: bool = False
     time_to_full: bool = False
+    present: bool = False
+    technology: bool = False
+    voltage_max: bool = False
+    voltage_min: bool = False
+    voltage_max_design: bool = False
+    voltage_min_design: bool = False
+    constant_charge_current: bool = False
+    constant_charge_current_max: bool = False
+    charge_full_design: bool = False
 
     @classmethod
     def from_block(cls, block: Block | None) -> "BatteryDefaultsConfig":
@@ -387,6 +396,27 @@ class BatteryDefaultsConfig:
             temperature=bool(block.get_value("temperature", defaults.temperature)),
             time_to_empty=bool(block.get_value("time_to_empty", defaults.time_to_empty)),
             time_to_full=bool(block.get_value("time_to_full", defaults.time_to_full)),
+            present=bool(block.get_value("present", defaults.present)),
+            technology=bool(block.get_value("technology", defaults.technology)),
+            voltage_max=bool(block.get_value("voltage_max", defaults.voltage_max)),
+            voltage_min=bool(block.get_value("voltage_min", defaults.voltage_min)),
+            voltage_max_design=bool(
+                block.get_value("voltage_max_design", defaults.voltage_max_design)
+            ),
+            voltage_min_design=bool(
+                block.get_value("voltage_min_design", defaults.voltage_min_design)
+            ),
+            constant_charge_current=bool(
+                block.get_value("constant_charge_current", defaults.constant_charge_current)
+            ),
+            constant_charge_current_max=bool(
+                block.get_value(
+                    "constant_charge_current_max", defaults.constant_charge_current_max
+                )
+            ),
+            charge_full_design=bool(
+                block.get_value("charge_full_design", defaults.charge_full_design)
+            ),
         )
 
 
@@ -1081,6 +1111,15 @@ class BatteryConfig:
     temperature: bool = False
     time_to_empty: bool = False
     time_to_full: bool = False
+    present: bool = False
+    technology: bool = False
+    voltage_max: bool = False
+    voltage_min: bool = False
+    voltage_max_design: bool = False
+    voltage_min_design: bool = False
+    constant_charge_current: bool = False
+    constant_charge_current_max: bool = False
+    charge_full_design: bool = False
 
     # Settings
     update_interval: float | None = None
@@ -1123,6 +1162,19 @@ class BatteryConfig:
             temperature=get_bool("temperature", bd.temperature),
             time_to_empty=get_bool("time_to_empty", bd.time_to_empty),
             time_to_full=get_bool("time_to_full", bd.time_to_full),
+            present=get_bool("present", bd.present),
+            technology=get_bool("technology", bd.technology),
+            voltage_max=get_bool("voltage_max", bd.voltage_max),
+            voltage_min=get_bool("voltage_min", bd.voltage_min),
+            voltage_max_design=get_bool("voltage_max_design", bd.voltage_max_design),
+            voltage_min_design=get_bool("voltage_min_design", bd.voltage_min_design),
+            constant_charge_current=get_bool(
+                "constant_charge_current", bd.constant_charge_current
+            ),
+            constant_charge_current_max=get_bool(
+                "constant_charge_current_max", bd.constant_charge_current_max
+            ),
+            charge_full_design=get_bool("charge_full_design", bd.charge_full_design),
             update_interval=float(interval) if interval else None,
         )
 
@@ -1143,6 +1195,15 @@ class BatteryConfig:
             temperature=bd.temperature,
             time_to_empty=bd.time_to_empty,
             time_to_full=bd.time_to_full,
+            present=bd.present,
+            technology=bd.technology,
+            voltage_max=bd.voltage_max,
+            voltage_min=bd.voltage_min,
+            voltage_max_design=bd.voltage_max_design,
+            voltage_min_design=bd.voltage_min_design,
+            constant_charge_current=bd.constant_charge_current,
+            constant_charge_current_max=bd.constant_charge_current_max,
+            charge_full_design=bd.charge_full_design,
             update_interval=defaults.update_interval,
         )
 
