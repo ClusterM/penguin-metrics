@@ -9,6 +9,22 @@ from typing import Any
 from .device import Device
 
 
+def _sanitize_id(value: str) -> str:
+    """Sanitize a string for use in topics and identifiers."""
+    result = []
+    for char in value.lower():
+        if char.isalnum():
+            result.append(char)
+        elif char in " -_.":
+            result.append("_")
+
+    sanitized = "".join(result)
+    while "__" in sanitized:
+        sanitized = sanitized.replace("__", "_")
+
+    return sanitized.strip("_")
+
+
 class SensorState(Enum):
     """Sensor availability state."""
 
@@ -313,15 +329,18 @@ def create_sensor(
         penguin_metrics/temperature/soc    -> {"temp": 42.0, "state": "online"}
         penguin_metrics/docker/nginx       -> {"cpu_percent": 5.0, "state": "running"}
     """
+    # Sanitize source_name for use in topics and IDs
+    sanitized_name = _sanitize_id(source_name) if source_name else ""
+
     # Build unique_id with prefix for uniqueness across systems
-    if source_name:
-        unique_id = f"penguin_metrics_{topic_prefix}_{source_type}_{source_name}_{metric_name}"
+    if sanitized_name:
+        unique_id = f"penguin_metrics_{topic_prefix}_{source_type}_{sanitized_name}_{metric_name}"
     else:
         unique_id = f"penguin_metrics_{topic_prefix}_{source_type}_{metric_name}"
 
     # Build state_topic (JSON topic for the source)
-    if source_name:
-        state_topic = f"{topic_prefix}/{source_type}/{source_name}"
+    if sanitized_name:
+        state_topic = f"{topic_prefix}/{source_type}/{sanitized_name}"
     else:
         state_topic = f"{topic_prefix}/{source_type}"
 
