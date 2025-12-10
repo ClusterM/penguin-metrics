@@ -6,6 +6,7 @@ Defines all configuration sections, their fields, defaults, and validation.
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from .parser import Block, ConfigDocument, Directive
 
@@ -368,9 +369,9 @@ class AutoDiscoveryConfig:
     Example:
         temperatures {
             auto on;
-            filter "nvme_*";
+            thermal on;   # /sys/class/thermal (default: on)
+            hwmon off;    # psutil hwmon sensors (default: on)
             filter "soc_*";
-            exclude "internal*";
             exclude "test*";
         }
     """
@@ -378,6 +379,9 @@ class AutoDiscoveryConfig:
     enabled: bool = False
     filters: list[str] = field(default_factory=list)  # Include only matching (glob patterns)
     excludes: list[str] = field(default_factory=list)  # Exclude matching (glob patterns)
+    # Temperature-specific options
+    thermal: bool = True  # Search /sys/class/thermal
+    hwmon: bool = True  # Search hwmon via psutil
 
     @classmethod
     def from_block(cls, block: Block | None) -> "AutoDiscoveryConfig":
@@ -398,11 +402,28 @@ class AutoDiscoveryConfig:
         filters = block.get_all_values("filter")
         excludes = block.get_all_values("exclude")
 
+        # Temperature source options (default: both enabled)
+        thermal = cls._parse_bool(block.get_value("thermal"), default=True)
+        hwmon = cls._parse_bool(block.get_value("hwmon"), default=True)
+
         return cls(
             enabled=enabled,
             filters=filters,
             excludes=excludes,
+            thermal=thermal,
+            hwmon=hwmon,
         )
+
+    @staticmethod
+    def _parse_bool(value: Any, default: bool) -> bool:
+        """Parse boolean value from config."""
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.lower() in ("on", "true", "yes", "1")
+        return default
 
     def matches(self, name: str) -> bool:
         """

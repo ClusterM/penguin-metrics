@@ -22,8 +22,8 @@ from .collectors.system import SystemCollector
 from .collectors.temperature import TemperatureCollector
 from .config.loader import ConfigLoader
 from .config.schema import Config
-from .models.device import Device
 from .logging import LogConfig, get_logger, setup_logging
+from .models.device import Device
 from .mqtt.client import MQTTClient
 from .mqtt.homeassistant import HomeAssistantDiscovery
 
@@ -216,55 +216,57 @@ class Application:
 
         collectors = []
 
-        # Discover thermal zones
-        for zone in discover_thermal_zones():
-            name = zone.type if zone.type != zone.name else zone.name
-            if name in exclude:
-                continue
-            if not auto_cfg.matches(name):
-                continue
+        # Discover thermal zones from /sys/class/thermal
+        if auto_cfg.thermal:
+            for zone in discover_thermal_zones():
+                name = zone.type if zone.type != zone.name else zone.name
+                if name in exclude:
+                    continue
+                if not auto_cfg.matches(name):
+                    continue
 
-            from .config.schema import TemperatureConfig
+                from .config.schema import TemperatureConfig
 
-            config = TemperatureConfig(
-                name=name,
-                zone=zone.name,
-                update_interval=self.config.defaults.update_interval,
-            )
-            collectors.append(
-                TemperatureCollector(
-                    config=config,
-                    defaults=self.config.defaults,
-                    topic_prefix=topic_prefix,
-                    parent_device=parent_device,
+                config = TemperatureConfig(
+                    name=name,
+                    zone=zone.name,
+                    update_interval=self.config.defaults.update_interval,
                 )
-            )
-            logger.debug(f"Auto-discovered temperature: {name}")
-
-        # Discover hwmon sensors
-        for sensor in discover_hwmon_sensors():
-            name = f"{sensor.chip}_{sensor.label}".lower().replace(" ", "_")
-            if name in exclude:
-                continue
-            if not auto_cfg.matches(name):
-                continue
-
-            from .config.schema import TemperatureConfig
-
-            config = TemperatureConfig(
-                name=name,
-                hwmon=name,
-                update_interval=self.config.defaults.update_interval,
-            )
-            collectors.append(
-                TemperatureCollector(
-                    config=config,
-                    defaults=self.config.defaults,
-                    topic_prefix=topic_prefix,
-                    parent_device=parent_device,
+                collectors.append(
+                    TemperatureCollector(
+                        config=config,
+                        defaults=self.config.defaults,
+                        topic_prefix=topic_prefix,
+                        parent_device=parent_device,
+                    )
                 )
-            )
-            logger.debug(f"Auto-discovered hwmon sensor: {name}")
+                logger.debug(f"Auto-discovered thermal zone: {name}")
+
+        # Discover hwmon sensors via psutil
+        if auto_cfg.hwmon:
+            for sensor in discover_hwmon_sensors():
+                name = f"{sensor.chip}_{sensor.label}".lower().replace(" ", "_")
+                if name in exclude:
+                    continue
+                if not auto_cfg.matches(name):
+                    continue
+
+                from .config.schema import TemperatureConfig
+
+                config = TemperatureConfig(
+                    name=name,
+                    hwmon=name,
+                    update_interval=self.config.defaults.update_interval,
+                )
+                collectors.append(
+                    TemperatureCollector(
+                        config=config,
+                        defaults=self.config.defaults,
+                        topic_prefix=topic_prefix,
+                        parent_device=parent_device,
+                    )
+                )
+                logger.debug(f"Auto-discovered hwmon sensor: {name}")
 
         if collectors:
             logger.debug(f"Found {len(collectors)} temperature sensors")
