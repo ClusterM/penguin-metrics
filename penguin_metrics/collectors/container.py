@@ -426,8 +426,12 @@ class ContainerCollector(Collector):
             if self._prev_timestamp and self._prev_network_rx is not None:
                 time_delta = (now - self._prev_timestamp).total_seconds()
                 if time_delta > 0:
-                    rx_rate = (network_rx_bytes - self._prev_network_rx) / (1024 * 1024) / time_delta
-                    tx_rate = (network_tx_bytes - self._prev_network_tx) / (1024 * 1024) / time_delta
+                    rx_rate = (
+                        (network_rx_bytes - self._prev_network_rx) / (1024 * 1024) / time_delta
+                    )
+                    tx_rate = (
+                        (network_tx_bytes - self._prev_network_tx) / (1024 * 1024) / time_delta
+                    )
                     result.set("network_rx_rate", round(max(0, rx_rate), 2))
                     result.set("network_tx_rate", round(max(0, tx_rate), 2))
             self._prev_network_rx = network_rx_bytes
@@ -445,8 +449,12 @@ class ContainerCollector(Collector):
             if self._prev_timestamp and self._prev_disk_read is not None:
                 time_delta = (now - self._prev_timestamp).total_seconds()
                 if time_delta > 0:
-                    read_rate = (disk_read_bytes - self._prev_disk_read) / (1024 * 1024) / time_delta
-                    write_rate = (disk_write_bytes - self._prev_disk_write) / (1024 * 1024) / time_delta
+                    read_rate = (
+                        (disk_read_bytes - self._prev_disk_read) / (1024 * 1024) / time_delta
+                    )
+                    write_rate = (
+                        (disk_write_bytes - self._prev_disk_write) / (1024 * 1024) / time_delta
+                    )
                     result.set("disk_read_rate", round(max(0, read_rate), 2))
                     result.set("disk_write_rate", round(max(0, write_rate), 2))
             self._prev_disk_read = disk_read_bytes
