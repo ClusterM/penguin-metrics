@@ -17,9 +17,9 @@ from typing import NamedTuple
 import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, DiskConfig
-from ..models.device import Device, _add_via_device_if_needed
-from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
-from .base import Collector, CollectorResult
+from ..models.device import Device, create_device_from_ref
+from ..models.sensor import DeviceClass, Sensor, StateClass
+from .base import Collector, CollectorResult, build_sensor
 
 
 class DiskInfo(NamedTuple):
@@ -139,109 +139,58 @@ class DiskCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for disk metrics (uses system device by default)."""
-        device_ref = self.config.device_ref
         disk_name = self._disk.name if self._disk else self.config.name
-
-        # Handle "none" - no device
-        if device_ref == "none":
-            return None
-
-        # Handle "auto" - create unique device
-        if device_ref == "auto":
-            device = Device(
-                identifiers=[f"penguin_metrics_{self.topic_prefix}_disk_{self.collector_id}"],
-                name=f"Disk: {disk_name}",
-                manufacturer="Penguin Metrics",
-                model="Disk Monitor",
-            )
-            _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-            return device
-
-        # Handle template reference
-        if device_ref and device_ref not in ("system", "auto", "none"):
-            if device_ref in self.device_templates:
-                template = self.device_templates[device_ref]
-                device = Device(
-                    identifiers=template.identifiers.copy(),
-                    extra_fields=template.extra_fields.copy() if template.extra_fields else {},
-                )
-                _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-                return device
-
-        # Default for disk: use parent device (system)
-        if self.parent_device:
-            return self.parent_device
-
-        # Fallback if no parent device
-        device = Device(
-            identifiers=[f"penguin_metrics_{self.topic_prefix}_disk_{self.collector_id}"],
-            name=f"Disk: {disk_name}",
+        return create_device_from_ref(
+            device_ref=self.config.device_ref,
+            source_type=self.SOURCE_TYPE,
+            collector_id=self.collector_id,
+            topic_prefix=self.topic_prefix,
+            default_name=f"Disk: {disk_name}",
             manufacturer="Penguin Metrics",
             model="Disk Monitor",
+            parent_device=self.parent_device,
+            device_templates=self.device_templates,
+            use_parent_as_default=True,
         )
-        _add_via_device_if_needed(device, self.parent_device, self.SOURCE_TYPE)
-        return device
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors for disk metrics."""
-        sensors = []
+        sensors: list[Sensor] = []
         device = self.device
         disk_name = self._disk.name if self._disk else self.config.name
+        ha_cfg = getattr(self.config, "ha_config", None)
 
-        # Display name prefix - include disk identifier for system device
         name_prefix = f"Disk {disk_name}"
 
-        if self.config.total:
+        def add(metric: str, display: str, unit: str, *, icon: str = "mdi:harddisk") -> None:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="disk",
                     source_name=disk_name,
-                    metric_name="total",
-                    display_name=f"{name_prefix} Total",
+                    metric_name=metric,
+                    display_name=display,
                     device=device,
                     topic_prefix=self.topic_prefix,
-                    unit="GiB",
+                    unit=unit,
                     device_class=DeviceClass.DATA_SIZE,
                     state_class=StateClass.MEASUREMENT,
-                    icon="mdi:harddisk",
+                    icon=icon,
+                    ha_config=ha_cfg,
                 )
             )
+
+        if self.config.total:
+            add("total", f"{name_prefix} Total", "GiB")
 
         if self.config.used:
-            sensors.append(
-                create_sensor(
-                    source_type="disk",
-                    source_name=disk_name,
-                    metric_name="used",
-                    display_name=f"{name_prefix} Used",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="GiB",
-                    device_class=DeviceClass.DATA_SIZE,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:harddisk",
-                )
-            )
+            add("used", f"{name_prefix} Used", "GiB")
 
         if self.config.free:
-            sensors.append(
-                create_sensor(
-                    source_type="disk",
-                    source_name=disk_name,
-                    metric_name="free",
-                    display_name=f"{name_prefix} Free",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="GiB",
-                    device_class=DeviceClass.DATA_SIZE,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:harddisk",
-                )
-            )
+            add("free", f"{name_prefix} Free", "GiB")
 
         if self.config.percent:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="disk",
                     source_name=disk_name,
                     metric_name="percent",
@@ -250,14 +199,10 @@ class DiskCollector(Collector):
                     topic_prefix=self.topic_prefix,
                     unit="%",
                     state_class=StateClass.MEASUREMENT,
-                    icon="mdi:harddisk",
+                    icon="mdi:chart-donut",
+                    ha_config=ha_cfg,
                 )
             )
-
-        # Apply HA overrides from config to all sensors
-        if self.config.ha_config:
-            for sensor in sensors:
-                sensor.apply_ha_overrides(self.config.ha_config)
 
         return sensors
 
