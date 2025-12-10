@@ -492,6 +492,10 @@ class AutoDiscoveryConfig:
 
     # Device reference for auto-discovered sensors
     device_ref: str | None = None
+    # Optional override of update interval
+    update_interval: float | None = None
+    # Extra boolean options to override per-source defaults (e.g., current off)
+    options: dict[str, bool] = field(default_factory=dict)
 
     @classmethod
     def from_block(cls, block: Block | None) -> "AutoDiscoveryConfig":
@@ -520,12 +524,37 @@ class AutoDiscoveryConfig:
         # Device reference for auto-discovered sensors
         device_ref = block.get_value("device")
 
+        # Optional update interval override
+        update_interval_raw = block.get_value("update_interval")
+        update_interval: float | None
+        if update_interval_raw is None:
+            update_interval = None
+        else:
+            try:
+                update_interval = float(update_interval_raw)
+            except Exception:
+                update_interval = None
+
+        # Collect extra boolean options (used to override per-source defaults)
+        reserved = {"auto", "filter", "exclude", "source", "device", "update_interval"}
+        options: dict[str, bool] = {}
+        for directive in block.directives:
+            if directive.name in reserved:
+                continue
+            val = directive.value
+            if isinstance(val, bool):
+                options[directive.name] = val
+            elif isinstance(val, str):
+                options[directive.name] = val.lower() in ("on", "true", "yes", "1")
+
         return cls(
             enabled=enabled,
             filters=filters,
             excludes=excludes,
             source=source,
             device_ref=device_ref,
+            update_interval=update_interval,
+            options=options,
         )
 
     def matches(self, name: str) -> bool:
@@ -554,6 +583,10 @@ class AutoDiscoveryConfig:
 
         # No filters = include all (that weren't excluded)
         return True
+
+    def bool_override(self, name: str) -> bool | None:
+        """Return boolean override if specified in auto-discovery block."""
+        return self.options.get(name)
 
 
 @dataclass
@@ -991,6 +1024,14 @@ class TemperatureConfig:
     update_interval: float | None = None
 
     @classmethod
+    def from_defaults(cls, name: str, defaults: DefaultsConfig) -> "TemperatureConfig":
+        """Create TemperatureConfig from defaults (for auto-discovery)."""
+        return cls(
+            name=name,
+            update_interval=defaults.update_interval,
+        )
+
+    @classmethod
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "TemperatureConfig":
         """Create TemperatureConfig from a parsed 'temperature' block."""
         name = block.name or "temperature"
@@ -1083,6 +1124,26 @@ class BatteryConfig:
             time_to_empty=get_bool("time_to_empty", bd.time_to_empty),
             time_to_full=get_bool("time_to_full", bd.time_to_full),
             update_interval=float(interval) if interval else None,
+        )
+
+    @classmethod
+    def from_defaults(cls, name: str, defaults: DefaultsConfig) -> "BatteryConfig":
+        """Create BatteryConfig from defaults (for auto-discovery)."""
+        bd = defaults.battery
+        return cls(
+            name=name,
+            battery_name=name,
+            capacity=bd.capacity,
+            status=bd.status,
+            voltage=bd.voltage,
+            current=bd.current,
+            power=bd.power,
+            health=bd.health,
+            cycles=bd.cycles,
+            temperature=bd.temperature,
+            time_to_empty=bd.time_to_empty,
+            time_to_full=bd.time_to_full,
+            update_interval=defaults.update_interval,
         )
 
 

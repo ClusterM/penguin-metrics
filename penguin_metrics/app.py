@@ -10,6 +10,7 @@ Handles:
 
 import asyncio
 import signal
+from typing import Any
 
 from .collectors.base import Collector
 from .collectors.battery import BatteryCollector
@@ -273,6 +274,14 @@ class Application:
         collectors: list[Collector] = []
         device_templates = self.config.device_templates
 
+        def apply_overrides(config_obj: Any) -> None:
+            """Apply bool and interval overrides from auto-discovery block."""
+            for key, val in auto_cfg.options.items():
+                if hasattr(config_obj, key):
+                    setattr(config_obj, key, val)
+            if auto_cfg.update_interval is not None and hasattr(config_obj, "update_interval"):
+                config_obj.update_interval = auto_cfg.update_interval
+
         if auto_cfg.source == "thermal":
             # Discover thermal zones from /sys/class/thermal
             for zone in discover_thermal_zones():
@@ -284,12 +293,10 @@ class Application:
 
                 from .config.schema import TemperatureConfig
 
-                config = TemperatureConfig(
-                    name=name,
-                    zone=zone.name,
-                    device_ref=auto_cfg.device_ref,  # Use auto-discovery device_ref
-                    update_interval=self.config.defaults.update_interval,
-                )
+                config = TemperatureConfig.from_defaults(name=name, defaults=self.config.defaults)
+                config.zone = zone.name
+                config.device_ref = auto_cfg.device_ref  # Use auto-discovery device_ref
+                apply_overrides(config)
                 collectors.append(
                     TemperatureCollector(
                         config=config,
@@ -312,12 +319,10 @@ class Application:
 
                 from .config.schema import TemperatureConfig
 
-                config = TemperatureConfig(
-                    name=name,
-                    hwmon=name,
-                    device_ref=auto_cfg.device_ref,  # Use auto-discovery device_ref
-                    update_interval=self.config.defaults.update_interval,
-                )
+                config = TemperatureConfig.from_defaults(name=name, defaults=self.config.defaults)
+                config.hwmon = name
+                config.device_ref = auto_cfg.device_ref  # Use auto-discovery device_ref
+                apply_overrides(config)
                 collectors.append(
                     TemperatureCollector(
                         config=config,
@@ -356,12 +361,14 @@ class Application:
 
             from .config.schema import BatteryConfig
 
-            config = BatteryConfig(
-                name=name,
-                battery_name=name,
-                device_ref=auto_cfg.device_ref,  # Use auto-discovery device_ref
-                update_interval=self.config.defaults.update_interval,
-            )
+            config = BatteryConfig.from_defaults(name=name, defaults=self.config.defaults)
+            config.device_ref = auto_cfg.device_ref  # Use auto-discovery device_ref
+            # Apply per-metric overrides from auto-discovery block
+            for key, val in auto_cfg.options.items():
+                if hasattr(config, key):
+                    setattr(config, key, val)
+            if auto_cfg.update_interval is not None:
+                config.update_interval = auto_cfg.update_interval
             collectors.append(
                 BatteryCollector(
                     config=config,
@@ -407,6 +414,12 @@ class Application:
             )
             # Apply auto-discovery device_ref
             config.device_ref = auto_cfg.device_ref
+            # Apply overrides from auto-discovery block
+            for key, val in auto_cfg.options.items():
+                if hasattr(config, key):
+                    setattr(config, key, val)
+            if auto_cfg.update_interval is not None:
+                config.update_interval = auto_cfg.update_interval
             collectors.append(
                 DiskCollector(
                     config=config,
@@ -461,8 +474,13 @@ class Application:
                 match=ContainerMatchConfig(type=ContainerMatchType.NAME, value=name),
                 defaults=self.config.defaults,
             )
-            # Apply auto-discovery device_ref
+            # Apply auto-discovery device_ref and overrides
             config.device_ref = auto_cfg.device_ref
+            for key, val in auto_cfg.options.items():
+                if hasattr(config, key):
+                    setattr(config, key, val)
+            if auto_cfg.update_interval is not None:
+                config.update_interval = auto_cfg.update_interval
             collectors.append(
                 ContainerCollector(
                     config=config,
@@ -539,8 +557,13 @@ class Application:
                     match=ServiceMatchConfig(type=ServiceMatchType.UNIT, value=unit_name),
                     defaults=self.config.defaults,
                 )
-                # Apply auto-discovery device_ref
+                # Apply auto-discovery device_ref and overrides
                 config.device_ref = auto_cfg.device_ref
+                for key, val in auto_cfg.options.items():
+                    if hasattr(config, key):
+                        setattr(config, key, val)
+                if auto_cfg.update_interval is not None:
+                    config.update_interval = auto_cfg.update_interval
                 collectors.append(
                     ServiceCollector(
                         config=config,
@@ -606,8 +629,13 @@ class Application:
                         ),
                         defaults=self.config.defaults,
                     )
-                    # Apply auto-discovery device_ref
+                    # Apply auto-discovery device_ref and overrides
                     config.device_ref = auto_cfg.device_ref
+                    for key, val in auto_cfg.options.items():
+                        if hasattr(config, key):
+                            setattr(config, key, val)
+                    if auto_cfg.update_interval is not None:
+                        config.update_interval = auto_cfg.update_interval
                     collectors.append(
                         ProcessCollector(
                             config=config,
