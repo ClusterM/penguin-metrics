@@ -254,7 +254,7 @@ class TemperatureCollector(Collector):
                 self._add_temp_sensor(
                     sensors,
                     sensor_name=self.name,
-                    display_name=f"Temperature: {chip} {label}",
+                    display_name=f"Temperature {chip} {label}",
                     device=device,
                 )
             return sensors
@@ -265,7 +265,7 @@ class TemperatureCollector(Collector):
             self._add_temp_sensor(
                 sensors,
                 sensor_name=zone_label,
-                display_name=f"Temperature: {zone.type}",
+                display_name=f"Temperature {zone.type}",
                 device=device,
             )
 
@@ -281,7 +281,7 @@ class TemperatureCollector(Collector):
                         self._add_temp_sensor(
                             sensors,
                             sensor_name=sensor_name,
-                            display_name=f"Temperature: {name} {label}",
+                            display_name=f"Temperature {name} {label}",
                             device=device,
                         )
             except Exception:
