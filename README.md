@@ -15,7 +15,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
   - PSS/USS via `/proc/PID/smaps` (requires root or `CAP_SYS_PTRACE`)
   - **Real PSS/USS**: Excludes file-backed mappings (accurate for apps that map large files)
 - **Systemd Services**: State, CPU, memory via cgroups (auto-discovery with filter)
-- **Docker Containers**: CPU, memory, network, disk I/O (auto-discovery supported)
+- **Docker Containers**: CPU, memory, network, disk I/O with optional rate metrics (KB/s)
 - **Battery**: Capacity, status, voltage, current, health (auto-discovery supported)
 - **Custom Sensors**: Run shell commands or scripts
 - **GPU**: Basic metrics via sysfs (frequency, temperature) - minimal implementation

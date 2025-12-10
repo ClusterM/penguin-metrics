@@ -249,7 +249,9 @@ class ContainerDefaultsConfig:
     cpu: bool = True
     memory: bool = True
     network: bool = False
+    network_rate: bool = False
     disk: bool = False
+    disk_rate: bool = False
     state: bool = True
     health: bool = False
     uptime: bool = False
@@ -262,7 +264,9 @@ class ContainerDefaultsConfig:
             cpu=bool(block.get_value("cpu", True)),
             memory=bool(block.get_value("memory", True)),
             network=bool(block.get_value("network", False)),
+            network_rate=bool(block.get_value("network_rate", False)),
             disk=bool(block.get_value("disk", False)),
+            disk_rate=bool(block.get_value("disk_rate", False)),
             state=bool(block.get_value("state", True)),
             health=bool(block.get_value("health", False)),
             uptime=bool(block.get_value("uptime", False)),
@@ -767,7 +771,9 @@ class ContainerConfig:
     cpu: bool = True
     memory: bool = True
     network: bool = False
+    network_rate: bool = False  # Network speed (KB/s)
     disk: bool = False
+    disk_rate: bool = False  # Disk speed (KB/s)
     state: bool = True
     health: bool = False
     uptime: bool = False
@@ -798,7 +804,9 @@ class ContainerConfig:
             cpu=get_bool("cpu", cd.cpu),
             memory=get_bool("memory", cd.memory),
             network=get_bool("network", cd.network),
+            network_rate=get_bool("network_rate", cd.network_rate),
             disk=get_bool("disk", cd.disk),
+            disk_rate=get_bool("disk_rate", cd.disk_rate),
             state=get_bool("state", cd.state),
             health=get_bool("health", cd.health),
             uptime=get_bool("uptime", cd.uptime),
@@ -817,7 +825,9 @@ class ContainerConfig:
             cpu=cd.cpu,
             memory=cd.memory,
             network=cd.network,
+            network_rate=cd.network_rate,
             disk=cd.disk,
+            disk_rate=cd.disk_rate,
             state=cd.state,
             health=cd.health,
             uptime=cd.uptime,
