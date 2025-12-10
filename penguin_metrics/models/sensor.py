@@ -368,7 +368,9 @@ def create_sensor(
 
     # For non-system sources, store dual availability info
     # Both global status AND local state must be available
-    if source_type != "system":
+    # Exception: "state" sensor itself doesn't need dual availability
+    # (it shows the state, so checking state for availability is redundant)
+    if source_type != "system" and metric_name != "state":
         sensor._dual_availability = {
             "global_topic": global_status_topic,
             "local_topic": state_topic,
