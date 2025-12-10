@@ -12,7 +12,6 @@ Supports:
 """
 
 import asyncio
-from typing import Any
 
 from ..config.schema import BinarySensorConfig, DefaultsConfig, DeviceConfig
 from ..models.device import Device, _add_via_device_if_needed
