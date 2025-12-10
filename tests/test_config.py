@@ -8,7 +8,7 @@ from penguin_metrics.config.loader import ConfigLoader
 from penguin_metrics.config.schema import Config
 
 
-def test_load_example_config():
+def test_load_example_config() -> None:
     """Test that example config loads without errors."""
     loader = ConfigLoader()
     config_path = Path(__file__).parent.parent / "config.example.conf"
@@ -21,7 +21,7 @@ def test_load_example_config():
     assert config.mqtt.host is not None
 
 
-def test_validate_example_config():
+def test_validate_example_config() -> None:
     """Test that example config validates successfully."""
     loader = ConfigLoader()
     config_path = Path(__file__).parent.parent / "config.example.conf"
@@ -33,7 +33,7 @@ def test_validate_example_config():
     assert config is not None
 
 
-def test_load_alias_matches_load_file():
+def test_load_alias_matches_load_file() -> None:
     """Ensure load() delegates to load_file() for backward compatibility."""
     loader = ConfigLoader()
     config_path = Path(__file__).parent.parent / "config.example.conf"

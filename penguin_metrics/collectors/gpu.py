@@ -16,8 +16,8 @@ from typing import NamedTuple
 
 from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
-from .base import Collector, CollectorResult
+from ..models.sensor import DeviceClass, Sensor, StateClass
+from .base import Collector, CollectorResult, build_sensor
 
 
 class GPUDevice(NamedTuple):
@@ -281,56 +281,65 @@ class GPUCollector(Collector):
         """Create sensors only for available GPU metrics."""
         sensors: list[Sensor] = []
         device = self.device
+        ha_cfg = getattr(self.config, "ha_config", None)
+        source_name = self.name
 
         if not self._gpus or not self._available_metrics:
             return sensors
 
-        # Only create sensors for metrics that are actually available
-        if "frequency" in self._available_metrics:
+        def add_sensor(
+            metric: str,
+            display: str,
+            *,
+            unit: str | None = None,
+            device_class: DeviceClass | None = None,
+            state_class: StateClass | None = None,
+            icon: str | None = None,
+        ) -> None:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="gpu",
-                    source_name=self.name,
-                    metric_name="frequency",
-                    display_name="GPU Frequency",
+                    source_name=source_name,
+                    metric_name=metric,
+                    display_name=display,
                     device=device,
                     topic_prefix=self.topic_prefix,
-                    unit="MHz",
-                    device_class=DeviceClass.FREQUENCY,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:chip",
+                    unit=unit,
+                    device_class=device_class,
+                    state_class=state_class,
+                    icon=icon,
+                    ha_config=ha_cfg,
                 )
+            )
+
+        # Only create sensors for metrics that are actually available
+        if "frequency" in self._available_metrics:
+            add_sensor(
+                "frequency",
+                "GPU Frequency",
+                unit="MHz",
+                device_class=DeviceClass.FREQUENCY,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:chip",
             )
 
         if "temperature" in self._available_metrics:
-            sensors.append(
-                create_sensor(
-                    source_type="gpu",
-                    source_name=self.name,
-                    metric_name="temperature",
-                    display_name="GPU Temperature",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="°C",
-                    device_class=DeviceClass.TEMPERATURE,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:thermometer",
-                )
+            add_sensor(
+                "temperature",
+                "GPU Temperature",
+                unit="°C",
+                device_class=DeviceClass.TEMPERATURE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:thermometer",
             )
 
         if "utilization" in self._available_metrics:
-            sensors.append(
-                create_sensor(
-                    source_type="gpu",
-                    source_name=self.name,
-                    metric_name="utilization",
-                    display_name="GPU Usage",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="%",
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:chip",
-                )
+            add_sensor(
+                "utilization",
+                "GPU Usage",
+                unit="%",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:chip",
             )
 
         return sensors

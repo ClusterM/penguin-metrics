@@ -18,8 +18,8 @@ import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig
 from ..models.device import Device
-from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
-from .base import Collector, CollectorResult
+from ..models.sensor import DeviceClass, Sensor, StateClass
+from .base import Collector, CollectorResult, build_sensor
 
 
 def _get_system_info() -> dict[str, str | None]:
@@ -220,20 +220,40 @@ class SystemCollector(Collector):
         """Create sensors based on configuration."""
         sensors = []
         device = self.device
+        ha_cfg = getattr(self.config, "ha_config", None)
 
-        if self.config.cpu:
+        def add_sensor(
+            metric: str,
+            display: str,
+            *,
+            unit: str | None = None,
+            device_class: DeviceClass | None = None,
+            state_class: StateClass | None = None,
+            icon: str | None = None,
+        ) -> None:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type="system",
                     source_name="",  # System has no source_name - uses /system/{metric}
-                    metric_name="cpu_percent",
-                    display_name="CPU Usage",
+                    metric_name=metric,
+                    display_name=display,
                     device=device,
                     topic_prefix=self.topic_prefix,
-                    unit="%",
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:chip",
+                    unit=unit,
+                    device_class=device_class,
+                    state_class=state_class,
+                    icon=icon,
+                    ha_config=ha_cfg,
                 )
+            )
+
+        if self.config.cpu:
+            add_sensor(
+                "cpu_percent",
+                "CPU Usage",
+                unit="%",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:chip",
             )
 
         if self.config.cpu_per_core:
@@ -241,24 +261,18 @@ class SystemCollector(Collector):
             cpu_count = psutil.cpu_count()
             if cpu_count:
                 for i in range(cpu_count):
-                    sensors.append(
-                        create_sensor(
-                            source_type="system",
-                            source_name="",  # System has no source_name - uses /system/{metric}
-                            metric_name=f"cpu{i}_percent",
-                            display_name=f"CPU Core {i} Usage",
-                            device=device,
-                            topic_prefix=self.topic_prefix,
-                            unit="%",
-                            state_class=StateClass.MEASUREMENT,
-                            icon="mdi:chip",
-                        )
+                    add_sensor(
+                        f"cpu{i}_percent",
+                        f"CPU Core {i} Usage",
+                        unit="%",
+                        state_class=StateClass.MEASUREMENT,
+                        icon="mdi:chip",
                     )
 
         if self.config.memory:
             sensors.extend(
                 [
-                    create_sensor(
+                    build_sensor(
                         source_type="system",
                         source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name="memory_percent",
@@ -268,8 +282,9 @@ class SystemCollector(Collector):
                         unit="%",
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=ha_cfg,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="system",
                         source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name="memory_used",
@@ -280,8 +295,9 @@ class SystemCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=ha_cfg,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="system",
                         source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name="memory_total",
@@ -292,6 +308,7 @@ class SystemCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:memory",
+                        ha_config=ha_cfg,
                     ),
                 ]
             )
@@ -299,7 +316,7 @@ class SystemCollector(Collector):
         if self.config.swap:
             sensors.extend(
                 [
-                    create_sensor(
+                    build_sensor(
                         source_type="system",
                         source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name="swap_percent",
@@ -309,8 +326,9 @@ class SystemCollector(Collector):
                         unit="%",
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
+                        ha_config=ha_cfg,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="system",
                         source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name="swap_used",
@@ -321,6 +339,7 @@ class SystemCollector(Collector):
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
+                        ha_config=ha_cfg,
                     ),
                 ]
             )
@@ -328,7 +347,7 @@ class SystemCollector(Collector):
         if self.config.load:
             sensors.extend(
                 [
-                    create_sensor(
+                    build_sensor(
                         source_type="system",
                         source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name="load_1m",
@@ -337,8 +356,9 @@ class SystemCollector(Collector):
                         topic_prefix=self.topic_prefix,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:gauge",
+                        ha_config=ha_cfg,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="system",
                         source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name="load_5m",
@@ -347,8 +367,9 @@ class SystemCollector(Collector):
                         topic_prefix=self.topic_prefix,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:gauge",
+                        ha_config=ha_cfg,
                     ),
-                    create_sensor(
+                    build_sensor(
                         source_type="system",
                         source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name="load_15m",
@@ -357,24 +378,19 @@ class SystemCollector(Collector):
                         topic_prefix=self.topic_prefix,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:gauge",
+                        ha_config=ha_cfg,
                     ),
                 ]
             )
 
         if self.config.uptime:
-            sensors.append(
-                create_sensor(
-                    source_type="system",
-                    source_name="",  # System has no source_name - uses /system/{metric}
-                    metric_name="uptime",
-                    display_name="Uptime",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="s",
-                    device_class=DeviceClass.DURATION,
-                    state_class=StateClass.TOTAL_INCREASING,
-                    icon="mdi:clock-outline",
-                )
+            add_sensor(
+                "uptime",
+                "Uptime",
+                unit="s",
+                device_class=DeviceClass.DURATION,
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:clock-outline",
             )
 
         return sensors
