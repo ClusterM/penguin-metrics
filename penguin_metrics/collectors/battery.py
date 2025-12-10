@@ -368,17 +368,20 @@ class BatteryCollector(Collector):
         if self.config.current:
             current = read_sysfs_float(path / "current_now", scale=0.000001)
             if current is not None:
-                result.set("current", round(abs(current), 3))
+                # Preserve sign: negative = discharge, positive = charge (kernel convention)
+                result.set("current", round(current, 3))
 
         if self.config.power:
             power = read_sysfs_float(path / "power_now", scale=0.000001)
             if power is not None:
+                # Preserve sign from driver if provided
                 result.set("power", round(power, 2))
             else:
                 voltage = read_sysfs_float(path / "voltage_now", scale=0.000001)
                 current = read_sysfs_float(path / "current_now", scale=0.000001)
-                if voltage and current:
-                    result.set("power", round(abs(voltage * current), 2))
+                if voltage is not None and current is not None:
+                    # Preserve sign: negative current → negative power (discharge)
+                    result.set("power", round(voltage * current, 2))
 
         if self.config.health:
             health = read_sysfs_value(path / "health")
