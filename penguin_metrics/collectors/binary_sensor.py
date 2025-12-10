@@ -15,8 +15,8 @@ import asyncio
 
 from ..config.schema import BinarySensorConfig, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import Sensor, create_sensor
-from .base import Collector, CollectorResult, apply_overrides_to_sensors
+from ..models.sensor import Sensor
+from .base import Collector, CollectorResult, build_sensor
 
 
 class BinarySensorCollector(Collector):
@@ -96,19 +96,17 @@ class BinarySensorCollector(Collector):
         if self.config.ha_config and self.config.ha_config.name:
             display_name = self.config.ha_config.name
 
-        sensor = create_sensor(
+        sensor = build_sensor(
             source_type="binary_sensor",
-            source_name=self.collector_id,  # Use collector_id for MQTT topic
+            source_name=self.collector_id,
             metric_name="state",
-            display_name=display_name,  # Human-readable name for HA
+            display_name=display_name,
             device=device,
             topic_prefix=self.topic_prefix,
-            entity_type="binary_sensor",  # This will be used in HA discovery
+            entity_type="binary_sensor",
             icon="mdi:toggle-switch",
+            ha_config=self.config.ha_config,
         )
-
-        # Apply HA overrides from config (this will override any fields set above)
-        apply_overrides_to_sensors([sensor], self.config.ha_config)
 
         return [sensor]
 

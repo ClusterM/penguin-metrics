@@ -21,8 +21,8 @@ from typing import NamedTuple
 
 from ..config.schema import BatteryConfig, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
-from .base import Collector, CollectorResult, apply_overrides_to_sensors
+from ..models.sensor import DeviceClass, Sensor, StateClass
+from .base import Collector, CollectorResult, build_sensor
 
 
 class BatteryInfo(NamedTuple):
@@ -178,166 +178,123 @@ class BatteryCollector(Collector):
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors based on configuration."""
-        sensors = []
+        sensors: list[Sensor] = []
         device = self.device
+        ha_cfg = self.config.ha_config
 
-        # Battery sensors use short names - device name provides context
-        if self.config.capacity:
+        def add(
+            metric: str,
+            display: str,
+            *,
+            unit: str | None = None,
+            device_class: DeviceClass | str | None = None,
+            state_class: StateClass | None = None,
+            icon: str | None = None,
+        ) -> None:
             sensors.append(
-                create_sensor(
+                build_sensor(
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
-                    metric_name="capacity",
-                    display_name="Capacity",
+                    metric_name=metric,
+                    display_name=display,
                     device=device,
                     topic_prefix=self.topic_prefix,
-                    unit="%",
-                    device_class=DeviceClass.BATTERY,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:battery",
+                    unit=unit,
+                    device_class=device_class,
+                    state_class=state_class,
+                    icon=icon,
+                    ha_config=ha_cfg,
                 )
+            )
+
+        if self.config.capacity:
+            add(
+                "capacity",
+                "Capacity",
+                unit="%",
+                device_class=DeviceClass.BATTERY,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:battery",
             )
 
         if self.config.status:
-            sensors.append(
-                create_sensor(
-                    source_type=self.SOURCE_TYPE,
-                    source_name=self.collector_id,
-                    metric_name="status",
-                    display_name="Status",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    icon="mdi:battery-charging",
-                )
-            )
+            add("status", "Status", icon="mdi:battery-charging")
 
         if self.config.voltage:
-            sensors.append(
-                create_sensor(
-                    source_type=self.SOURCE_TYPE,
-                    source_name=self.collector_id,
-                    metric_name="voltage",
-                    display_name="Voltage",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="V",
-                    device_class=DeviceClass.VOLTAGE,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:flash",
-                )
+            add(
+                "voltage",
+                "Voltage",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:flash",
             )
 
         if self.config.current:
-            sensors.append(
-                create_sensor(
-                    source_type=self.SOURCE_TYPE,
-                    source_name=self.collector_id,
-                    metric_name="current",
-                    display_name="Current",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="A",
-                    device_class=DeviceClass.CURRENT,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:current-dc",
-                )
+            add(
+                "current",
+                "Current",
+                unit="A",
+                device_class=DeviceClass.CURRENT,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:current-dc",
             )
 
         if self.config.power:
-            sensors.append(
-                create_sensor(
-                    source_type=self.SOURCE_TYPE,
-                    source_name=self.collector_id,
-                    metric_name="power",
-                    display_name="Power",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="W",
-                    device_class=DeviceClass.POWER,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:lightning-bolt",
-                )
+            add(
+                "power",
+                "Power",
+                unit="W",
+                device_class=DeviceClass.POWER,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:lightning-bolt",
             )
 
         if self.config.health:
-            sensors.append(
-                create_sensor(
-                    source_type=self.SOURCE_TYPE,
-                    source_name=self.collector_id,
-                    metric_name="health",
-                    display_name="Health",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    icon="mdi:battery-heart-variant",
-                )
-            )
+            add("health", "Health", icon="mdi:battery-heart-variant")
 
         if self.config.cycles:
-            sensors.append(
-                create_sensor(
-                    source_type=self.SOURCE_TYPE,
-                    source_name=self.collector_id,
-                    metric_name="cycles",
-                    display_name="Cycle Count",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    state_class=StateClass.TOTAL_INCREASING,
-                    icon="mdi:battery-sync",
-                )
+            add(
+                "cycles",
+                "Cycle Count",
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:battery-sync",
             )
 
         if self.config.temperature:
-            sensors.append(
-                create_sensor(
-                    source_type=self.SOURCE_TYPE,
-                    source_name=self.collector_id,
-                    metric_name="temperature",
-                    display_name="Temperature",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="°C",
-                    device_class=DeviceClass.TEMPERATURE,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:thermometer",
-                )
+            add(
+                "temperature",
+                "Temperature",
+                unit="°C",
+                device_class=DeviceClass.TEMPERATURE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:thermometer",
             )
 
         if self.config.time_to_empty:
-            sensors.append(
-                create_sensor(
-                    source_type=self.SOURCE_TYPE,
-                    source_name=self.collector_id,
-                    metric_name="time_to_empty",
-                    display_name="Time to Empty",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="min",
-                    device_class=DeviceClass.DURATION,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:battery-arrow-down",
-                )
+            add(
+                "time_to_empty",
+                "Time to Empty",
+                unit="min",
+                device_class=DeviceClass.DURATION,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:battery-arrow-down",
             )
 
         if self.config.time_to_full:
-            sensors.append(
-                create_sensor(
-                    source_type=self.SOURCE_TYPE,
-                    source_name=self.collector_id,
-                    metric_name="time_to_full",
-                    display_name="Time to Full",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="min",
-                    device_class=DeviceClass.DURATION,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:battery-arrow-up",
-                )
+            add(
+                "time_to_full",
+                "Time to Full",
+                unit="min",
+                device_class=DeviceClass.DURATION,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:battery-arrow-up",
             )
 
         # Energy capacity sensors
         sensors.extend(
             [
-                create_sensor(
+                build_sensor(
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name="energy_now",
@@ -348,8 +305,9 @@ class BatteryCollector(Collector):
                     device_class=DeviceClass.ENERGY,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
+                    ha_config=ha_cfg,
                 ),
-                create_sensor(
+                build_sensor(
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name="energy_full",
@@ -360,8 +318,9 @@ class BatteryCollector(Collector):
                     device_class=DeviceClass.ENERGY,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
+                    ha_config=ha_cfg,
                 ),
-                create_sensor(
+                build_sensor(
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name="energy_full_design",
@@ -372,12 +331,10 @@ class BatteryCollector(Collector):
                     device_class=DeviceClass.ENERGY,
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
+                    ha_config=ha_cfg,
                 ),
             ]
         )
-
-        # Apply HA overrides from config to all sensors
-        apply_overrides_to_sensors(sensors, self.config.ha_config)
 
         return sensors
 

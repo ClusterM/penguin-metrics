@@ -17,8 +17,8 @@ from typing import Any
 
 from ..config.schema import CustomSensorConfig, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
-from .base import Collector, CollectorResult, apply_overrides_to_sensors
+from ..models.sensor import DeviceClass, Sensor, StateClass
+from .base import Collector, CollectorResult, build_sensor
 
 
 class CustomCollector(Collector):
@@ -114,11 +114,11 @@ class CustomCollector(Collector):
         if self.config.ha_config and self.config.ha_config.name:
             display_name = self.config.ha_config.name
 
-        sensor = create_sensor(
+        sensor = build_sensor(
             source_type="custom",
             source_name=self.collector_id,  # Use collector_id for MQTT topic
             metric_name="value",
-            display_name=display_name,  # Human-readable name for HA
+            display_name=display_name,
             device=device,
             topic_prefix=self.topic_prefix,
             unit=self.config.unit
@@ -128,10 +128,8 @@ class CustomCollector(Collector):
             state_class=state_class
             or (self.config.ha_config.state_class if self.config.ha_config else None),
             icon="mdi:cog-outline",
+            ha_config=self.config.ha_config,
         )
-
-        # Apply HA overrides from config (this will override any fields set above)
-        apply_overrides_to_sensors([sensor], self.config.ha_config)
 
         return [sensor]
 
