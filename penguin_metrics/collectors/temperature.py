@@ -10,7 +10,7 @@ from typing import NamedTuple
 
 import psutil
 
-from ..config.schema import DefaultsConfig, SystemConfig, TemperatureConfig
+from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig, TemperatureConfig
 from ..models.device import Device
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult
@@ -130,6 +130,7 @@ class TemperatureCollector(Collector):
         defaults: DefaultsConfig,
         topic_prefix: str = "penguin_metrics",
         parent_device: Device | None = None,
+        device_templates: dict[str, DeviceConfig] | None = None,
     ):
         """
         Initialize temperature collector.
@@ -139,6 +140,7 @@ class TemperatureCollector(Collector):
             defaults: Default settings
             topic_prefix: MQTT topic prefix
             parent_device: Parent device (if part of system collector)
+            device_templates: Device template definitions
         """
         if isinstance(config, TemperatureConfig):
             name = config.name
@@ -147,6 +149,7 @@ class TemperatureCollector(Collector):
             self.specific_zone = config.zone
             self.specific_hwmon = config.hwmon
             self.specific_path = config.path
+            self._device_ref = config.device_ref
         else:
             # Legacy: SystemConfig passed (should not happen anymore)
             name = f"{config.name}_temperature"
@@ -155,6 +158,7 @@ class TemperatureCollector(Collector):
             self.specific_zone = None
             self.specific_hwmon = None
             self.specific_path = None
+            self._device_ref = None
 
         super().__init__(
             name=name,
@@ -166,6 +170,7 @@ class TemperatureCollector(Collector):
         self.defaults = defaults
         self.topic_prefix = topic_prefix
         self.parent_device = parent_device
+        self.device_templates = device_templates or {}
 
         # Discovered zones and hwmon sensors
         self._zones: list[ThermalZone] = []
@@ -207,11 +212,43 @@ class TemperatureCollector(Collector):
 
         await super().initialize()
 
-    def create_device(self) -> Device:
+    def create_device(self) -> Device | None:
         """Create device for temperature metrics."""
+        device_ref = self._device_ref
+
+        # Handle "none" - no device
+        if device_ref == "none":
+            return None
+
+        # Handle "auto" - create unique device
+        if device_ref == "auto":
+            return Device(
+                identifiers=[
+                    f"penguin_metrics_{self.topic_prefix}_temperature_{self.collector_id}"
+                ],
+                name=f"Temperature: {self.name}",
+                manufacturer="Penguin Metrics",
+                model="Temperature Sensor",
+            )
+
+        # Handle template reference
+        if device_ref and device_ref not in ("system", "auto", "none"):
+            if device_ref in self.device_templates:
+                template = self.device_templates[device_ref]
+                return Device(
+                    identifiers=template.identifiers.copy(),
+                    name=template.name,
+                    manufacturer=template.manufacturer,
+                    model=template.model,
+                    hw_version=template.hw_version,
+                    sw_version=template.sw_version,
+                )
+
+        # Default for temperature: use parent device (system)
         if self.parent_device:
             return self.parent_device
 
+        # Fallback if no parent device
         return Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_temperature_{self.collector_id}"],
             name=f"Temperature: {self.name}",

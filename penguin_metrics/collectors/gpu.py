@@ -14,7 +14,7 @@ basic metrics where available through standard interfaces.
 from pathlib import Path
 from typing import NamedTuple
 
-from ..config.schema import DefaultsConfig, SystemConfig
+from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig
 from ..models.device import Device
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult
@@ -214,6 +214,7 @@ class GPUCollector(Collector):
         defaults: DefaultsConfig,
         topic_prefix: str = "penguin_metrics",
         parent_device: Device | None = None,
+        device_templates: dict[str, DeviceConfig] | None = None,
     ):
         """
         Initialize GPU collector.
@@ -223,6 +224,7 @@ class GPUCollector(Collector):
             defaults: Default settings
             topic_prefix: MQTT topic prefix
             parent_device: Parent device (if part of system collector)
+            device_templates: Device template definitions
         """
         name = f"{config.name}_gpu"
         collector_id = f"{config.name}_gpu"
@@ -237,6 +239,7 @@ class GPUCollector(Collector):
         self.defaults = defaults
         self.topic_prefix = topic_prefix
         self.parent_device = parent_device
+        self.device_templates = device_templates or {}
 
         # Discovered GPUs and available metrics
         self._gpus: list[GPUDevice] = []
@@ -259,11 +262,13 @@ class GPUCollector(Collector):
 
         await super().initialize()
 
-    def create_device(self) -> Device:
+    def create_device(self) -> Device | None:
         """Create device for GPU metrics."""
+        # GPU always defaults to system device
         if self.parent_device:
             return self.parent_device
 
+        # Fallback if no parent device
         return Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_gpu_{self.collector_id}"],
             name=f"GPU: {self.name}",

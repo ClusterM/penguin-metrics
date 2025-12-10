@@ -9,14 +9,116 @@ Collects:
 - Uptime
 """
 
+import platform
+import socket
 from datetime import datetime
+from pathlib import Path
 
 import psutil
 
-from ..config.schema import DefaultsConfig, SystemConfig
+from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig
 from ..models.device import Device
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult
+
+
+def _get_system_info() -> dict[str, str | None]:
+    """
+    Get basic system information for device auto-creation.
+
+    Returns:
+        Dictionary with hostname, manufacturer, model, os, kernel
+    """
+    info: dict[str, str | None] = {
+        "hostname": None,
+        "manufacturer": None,
+        "model": None,
+        "os": None,
+        "kernel": None,
+    }
+
+    # Hostname
+    try:
+        info["hostname"] = socket.gethostname()
+    except Exception:
+        info["hostname"] = platform.node() or "linux"
+
+    # Try to get hardware info from DMI (requires root or readable files)
+    dmi_paths = {
+        "manufacturer": [
+            "/sys/class/dmi/id/sys_vendor",
+            "/sys/class/dmi/id/board_vendor",
+            "/sys/class/dmi/id/chassis_vendor",
+        ],
+        "model": [
+            "/sys/class/dmi/id/product_name",
+            "/sys/class/dmi/id/board_name",
+        ],
+    }
+
+    for key, paths in dmi_paths.items():
+        for path in paths:
+            try:
+                value = Path(path).read_text().strip()
+                if value and value.lower() not in ("", "to be filled by o.e.m.", "default string"):
+                    info[key] = value
+                    break
+            except Exception:
+                continue
+
+    # Try device-tree model (for ARM SBCs like Raspberry Pi, Orange Pi)
+    if not info["model"]:
+        try:
+            model = Path("/proc/device-tree/model").read_text().strip().rstrip("\x00")
+            if model:
+                info["model"] = model
+        except Exception:
+            pass
+
+    # Extract manufacturer from model if not set
+    if info["model"] and not info["manufacturer"]:
+        model_lower = info["model"].lower()
+        # Common patterns for SBCs
+        brand_patterns = {
+            "raspberry pi": "Raspberry Pi",
+            "orange pi": "Orange Pi",
+            "opi": "Orange Pi",  # Abbreviation in device-tree
+            "banana pi": "Banana Pi",
+            "rock pi": "Radxa",
+            "radxa": "Radxa",
+            "nvidia": "NVIDIA",
+            "jetson": "NVIDIA",
+            "pine64": "Pine64",
+            "khadas": "Khadas",
+            "odroid": "Hardkernel",
+            "beaglebone": "BeagleBoard.org",
+        }
+        for pattern, brand in brand_patterns.items():
+            if pattern in model_lower:
+                info["manufacturer"] = brand
+                break
+
+    # OS info
+    try:
+        # Try to get pretty name from os-release
+        os_release = Path("/etc/os-release")
+        if os_release.exists():
+            for line in os_release.read_text().splitlines():
+                if line.startswith("PRETTY_NAME="):
+                    info["os"] = line.split("=", 1)[1].strip('"')
+                    break
+        if not info["os"]:
+            info["os"] = f"{platform.system()} {platform.release()}"
+    except Exception:
+        info["os"] = platform.system()
+
+    # Kernel version
+    try:
+        info["kernel"] = platform.release()
+    except Exception:
+        pass
+
+    return info
 
 
 class SystemCollector(Collector):
@@ -33,6 +135,7 @@ class SystemCollector(Collector):
         config: SystemConfig,
         defaults: DefaultsConfig,
         topic_prefix: str = "penguin_metrics",
+        device_templates: dict[str, DeviceConfig] | None = None,
     ):
         """
         Initialize system collector.
@@ -41,6 +144,7 @@ class SystemCollector(Collector):
             config: System configuration
             defaults: Default settings
             topic_prefix: MQTT topic prefix
+            device_templates: Device template definitions
         """
         super().__init__(
             name=config.name,
@@ -51,22 +155,54 @@ class SystemCollector(Collector):
         self.config = config
         self.defaults = defaults
         self.topic_prefix = topic_prefix
+        self.device_templates = device_templates or {}
 
         # For CPU percent calculation
         self._last_cpu_times = None
         self._last_per_cpu_times = None
 
-    def create_device(self) -> Device:
+    def create_device(self) -> Device | None:
         """Create device for system metrics."""
-        device_config = self.config.device
+        device_ref = self.config.device_ref
+
+        # Handle "none" - no device
+        if device_ref == "none":
+            return None
+
+        # Handle template reference
+        if device_ref and device_ref not in ("system", "auto"):
+            if device_ref in self.device_templates:
+                template = self.device_templates[device_ref]
+                return Device(
+                    identifiers=template.identifiers.copy(),
+                    name=template.name,
+                    manufacturer=template.manufacturer,
+                    model=template.model,
+                    hw_version=template.hw_version,
+                    sw_version=template.sw_version,
+                )
+
+        # Default: auto-create system device based on system info
+        sys_info = _get_system_info()
+
+        # Use hostname as device name
+        device_name = sys_info["hostname"] or "System"
+
+        # Manufacturer: from DMI/device-tree, or default
+        manufacturer = sys_info["manufacturer"] or "Linux"
+
+        # Model: from DMI/device-tree, or OS name
+        model = sys_info["model"] or sys_info["os"] or "Linux System"
+
+        # SW version: kernel version
+        sw_version = sys_info["kernel"]
 
         return Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_system"],
-            name=device_config.name or "System",
-            manufacturer=device_config.manufacturer,
-            model=device_config.model,
-            hw_version=device_config.hw_version,
-            sw_version=device_config.sw_version,
+            name=device_name,
+            manufacturer=manufacturer,
+            model=model,
+            sw_version=sw_version,
         )
 
     def sensor_id(self, metric: str) -> str:

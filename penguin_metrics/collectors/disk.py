@@ -16,7 +16,7 @@ from typing import NamedTuple
 
 import psutil
 
-from ..config.schema import DefaultsConfig, DiskConfig
+from ..config.schema import DefaultsConfig, DeviceConfig, DiskConfig
 from ..models.device import Device
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult
@@ -96,6 +96,7 @@ class DiskCollector(Collector):
         defaults: DefaultsConfig,
         topic_prefix: str = "penguin_metrics",
         parent_device: Device | None = None,
+        device_templates: dict[str, DeviceConfig] | None = None,
     ):
         """
         Initialize disk collector.
@@ -105,6 +106,7 @@ class DiskCollector(Collector):
             defaults: Default settings
             topic_prefix: MQTT topic prefix
             parent_device: Parent device (system device)
+            device_templates: Device template definitions
         """
         super().__init__(
             name=config.name,
@@ -116,6 +118,7 @@ class DiskCollector(Collector):
         self.defaults = defaults
         self.topic_prefix = topic_prefix
         self.parent_device = parent_device
+        self.device_templates = device_templates or {}
 
         # Disk info
         self._disk: DiskInfo | None = None
@@ -125,23 +128,51 @@ class DiskCollector(Collector):
         if self.config.mountpoint:
             # Find by mountpoint
             self._disk = get_disk_by_mountpoint(self.config.mountpoint)
-        elif self.config.device:
+        elif self.config.path:
             # Find by device name (sda1, nvme0n1p1)
-            self._disk = get_disk_by_name(self.config.device)
+            self._disk = get_disk_by_name(self.config.path)
         else:
             # Try to find by config name
             self._disk = get_disk_by_name(self.config.name)
 
         await super().initialize()
 
-    def create_device(self) -> Device:
-        """Create device for disk metrics (uses system device)."""
+    def create_device(self) -> Device | None:
+        """Create device for disk metrics (uses system device by default)."""
+        device_ref = self.config.device_ref
+        disk_name = self._disk.name if self._disk else self.config.name
+
+        # Handle "none" - no device
+        if device_ref == "none":
+            return None
+
+        # Handle "auto" - create unique device
+        if device_ref == "auto":
+            return Device(
+                identifiers=[f"penguin_metrics_{self.topic_prefix}_disk_{self.collector_id}"],
+                name=f"Disk: {disk_name}",
+                manufacturer="Penguin Metrics",
+                model="Disk Monitor",
+            )
+
+        # Handle template reference
+        if device_ref and device_ref not in ("system", "auto", "none"):
+            if device_ref in self.device_templates:
+                template = self.device_templates[device_ref]
+                return Device(
+                    identifiers=template.identifiers.copy(),
+                    name=template.name,
+                    manufacturer=template.manufacturer,
+                    model=template.model,
+                    hw_version=template.hw_version,
+                    sw_version=template.sw_version,
+                )
+
+        # Default for disk: use parent device (system)
         if self.parent_device:
             return self.parent_device
 
         # Fallback if no parent device
-        disk_name = self._disk.name if self._disk else self.config.name
-
         return Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_disk_{self.collector_id}"],
             name=f"Disk: {disk_name}",

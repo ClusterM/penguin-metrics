@@ -16,7 +16,7 @@ import fnmatch
 import re
 from datetime import datetime
 
-from ..config.schema import ContainerConfig, ContainerMatchType, DefaultsConfig
+from ..config.schema import ContainerConfig, ContainerMatchType, DefaultsConfig, DeviceConfig
 from ..models.device import Device
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from ..utils.docker_api import ContainerInfo, DockerClient, DockerError
@@ -36,6 +36,8 @@ class ContainerCollector(Collector):
         config: ContainerConfig,
         defaults: DefaultsConfig,
         topic_prefix: str = "penguin_metrics",
+        device_templates: dict[str, DeviceConfig] | None = None,
+        parent_device: Device | None = None,
     ):
         """
         Initialize container collector.
@@ -44,6 +46,8 @@ class ContainerCollector(Collector):
             config: Container configuration
             defaults: Default settings
             topic_prefix: MQTT topic prefix
+            device_templates: Device template definitions
+            parent_device: System device (for device_ref="system")
         """
         super().__init__(
             name=config.name,
@@ -54,6 +58,8 @@ class ContainerCollector(Collector):
         self.config = config
         self.defaults = defaults
         self.topic_prefix = topic_prefix
+        self.device_templates = device_templates or {}
+        self.parent_device = parent_device
 
         # Docker client
         self.docker = DockerClient()
@@ -117,15 +123,37 @@ class ContainerCollector(Collector):
         self._container = await self._find_container()
         await super().initialize()
 
-    def create_device(self) -> Device:
+    def create_device(self) -> Device | None:
         """Create device for container metrics."""
-        device_config = self.config.device
+        device_ref = self.config.device_ref
         container_name = self._container.name if self._container else self.config.name
 
+        # Handle "none" - no device
+        if device_ref == "none":
+            return None
+
+        # Handle "system" - use parent device
+        if device_ref == "system" and self.parent_device:
+            return self.parent_device
+
+        # Handle template reference
+        if device_ref and device_ref not in ("system", "auto"):
+            if device_ref in self.device_templates:
+                template = self.device_templates[device_ref]
+                return Device(
+                    identifiers=template.identifiers.copy(),
+                    name=template.name,
+                    manufacturer=template.manufacturer,
+                    model=template.model,
+                    hw_version=template.hw_version,
+                    sw_version=template.sw_version,
+                )
+
+        # Default for container: auto-create device
         return Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_container_{self.collector_id}"],
-            name=device_config.name or f"Container: {container_name}",
-            manufacturer=device_config.manufacturer or "Docker",
+            name=f"Container: {container_name}",
+            manufacturer="Docker",
             model="Container",
         )
 

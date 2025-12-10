@@ -19,7 +19,7 @@ Collects:
 from pathlib import Path
 from typing import NamedTuple
 
-from ..config.schema import BatteryConfig, DefaultsConfig
+from ..config.schema import BatteryConfig, DefaultsConfig, DeviceConfig
 from ..models.device import Device
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult
@@ -108,6 +108,7 @@ class BatteryCollector(Collector):
         defaults: DefaultsConfig,
         topic_prefix: str = "penguin_metrics",
         parent_device: Device | None = None,
+        device_templates: dict[str, DeviceConfig] | None = None,
     ):
         """
         Initialize battery collector.
@@ -117,6 +118,7 @@ class BatteryCollector(Collector):
             defaults: Default settings
             topic_prefix: MQTT topic prefix
             parent_device: Parent device (system device)
+            device_templates: Device template definitions
         """
         super().__init__(
             name=config.name,
@@ -128,6 +130,7 @@ class BatteryCollector(Collector):
         self.defaults = defaults
         self.topic_prefix = topic_prefix
         self.parent_device = parent_device
+        self.device_templates = device_templates or {}
 
         # Battery device info
         self._battery: BatteryInfo | None = None
@@ -157,19 +160,46 @@ class BatteryCollector(Collector):
 
         await super().initialize()
 
-    def create_device(self) -> Device:
-        """Create device for battery metrics (uses system device)."""
+    def create_device(self) -> Device | None:
+        """Create device for battery metrics (uses system device by default)."""
+        device_ref = self.config.device_ref
+        battery_name = self._battery.name if self._battery else "Unknown"
+
+        # Handle "none" - no device
+        if device_ref == "none":
+            return None
+
+        # Handle "auto" - create unique device
+        if device_ref == "auto":
+            return Device(
+                identifiers=[f"penguin_metrics_{self.topic_prefix}_battery_{self.collector_id}"],
+                name=f"Battery: {battery_name}",
+                manufacturer="Unknown",
+                model="Battery",
+            )
+
+        # Handle template reference
+        if device_ref and device_ref not in ("system", "auto", "none"):
+            if device_ref in self.device_templates:
+                template = self.device_templates[device_ref]
+                return Device(
+                    identifiers=template.identifiers.copy(),
+                    name=template.name,
+                    manufacturer=template.manufacturer,
+                    model=template.model,
+                    hw_version=template.hw_version,
+                    sw_version=template.sw_version,
+                )
+
+        # Default for battery: use parent device (system)
         if self.parent_device:
             return self.parent_device
 
         # Fallback if no parent device
-        device_config = self.config.device
-        battery_name = self._battery.name if self._battery else "Unknown"
-
         return Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_battery_{self.collector_id}"],
-            name=device_config.name or f"Battery: {battery_name}",
-            manufacturer=device_config.manufacturer or "Unknown",
+            name=f"Battery: {battery_name}",
+            manufacturer="Unknown",
             model="Battery",
         )
 

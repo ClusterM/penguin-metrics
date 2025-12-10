@@ -81,6 +81,9 @@ class Application:
         manual_containers: set[str] = set()
         manual_services: set[str] = set()
 
+        # Get device templates from config
+        device_templates = self.config.device_templates
+
         # System collectors - create first to get system device for temperatures/GPU
         system_device: Device | None = None
         for sys_config in self.config.system:
@@ -88,6 +91,7 @@ class Application:
                 config=sys_config,
                 defaults=self.config.defaults,
                 topic_prefix=topic_prefix,
+                device_templates=device_templates,
             )
             collectors.append(system_collector)
 
@@ -103,10 +107,11 @@ class Application:
                         defaults=self.config.defaults,
                         topic_prefix=topic_prefix,
                         parent_device=system_device,
+                        device_templates=device_templates,
                     )
                 )
 
-        # Standalone temperature collectors (manual) - always part of system device
+        # Standalone temperature collectors (manual) - part of system device by default
         for temp_config in self.config.temperatures:
             manual_temps.add(temp_config.name)
             collectors.append(
@@ -115,6 +120,7 @@ class Application:
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
                     parent_device=system_device,
+                    device_templates=device_templates,
                 )
             )
 
@@ -133,11 +139,15 @@ class Application:
                     config=proc_config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    device_templates=device_templates,
+                    parent_device=system_device,
                 )
             )
 
         # Auto-discover processes
-        auto_processes = self._auto_discover_processes(manual_processes, topic_prefix)
+        auto_processes = self._auto_discover_processes(
+            manual_processes, topic_prefix, system_device
+        )
         if auto_processes:
             logger.info(f"Auto-discovered {len(auto_processes)} processes")
         collectors.extend(auto_processes)
@@ -150,11 +160,13 @@ class Application:
                     config=svc_config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    device_templates=device_templates,
+                    parent_device=system_device,
                 )
             )
 
         # Auto-discover services
-        auto_services = self._auto_discover_services(manual_services, topic_prefix)
+        auto_services = self._auto_discover_services(manual_services, topic_prefix, system_device)
         if auto_services:
             logger.info(f"Auto-discovered {len(auto_services)} services")
         collectors.extend(auto_services)
@@ -167,16 +179,20 @@ class Application:
                     config=cont_config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    device_templates=device_templates,
+                    parent_device=system_device,
                 )
             )
 
         # Auto-discover containers
-        auto_containers = await self._auto_discover_containers(manual_containers, topic_prefix)
+        auto_containers = await self._auto_discover_containers(
+            manual_containers, topic_prefix, system_device
+        )
         if auto_containers:
             logger.info(f"Auto-discovered {len(auto_containers)} containers")
         collectors.extend(auto_containers)
 
-        # Battery collectors (manual) - part of system device
+        # Battery collectors (manual) - part of system device by default
         for bat_config in self.config.batteries:
             manual_batteries.add(bat_config.name)
             collectors.append(
@@ -185,6 +201,7 @@ class Application:
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
                     parent_device=system_device,
+                    device_templates=device_templates,
                 )
             )
 
@@ -196,7 +213,7 @@ class Application:
             logger.info(f"Auto-discovered {len(auto_batteries)} batteries")
         collectors.extend(auto_batteries)
 
-        # Disk collectors (manual) - part of system device
+        # Disk collectors (manual) - part of system device by default
         manual_disks: set[str] = set()
         for disk_config in self.config.disks:
             manual_disks.add(disk_config.name)
@@ -206,6 +223,7 @@ class Application:
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
                     parent_device=system_device,
+                    device_templates=device_templates,
                 )
             )
 
@@ -222,6 +240,8 @@ class Application:
                     config=custom_config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    device_templates=device_templates,
+                    parent_device=system_device,
                 )
             )
 
@@ -238,6 +258,7 @@ class Application:
             return []
 
         collectors = []
+        device_templates = self.config.device_templates
 
         if auto_cfg.source == "thermal":
             # Discover thermal zones from /sys/class/thermal
@@ -253,6 +274,7 @@ class Application:
                 config = TemperatureConfig(
                     name=name,
                     zone=zone.name,
+                    device_ref=auto_cfg.device_ref,  # Use auto-discovery device_ref
                     update_interval=self.config.defaults.update_interval,
                 )
                 collectors.append(
@@ -261,6 +283,7 @@ class Application:
                         defaults=self.config.defaults,
                         topic_prefix=topic_prefix,
                         parent_device=parent_device,
+                        device_templates=device_templates,
                     )
                 )
                 logger.debug(f"Auto-discovered thermal zone: {name}")
@@ -279,6 +302,7 @@ class Application:
                 config = TemperatureConfig(
                     name=name,
                     hwmon=name,
+                    device_ref=auto_cfg.device_ref,  # Use auto-discovery device_ref
                     update_interval=self.config.defaults.update_interval,
                 )
                 collectors.append(
@@ -287,6 +311,7 @@ class Application:
                         defaults=self.config.defaults,
                         topic_prefix=topic_prefix,
                         parent_device=parent_device,
+                        device_templates=device_templates,
                     )
                 )
                 logger.debug(f"Auto-discovered hwmon sensor: {name}")
@@ -307,6 +332,7 @@ class Application:
             return []
 
         collectors = []
+        device_templates = self.config.device_templates
 
         for battery in discover_batteries():
             name = battery.name  # BAT0, BAT1, etc.
@@ -320,6 +346,7 @@ class Application:
             config = BatteryConfig(
                 name=name,
                 battery_name=name,
+                device_ref=auto_cfg.device_ref,  # Use auto-discovery device_ref
                 update_interval=self.config.defaults.update_interval,
             )
             collectors.append(
@@ -328,6 +355,7 @@ class Application:
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
                     parent_device=parent_device,
+                    device_templates=device_templates,
                 )
             )
             logger.debug(f"Auto-discovered battery: {name}")
@@ -348,6 +376,7 @@ class Application:
             return []
 
         collectors = []
+        device_templates = self.config.device_templates
 
         for disk in discover_disks():
             name = disk.name  # sda1, nvme0n1p1, etc.
@@ -360,15 +389,18 @@ class Application:
 
             config = DiskConfig.from_defaults(
                 name=name,
-                device=name,
+                path=name,
                 defaults=self.config.defaults,
             )
+            # Apply auto-discovery device_ref
+            config.device_ref = auto_cfg.device_ref
             collectors.append(
                 DiskCollector(
                     config=config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
                     parent_device=parent_device,
+                    device_templates=device_templates,
                 )
             )
             logger.debug(f"Auto-discovered disk: {name} ({disk.mountpoint})")
@@ -379,7 +411,7 @@ class Application:
         return collectors
 
     async def _auto_discover_containers(
-        self, exclude: set[str], topic_prefix: str
+        self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
     ) -> list[Collector]:
         """Auto-discover Docker containers."""
         from .utils.docker_api import DockerClient
@@ -390,6 +422,7 @@ class Application:
 
         collectors = []
         docker = DockerClient()
+        device_templates = self.config.device_templates
 
         if not docker.available:
             logger.warning("Docker not available for auto-discovery")
@@ -415,11 +448,15 @@ class Application:
                 match=ContainerMatchConfig(type=ContainerMatchType.NAME, value=name),
                 defaults=self.config.defaults,
             )
+            # Apply auto-discovery device_ref
+            config.device_ref = auto_cfg.device_ref
             collectors.append(
                 ContainerCollector(
                     config=config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,
+                    device_templates=device_templates,
+                    parent_device=parent_device,
                 )
             )
             logger.debug(f"Auto-discovered container: {name}")
@@ -429,7 +466,9 @@ class Application:
 
         return collectors
 
-    def _auto_discover_services(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+    def _auto_discover_services(
+        self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
+    ) -> list[Collector]:
         """Auto-discover systemd services."""
         import subprocess
 
@@ -446,6 +485,7 @@ class Application:
             return []
 
         collectors = []
+        device_templates = self.config.device_templates
 
         try:
             # Get list of all services
@@ -486,11 +526,15 @@ class Application:
                     match=ServiceMatchConfig(type=ServiceMatchType.UNIT, value=unit_name),
                     defaults=self.config.defaults,
                 )
+                # Apply auto-discovery device_ref
+                config.device_ref = auto_cfg.device_ref
                 collectors.append(
                     ServiceCollector(
                         config=config,
                         defaults=self.config.defaults,
                         topic_prefix=topic_prefix,
+                        device_templates=device_templates,
+                        parent_device=parent_device,
                     )
                 )
                 logger.debug(f"Auto-discovered service: {name}")
@@ -503,7 +547,9 @@ class Application:
 
         return collectors
 
-    def _auto_discover_processes(self, exclude: set[str], topic_prefix: str) -> list[Collector]:
+    def _auto_discover_processes(
+        self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
+    ) -> list[Collector]:
         """Auto-discover running processes."""
         import psutil
 
@@ -520,6 +566,7 @@ class Application:
             return []
 
         collectors = []
+        device_templates = self.config.device_templates
 
         try:
             for proc in psutil.process_iter(["pid", "name", "cmdline"]):
@@ -546,11 +593,15 @@ class Application:
                         ),
                         defaults=self.config.defaults,
                     )
+                    # Apply auto-discovery device_ref
+                    config.device_ref = auto_cfg.device_ref
                     collectors.append(
                         ProcessCollector(
                             config=config,
                             defaults=self.config.defaults,
                             topic_prefix=topic_prefix,
+                            device_templates=device_templates,
+                            parent_device=parent_device,
                         )
                     )
                     logger.debug(f"Auto-discovered process: {collector_name}")
@@ -635,16 +686,25 @@ class Application:
         for cfg in self.config.processes:
             manual_ids.add(cfg.id or cfg.name)
 
+        # Get system device from first system collector (if any)
+        system_device = None
+        for collector in self.collectors:
+            if collector.SOURCE_TYPE == "system" and collector.device:
+                system_device = collector.device
+                break
+
         # Discover current services
-        new_services = self._auto_discover_services(manual_ids, topic_prefix)
+        new_services = self._auto_discover_services(manual_ids, topic_prefix, system_device)
         new_service_ids = {c.collector_id for c in new_services}
 
         # Discover current containers
-        new_containers = await self._auto_discover_containers(manual_ids, topic_prefix)
+        new_containers = await self._auto_discover_containers(
+            manual_ids, topic_prefix, system_device
+        )
         new_container_ids = {c.collector_id for c in new_containers}
 
         # Discover current processes
-        new_processes = self._auto_discover_processes(manual_ids, topic_prefix)
+        new_processes = self._auto_discover_processes(manual_ids, topic_prefix, system_device)
         new_process_ids = {c.collector_id for c in new_processes}
 
         # Find auto-discovered collectors that are currently running

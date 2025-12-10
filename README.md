@@ -38,7 +38,8 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 
 ### Home Assistant Integration
 - **MQTT Discovery**: Automatic sensor and device registration
-- **Device Grouping**: Flexible grouping strategies (per-source, single, hybrid)
+- **Device Templates**: Define reusable device configurations with custom grouping
+- **Flexible Device Assignment**: Use `system`, `auto`, `none`, or templates for each sensor
 - **Value Templates**: Extract metrics from JSON payloads
 - **Stale Sensor Cleanup**: Removed sensors are automatically cleaned from Home Assistant
 
@@ -254,18 +255,6 @@ When the service disconnects, `{"state": "offline"}` is sent to all JSON topics 
 homeassistant {
     discovery on;              # Enable MQTT Discovery
     discovery_prefix "homeassistant";  # Discovery topic prefix
-    
-    # Device grouping:
-    # - per_source: separate device per process/service/container
-    # - single: all sensors in one device
-    # - hybrid: system in one, others separate
-    device_grouping per_source;
-    
-    # Default device info
-    device {
-        manufacturer "Penguin Metrics";
-        model "Linux Monitor";
-    }
 }
 ```
 
@@ -274,9 +263,41 @@ homeassistant {
 |-----------|---------|-------------|
 | `discovery` | `on` | Enable MQTT Discovery |
 | `discovery_prefix` | `"homeassistant"` | Discovery topic prefix |
-| `device_grouping` | `per_source` | Grouping strategy |
-| `device.manufacturer` | `"Penguin Metrics"` | Device manufacturer |
-| `device.model` | `"Linux Monitor"` | Device model |
+
+### Device Templates
+
+Define reusable device templates for grouping sensors in Home Assistant:
+
+```nginx
+device "ups_batteries" {
+    name "UPS Batteries";
+    manufacturer "APC";
+    model "Smart-UPS";
+}
+```
+
+Reference templates in sensor configurations using `device "template_name";`:
+
+```nginx
+battery "ups_battery_1" {
+    device "ups_batteries";  # Use the template above
+    # ... other settings
+}
+
+custom "room_temp" {
+    device "room_sensors";   # Reference another template
+    # ... other settings
+}
+```
+
+**Reserved device values:**
+
+| Value | Description |
+|-------|-------------|
+| `device system;` | Group with the system device (default for temperature, GPU, disks, battery) |
+| `device auto;` | Create a dedicated device (default for services, containers, processes, custom) |
+| `device none;` | No device — create "orphan" entities without device association |
+| `device "name";` | Use a device template defined with `device "name" { ... }` |
 
 ### Default Settings
 
@@ -519,8 +540,9 @@ python -m penguin_metrics --no-color config.conf
 ### System Metrics
 
 ```nginx
-system {
-    # Note: system block doesn't require a name
+system "My Server" {
+    # The system name becomes the device name in Home Assistant
+    # Optional: device "template_name"; to use a device template
     
     cpu on;                    # Total CPU usage
     cpu_per_core off;          # Per-core CPU usage
@@ -531,12 +553,6 @@ system {
     gpu off;                   # GPU metrics (if available)
     
     update_interval 5s;
-    
-    device {
-        name "My Server";
-        manufacturer "Dell";
-        model "PowerEdge R740";
-    }
 }
 ```
 

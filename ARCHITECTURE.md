@@ -271,7 +271,6 @@ Typed configuration structures with validation.
 
 **Enums:**
 - `RetainMode`: `ON`, `OFF` - MQTT message retention
-- `DeviceGrouping`: `PER_SOURCE`, `SINGLE`, `HYBRID`
 - `ProcessMatchType`: `NAME`, `PATTERN`, `PID`, `PIDFILE`, `CMDLINE`
 - `ServiceMatchType`: `UNIT`, `PATTERN`
 - `ContainerMatchType`: `NAME`, `PATTERN`, `IMAGE`, `LABEL`
@@ -297,8 +296,6 @@ class MQTTConfig:
 class HomeAssistantConfig:
     discovery: bool = True
     discovery_prefix: str = "homeassistant"
-    device_grouping: DeviceGrouping = DeviceGrouping.PER_SOURCE
-    device: DeviceConfig
     state_file: str | None = None  # Path to registered sensors state file
 
 @dataclass
@@ -321,6 +318,7 @@ class Config:
     defaults: DefaultsConfig
     logging: LoggingConfig
     auto_refresh_interval: float = 0  # Top-level: 0 = disabled
+    device_templates: dict[str, DeviceConfig]  # Device templates for grouping
     # Auto-discovery configs
     auto_temperatures: AutoDiscoveryConfig
     auto_batteries: AutoDiscoveryConfig
@@ -332,8 +330,7 @@ class Config:
 @dataclass
 class SystemConfig:
     name: str = "system"  # Optional, defaults to "system"
-    id: str | None = None
-    device: DeviceConfig
+    device_ref: str | None = None  # "system"/"auto"/"none"/template name
     cpu: bool = True
     cpu_per_core: bool = False
     memory: bool = True
@@ -348,7 +345,7 @@ class ProcessConfig:
     name: str
     id: str | None = None
     match: ProcessMatchConfig | None = None
-    device: DeviceConfig
+    device_ref: str | None = None  # "system"/"auto"/"none"/template name
     sensor_prefix: str | None = None
     cpu: bool = True
     memory: bool = True

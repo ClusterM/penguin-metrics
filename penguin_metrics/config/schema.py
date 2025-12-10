@@ -10,14 +10,6 @@ from enum import Enum
 from .parser import Block, ConfigDocument, Directive
 
 
-class DeviceGrouping(Enum):
-    """Strategy for grouping sensors into Home Assistant devices."""
-
-    PER_SOURCE = "per_source"  # Each process/service/container = separate device
-    SINGLE = "single"  # All sensors in one device
-    HYBRID = "hybrid"  # System metrics in one device, others separate
-
-
 class ProcessMatchType(Enum):
     """How to match/find a process."""
 
@@ -134,8 +126,6 @@ class HomeAssistantConfig:
 
     discovery: bool = True
     discovery_prefix: str = "homeassistant"
-    device_grouping: DeviceGrouping = DeviceGrouping.PER_SOURCE
-    device: DeviceConfig = field(default_factory=DeviceConfig)
     state_file: str = "/var/lib/penguin-metrics/registered_sensors.json"
 
     @classmethod
@@ -144,17 +134,9 @@ class HomeAssistantConfig:
         if block is None:
             return cls()
 
-        grouping_str = block.get_value("device_grouping", "per_source")
-        try:
-            grouping = DeviceGrouping(grouping_str)
-        except ValueError:
-            grouping = DeviceGrouping.PER_SOURCE
-
         return cls(
             discovery=bool(block.get_value("discovery", True)),
             discovery_prefix=block.get_value("discovery_prefix", "homeassistant"),
-            device_grouping=grouping,
-            device=DeviceConfig.from_block(block.get_block("device")),
             state_file=block.get_value(
                 "state_file", "/var/lib/penguin-metrics/registered_sensors.json"
             ),
@@ -408,6 +390,9 @@ class AutoDiscoveryConfig:
     # Temperature-specific: source "thermal" or "hwmon" (default: thermal)
     source: str = "thermal"
 
+    # Device reference for auto-discovered sensors
+    device_ref: str | None = None
+
     @classmethod
     def from_block(cls, block: Block | None) -> "AutoDiscoveryConfig":
         """Create AutoDiscoveryConfig from a parsed block."""
@@ -432,11 +417,15 @@ class AutoDiscoveryConfig:
         if source not in ("thermal", "hwmon"):
             source = "thermal"
 
+        # Device reference for auto-discovered sensors
+        device_ref = block.get_value("device")
+
         return cls(
             enabled=enabled,
             filters=filters,
             excludes=excludes,
             source=source,
+            device_ref=device_ref,
         )
 
     def matches(self, name: str) -> bool:
@@ -472,7 +461,7 @@ class SystemConfig:
     """System-wide metrics configuration."""
 
     name: str = "system"  # Optional, used for device name only
-    device: DeviceConfig = field(default_factory=DeviceConfig)
+    device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
 
     # Metrics flags
     cpu: bool = True
@@ -500,9 +489,12 @@ class SystemConfig:
             val = block.get_value(name)
             return bool(val) if val is not None else default
 
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
         return cls(
             name=name,
-            device=DeviceConfig.from_block(block.get_block("device")),
+            device_ref=device_ref,
             cpu=get_bool("cpu", True),
             cpu_per_core=get_bool("cpu_per_core", False),
             memory=get_bool("memory", True),
@@ -556,7 +548,7 @@ class ProcessConfig:
     name: str
     id: str | None = None
     match: ProcessMatchConfig | None = None
-    device: DeviceConfig = field(default_factory=DeviceConfig)
+    device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     sensor_prefix: str | None = None
 
     # Metrics flags
@@ -595,11 +587,14 @@ class ProcessConfig:
             val = block.get_value(name)
             return bool(val) if val is not None else pd_val
 
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
         return cls(
             name=name,
             id=block.get_value("id"),
             match=ProcessMatchConfig.from_directive(block.get_directive("match")),
-            device=DeviceConfig.from_block(block.get_block("device")),
+            device_ref=device_ref,
             sensor_prefix=block.get_value("sensor_prefix"),
             cpu=get_bool("cpu", pd.cpu),
             memory=get_bool("memory", pd.memory),
@@ -675,7 +670,7 @@ class ServiceConfig:
     name: str
     id: str | None = None
     match: ServiceMatchConfig | None = None
-    device: DeviceConfig = field(default_factory=DeviceConfig)
+    device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
 
     # Metrics flags
     cpu: bool = True
@@ -710,11 +705,14 @@ class ServiceConfig:
             val = block.get_value(name)
             return bool(val) if val is not None else svd_val
 
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
         return cls(
             name=name,
             id=block.get_value("id"),
             match=ServiceMatchConfig.from_directive(block.get_directive("match")),
-            device=DeviceConfig.from_block(block.get_block("device")),
+            device_ref=device_ref,
             cpu=get_bool("cpu", svd.cpu),
             memory=get_bool("memory", svd.memory),
             smaps=smaps,
@@ -787,7 +785,7 @@ class ContainerConfig:
     name: str
     id: str | None = None
     match: ContainerMatchConfig | None = None
-    device: DeviceConfig = field(default_factory=DeviceConfig)
+    device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     auto_discover: bool = False
 
     # Metrics flags
@@ -818,11 +816,14 @@ class ContainerConfig:
             val = block.get_value(name)
             return bool(val) if val is not None else cd_val
 
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
         return cls(
             name=name,
             id=block.get_value("id"),
             match=ContainerMatchConfig.from_directive(block.get_directive("match")),
-            device=DeviceConfig.from_block(block.get_block("device")),
+            device_ref=device_ref,
             auto_discover=bool(block.get_value("auto_discover", False)),
             cpu=get_bool("cpu", cd.cpu),
             memory=get_bool("memory", cd.memory),
@@ -867,6 +868,7 @@ class TemperatureConfig:
     zone: str | None = None  # Thermal zone name (e.g., "soc-thermal", "thermal_zone0")
     hwmon: str | None = None  # Hwmon sensor name (e.g., "soc_thermal_sensor0")
     path: str | None = None  # Direct path to temp file
+    device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     update_interval: float | None = None
 
     @classmethod
@@ -878,12 +880,16 @@ class TemperatureConfig:
         if interval is None:
             interval = defaults.update_interval
 
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
         return cls(
             name=name,
             id=block.get_value("id"),
             zone=block.get_value("zone"),
             hwmon=block.get_value("hwmon"),
             path=block.get_value("path"),
+            device_ref=device_ref,
             update_interval=float(interval) if interval else None,
         )
 
@@ -896,7 +902,7 @@ class BatteryConfig:
     id: str | None = None
     path: str | None = None
     battery_name: str | None = None  # BAT0, BAT1, etc.
-    device: DeviceConfig = field(default_factory=DeviceConfig)
+    device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
 
     # Metrics flags
     capacity: bool = True
@@ -927,12 +933,15 @@ class BatteryConfig:
             val = block.get_value(name)
             return bool(val) if val is not None else bd_val
 
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
         return cls(
             name=name,
             id=block.get_value("id"),
             path=block.get_value("path"),
             battery_name=block.get_value("name"),  # the battery name like BAT0
-            device=DeviceConfig.from_block(block.get_block("device")),
+            device_ref=device_ref,
             capacity=get_bool("capacity", bd.capacity),
             status=get_bool("status", bd.status),
             voltage=get_bool("voltage", bd.voltage),
@@ -955,7 +964,7 @@ class CustomSensorConfig:
     id: str | None = None
     command: str | None = None
     script: str | None = None
-    device: DeviceConfig = field(default_factory=DeviceConfig)
+    device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
 
     # Output parsing
     type: str = "number"  # number, string, json
@@ -988,12 +997,15 @@ class CustomSensorConfig:
         timeout_val = block.get_value("timeout")
         timeout = float(timeout_val) if timeout_val is not None else cud.timeout
 
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
         return cls(
             name=name,
             id=block.get_value("id"),
             command=block.get_value("command"),
             script=block.get_value("script"),
-            device=DeviceConfig.from_block(block.get_block("device")),
+            device_ref=device_ref,
             type=type_str,
             unit=block.get_value("unit"),
             scale=float(block.get_value("scale", 1.0)),
@@ -1010,8 +1022,9 @@ class DiskConfig:
 
     name: str
     id: str | None = None
-    device: str | None = None  # Device name: sda1, nvme0n1p1
+    path: str | None = None  # Device name: sda1, nvme0n1p1
     mountpoint: str | None = None  # Mount point: /, /home
+    device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
 
     # Metrics flags
     total: bool = True
@@ -1036,11 +1049,15 @@ class DiskConfig:
             val = block.get_value(name)
             return bool(val) if val is not None else dd_val
 
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
         return cls(
             name=name,
             id=block.get_value("id"),
-            device=block.get_value("device"),
+            path=block.get_value("path"),
             mountpoint=block.get_value("mountpoint"),
+            device_ref=device_ref,
             total=get_bool("total", dd.total),
             used=get_bool("used", dd.used),
             free=get_bool("free", dd.free),
@@ -1049,12 +1066,12 @@ class DiskConfig:
         )
 
     @classmethod
-    def from_defaults(cls, name: str, device: str, defaults: DefaultsConfig) -> "DiskConfig":
+    def from_defaults(cls, name: str, path: str, defaults: DefaultsConfig) -> "DiskConfig":
         """Create DiskConfig from defaults (for auto-discovery)."""
         dd = defaults.disk
         return cls(
             name=name,
-            device=device,
+            path=path,
             total=dd.total,
             used=dd.used,
             free=dd.free,
@@ -1075,6 +1092,9 @@ class Config:
     # Global settings
     auto_refresh_interval: float = 0  # seconds, 0 = disabled
 
+    # Device templates for grouping sensors
+    device_templates: dict[str, DeviceConfig] = field(default_factory=dict)
+
     # Auto-discovery settings (plural blocks: temperatures, batteries, etc.)
     auto_temperatures: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_batteries: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
@@ -1093,6 +1113,20 @@ class Config:
     disks: list[DiskConfig] = field(default_factory=list)
     custom: list[CustomSensorConfig] = field(default_factory=list)
 
+    @staticmethod
+    def _sanitize_id(value: str) -> str:
+        """Sanitize a string for use as an identifier."""
+        result = []
+        for char in value.lower():
+            if char.isalnum():
+                result.append(char)
+            elif char in " -_.":
+                result.append("_")
+        sanitized = "".join(result)
+        while "__" in sanitized:
+            sanitized = sanitized.replace("__", "_")
+        return sanitized.strip("_")
+
     @classmethod
     def from_document(cls, doc: ConfigDocument) -> "Config":
         """Create Config from a parsed ConfigDocument."""
@@ -1109,6 +1143,21 @@ class Config:
         config.homeassistant = HomeAssistantConfig.from_block(doc.get_block("homeassistant"))
         config.defaults = DefaultsConfig.from_block(doc.get_block("defaults"))
         config.logging = LoggingConfig.from_block(doc.get_block("logging"))
+
+        # Parse device templates (device "name" { ... })
+        topic_prefix = config.mqtt.topic_prefix
+        for block in doc.get_blocks("device"):
+            if block.name:
+                template_name = block.name
+                device_config = DeviceConfig.from_block(block)
+                # Generate identifier based on template name
+                sanitized_name = cls._sanitize_id(template_name)
+                identifier = f"penguin_metrics_{topic_prefix}_device_{sanitized_name}"
+                device_config.identifiers = [identifier]
+                # Set name if not specified
+                if not device_config.name:
+                    device_config.name = template_name
+                config.device_templates[template_name] = device_config
 
         # Parse auto-discovery blocks (plural names)
         config.auto_temperatures = AutoDiscoveryConfig.from_block(doc.get_block("temperatures"))

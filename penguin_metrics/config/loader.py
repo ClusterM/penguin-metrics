@@ -110,8 +110,6 @@ class ConfigLoader:
         "homeassistant": {
             "discovery",
             "discovery_prefix",
-            "device_grouping",
-            "device",
             "state_file",
         },
         "defaults": {
@@ -186,7 +184,7 @@ class ConfigLoader:
             "uptime",
             "update_interval",
         },
-        "temperature": {"id", "zone", "hwmon", "path", "update_interval"},
+        "temperature": {"id", "zone", "hwmon", "path", "device", "update_interval"},
         "battery": {
             "id",
             "device",
@@ -217,16 +215,17 @@ class ConfigLoader:
             "update_interval",
             "timeout",
         },
-        "temperatures": {"auto", "filter", "exclude", "source"},
-        "batteries": {"auto", "filter", "exclude"},
-        "containers": {"auto", "filter", "exclude"},
-        "services": {"auto", "filter", "exclude"},
-        "processes": {"auto", "filter", "exclude"},
-        "disks": {"auto", "filter", "exclude"},
+        "temperatures": {"auto", "filter", "exclude", "source", "device"},
+        "batteries": {"auto", "filter", "exclude", "device"},
+        "containers": {"auto", "filter", "exclude", "device"},
+        "services": {"auto", "filter", "exclude", "device"},
+        "processes": {"auto", "filter", "exclude", "device"},
+        "disks": {"auto", "filter", "exclude", "device"},
         "disk": {
             "id",
-            "device",
+            "path",
             "mountpoint",
+            "device",
             "total",
             "used",
             "free",
@@ -299,6 +298,54 @@ class ConfigLoader:
         for custom in config.custom:
             if not custom.command and not custom.script:
                 warnings.append(f"Custom sensor '{custom.name}' has no command or script")
+
+        # Validate device_ref values
+        reserved_device_refs = {"system", "auto", "none"}
+        template_names = set(config.device_templates.keys())
+
+        def validate_device_ref(device_ref: str | None, source_type: str, source_name: str):
+            if device_ref is None:
+                return  # Default behavior, valid
+            if device_ref in reserved_device_refs:
+                return  # Reserved keyword, valid
+            if device_ref in template_names:
+                return  # Valid template reference
+            warnings.append(
+                f"{source_type} '{source_name}' references unknown device template '{device_ref}'"
+            )
+
+        for sys in config.system:
+            validate_device_ref(sys.device_ref, "System", sys.name)
+        for proc in config.processes:
+            validate_device_ref(proc.device_ref, "Process", proc.name)
+        for svc in config.services:
+            validate_device_ref(svc.device_ref, "Service", svc.name)
+        for cont in config.containers:
+            validate_device_ref(cont.device_ref, "Container", cont.name)
+        for temp in config.temperatures:
+            validate_device_ref(temp.device_ref, "Temperature", temp.name)
+        for batt in config.batteries:
+            validate_device_ref(batt.device_ref, "Battery", batt.name)
+        for disk in config.disks:
+            validate_device_ref(disk.device_ref, "Disk", disk.name)
+        for custom in config.custom:
+            validate_device_ref(custom.device_ref, "Custom", custom.name)
+
+        # Validate auto-discovery device_refs
+        validate_device_ref(
+            config.auto_temperatures.device_ref, "temperatures auto-discovery", "temperatures"
+        )
+        validate_device_ref(
+            config.auto_batteries.device_ref, "batteries auto-discovery", "batteries"
+        )
+        validate_device_ref(
+            config.auto_containers.device_ref, "containers auto-discovery", "containers"
+        )
+        validate_device_ref(config.auto_services.device_ref, "services auto-discovery", "services")
+        validate_device_ref(
+            config.auto_processes.device_ref, "processes auto-discovery", "processes"
+        )
+        validate_device_ref(config.auto_disks.device_ref, "disks auto-discovery", "disks")
 
         return warnings
 

@@ -15,7 +15,7 @@ import asyncio
 import json
 from typing import Any
 
-from ..config.schema import CustomSensorConfig, DefaultsConfig
+from ..config.schema import CustomSensorConfig, DefaultsConfig, DeviceConfig
 from ..models.device import Device
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult
@@ -34,6 +34,8 @@ class CustomCollector(Collector):
         config: CustomSensorConfig,
         defaults: DefaultsConfig,
         topic_prefix: str = "penguin_metrics",
+        device_templates: dict[str, DeviceConfig] | None = None,
+        parent_device: Device | None = None,
     ):
         """
         Initialize custom collector.
@@ -42,6 +44,8 @@ class CustomCollector(Collector):
             config: Custom sensor configuration
             defaults: Default settings
             topic_prefix: MQTT topic prefix
+            device_templates: Device template definitions
+            parent_device: System device (for device_ref="system")
         """
         super().__init__(
             name=config.name,
@@ -52,6 +56,8 @@ class CustomCollector(Collector):
         self.config = config
         self.defaults = defaults
         self.topic_prefix = topic_prefix
+        self.device_templates = device_templates or {}
+        self.parent_device = parent_device
 
         # Build command
         if config.script:
@@ -64,14 +70,36 @@ class CustomCollector(Collector):
         self._last_value: Any = None
         self._last_error: str | None = None
 
-    def create_device(self) -> Device:
+    def create_device(self) -> Device | None:
         """Create device for custom sensor."""
-        device_config = self.config.device
+        device_ref = self.config.device_ref
 
+        # Handle "none" - no device
+        if device_ref == "none":
+            return None
+
+        # Handle "system" - use parent device
+        if device_ref == "system" and self.parent_device:
+            return self.parent_device
+
+        # Handle template reference
+        if device_ref and device_ref not in ("system", "auto"):
+            if device_ref in self.device_templates:
+                template = self.device_templates[device_ref]
+                return Device(
+                    identifiers=template.identifiers.copy(),
+                    name=template.name,
+                    manufacturer=template.manufacturer,
+                    model=template.model,
+                    hw_version=template.hw_version,
+                    sw_version=template.sw_version,
+                )
+
+        # Default for custom: auto-create device
         return Device(
             identifiers=[f"penguin_metrics_{self.topic_prefix}_custom_{self.collector_id}"],
-            name=device_config.name or f"Custom: {self.config.name}",
-            manufacturer=device_config.manufacturer,
+            name=f"Custom: {self.config.name}",
+            manufacturer="Penguin Metrics",
             model="Custom Sensor",
         )
 
