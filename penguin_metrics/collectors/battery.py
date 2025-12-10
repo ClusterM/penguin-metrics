@@ -214,7 +214,8 @@ class BatteryCollector(Collector):
         if self.config.capacity:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="capacity",
                     display_name="Capacity",
                     device=device,
@@ -229,7 +230,8 @@ class BatteryCollector(Collector):
         if self.config.status:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="status",
                     display_name="Status",
                     device=device,
@@ -241,7 +243,8 @@ class BatteryCollector(Collector):
         if self.config.voltage:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="voltage",
                     display_name="Voltage",
                     device=device,
@@ -256,7 +259,8 @@ class BatteryCollector(Collector):
         if self.config.current:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="current",
                     display_name="Current",
                     device=device,
@@ -271,7 +275,8 @@ class BatteryCollector(Collector):
         if self.config.power:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="power",
                     display_name="Power",
                     device=device,
@@ -286,7 +291,8 @@ class BatteryCollector(Collector):
         if self.config.health:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="health",
                     display_name="Health",
                     device=device,
@@ -298,7 +304,8 @@ class BatteryCollector(Collector):
         if self.config.cycles:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="cycles",
                     display_name="Cycle Count",
                     device=device,
@@ -311,7 +318,8 @@ class BatteryCollector(Collector):
         if self.config.temperature:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="temperature",
                     display_name="Temperature",
                     device=device,
@@ -326,7 +334,8 @@ class BatteryCollector(Collector):
         if self.config.time_to_empty:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="time_to_empty",
                     display_name="Time to Empty",
                     device=device,
@@ -341,7 +350,8 @@ class BatteryCollector(Collector):
         if self.config.time_to_full:
             sensors.append(
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="time_to_full",
                     display_name="Time to Full",
                     device=device,
@@ -357,7 +367,8 @@ class BatteryCollector(Collector):
         sensors.extend(
             [
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="energy_now",
                     display_name="Energy Now",
                     device=device,
@@ -368,7 +379,8 @@ class BatteryCollector(Collector):
                     icon="mdi:battery",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="energy_full",
                     display_name="Energy Full",
                     device=device,
@@ -379,7 +391,8 @@ class BatteryCollector(Collector):
                     icon="mdi:battery",
                 ),
                 create_sensor(
-                    source_id=self.collector_id,
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
                     metric_name="energy_full_design",
                     display_name="Energy Full (Design)",
                     device=device,
