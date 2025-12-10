@@ -318,7 +318,7 @@ class GPUCollector(Collector):
                     source_type="gpu",
                     source_name=self.name,
                     metric_name="utilization",
-                    display_name="GPU Utilization",
+                    display_name="GPU Usage",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="%",
