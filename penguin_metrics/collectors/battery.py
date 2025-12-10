@@ -217,8 +217,7 @@ class BatteryCollector(Collector):
                 icon="mdi:battery",
             )
 
-        if self.config.status:
-            add("status", "Status", icon="mdi:battery-charging")
+        add("status", "Status", icon="mdi:battery-charging")
 
         if self.config.voltage:
             add(

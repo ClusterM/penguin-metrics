@@ -807,7 +807,6 @@ battery "main" {
     # name "BAT0";
     
     capacity on;               # Charge percentage
-    status on;                 # Charging/Discharging/Full (published as 'state')
     voltage on;                # Current voltage
     current on;                # Current amperage (sign preserved: +charge / -discharge)
     power on;                  # Power (sign preserved)
@@ -839,7 +838,6 @@ battery "main" {
 | `path` | *(auto-detect)* | Path to battery in sysfs |
 | `name` | *(auto-detect)* | Battery name (BAT0, etc.) |
 | `capacity` | `on` | Charge percentage |
-| `status` | `on` | Charging/Discharging/Full (published as `state` in JSON) |
 | `voltage` | `on` | Current voltage |
 | `current` | `on` | Current amperage (sign preserved) |
 | `power` | `on` | Power (sign preserved) |
@@ -861,6 +859,8 @@ battery "main" {
 | `constant_charge_current_max` | `off` | Max charge current |
 | `charge_full_design` | `off` | Design full charge (mAh) |
 | `update_interval` | *(from defaults)* | Override default interval |
+
+Status (`state`) is always collected and published (required for availability/HA) and is not configurable.
 
 ### Custom Sensors
 

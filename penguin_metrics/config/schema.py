@@ -361,7 +361,6 @@ class BatteryDefaultsConfig:
     """Default settings for battery collectors."""
 
     capacity: bool = True
-    status: bool = True
     voltage: bool = True
     current: bool = True
     power: bool = True
@@ -390,7 +389,6 @@ class BatteryDefaultsConfig:
         defaults = cls()  # Get class defaults
         return cls(
             capacity=bool(block.get_value("capacity", defaults.capacity)),
-            status=bool(block.get_value("status", defaults.status)),
             voltage=bool(block.get_value("voltage", defaults.voltage)),
             current=bool(block.get_value("current", defaults.current)),
             power=bool(block.get_value("power", defaults.power)),
@@ -1110,7 +1108,6 @@ class BatteryConfig:
 
     # Metrics flags
     capacity: bool = True
-    status: bool = True
     voltage: bool = True
     current: bool = True
     power: bool = True
@@ -1164,7 +1161,6 @@ class BatteryConfig:
             device_ref=device_ref,
             ha_config=ha_config,
             capacity=get_bool("capacity", bd.capacity),
-            status=get_bool("status", bd.status),
             voltage=get_bool("voltage", bd.voltage),
             current=get_bool("current", bd.current),
             power=get_bool("power", bd.power),
@@ -1200,7 +1196,6 @@ class BatteryConfig:
             name=name,
             battery_name=name,
             capacity=bd.capacity,
-            status=bd.status,
             voltage=bd.voltage,
             current=bd.current,
             power=bd.power,
