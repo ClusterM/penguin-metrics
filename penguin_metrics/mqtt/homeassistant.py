@@ -132,8 +132,7 @@ class HomeAssistantDiscovery:
             # Publish empty payload to remove sensor from HA
             # Try both sensor and binary_sensor (we don't know which it was)
             for entity_type in ("sensor", "binary_sensor"):
-                topic = f"{self.discovery_prefix}/{entity_type}/{sensor_id}/config"
-                await self.mqtt.publish(topic, "", qos=1, retain=True)
+                await self._clear_discovery(sensor_id, entity_type)
             logger.info(f"Removed stale sensor: {sensor_id}")
 
         return len(stale)
@@ -166,6 +165,11 @@ class HomeAssistantDiscovery:
             Discovery topic string
         """
         return f"{self.discovery_prefix}/{sensor.entity_type}/{sensor.unique_id}/config"
+
+    async def _clear_discovery(self, sensor_id: str, entity_type: str = "sensor") -> None:
+        """Publish empty payload to remove discovery for given sensor/entity type."""
+        topic = f"{self.discovery_prefix}/{entity_type}/{sensor_id}/config"
+        await self.mqtt.publish(topic, "", qos=1, retain=True)
 
     def _build_discovery_payload(self, sensor: Sensor) -> dict[str, Any]:
         """
@@ -218,10 +222,7 @@ class HomeAssistantDiscovery:
         if not self.config.discovery:
             return
 
-        topic = self._get_discovery_topic(sensor)
-
-        # Empty payload removes the entity
-        await self.mqtt.publish(topic, "", qos=1, retain=True)
+        await self._clear_discovery(sensor.unique_id, sensor.entity_type)
         self._registered_sensors.discard(sensor.unique_id)
 
         logger.debug(f"Unregistered sensor: {sensor.unique_id}")
@@ -288,8 +289,7 @@ class HomeAssistantDiscovery:
         Sends empty payloads to remove all entities from Home Assistant.
         """
         for sensor_id in list(self._registered_sensors):
-            topic = f"{self.discovery_prefix}/sensor/{sensor_id}/config"
-            await self.mqtt.publish(topic, "", qos=1, retain=True)
+            await self._clear_discovery(sensor_id, "sensor")
 
         self._registered_sensors.clear()
         self._registered_devices.clear()

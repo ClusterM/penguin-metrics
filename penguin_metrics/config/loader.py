@@ -3,6 +3,7 @@ Configuration loader with file reading and validation.
 """
 
 from pathlib import Path
+from typing import Any
 
 from .lexer import LexerError
 from .parser import Block, ConfigDocument, ParseError, parse_config, parse_config_file
@@ -311,20 +312,14 @@ class ConfigLoader:
             if len(sources) > 1:
                 warnings.append(f"Duplicate ID '{dup_id}' used by: {', '.join(sources)}")
 
-        # Check process match configurations
-        for proc in config.processes:
-            if proc.match is None:
-                warnings.append(f"Process '{proc.name}' has no match configuration")
+        def warn_missing_match(items: list[Any], label: str) -> None:
+            for entry in items:
+                if getattr(entry, "match", None) is None:
+                    warnings.append(f"{label} '{entry.name}' has no match configuration")
 
-        # Check service match configurations
-        for svc in config.services:
-            if svc.match is None:
-                warnings.append(f"Service '{svc.name}' has no match configuration")
-
-        # Check container match configurations
-        for cont in config.containers:
-            if cont.match is None:
-                warnings.append(f"Container '{cont.name}' has no match configuration")
+        warn_missing_match(config.processes, "Process")
+        warn_missing_match(config.services, "Service")
+        warn_missing_match(config.containers, "Container")
 
         # Check custom sensors
         for custom in config.custom:
