@@ -1242,6 +1242,8 @@ disks {
 - Multiple `filter` patterns (glob matching)
 - Multiple `exclude` patterns
 - Per-source-type defaults applied to auto-discovered items
+- Boolean flags inside auto blocks override per-source defaults (e.g., `batteries { current off; temperature on; }`)
+- `update_interval` inside an auto block overrides the interval for those auto-created collectors only
 - Auto-refresh: periodically checks for new/removed sources (if `auto_refresh_interval > 0`)
 
 **Auto-Refresh:**

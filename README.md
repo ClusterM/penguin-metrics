@@ -442,29 +442,37 @@ Use **plural** block names for auto-discovery:
 temperatures {
     auto on;
     # source thermal;  # "thermal" or "hwmon" (default: thermal)
+    # update_interval 15s;   # Optional override (otherwise uses defaults.update_interval)
 }
 
 # Auto-discover batteries
 batteries {
     auto on;
+    # current off;            # Optional per-metric override (inherits defaults.battery first)
+    # temperature on;         # Enable temperature metrics for auto-discovered batteries
+    # update_interval 30s;    # Override interval for auto batteries only
 }
 
 # Auto-discover running Docker containers (with filter)
 containers {
     auto on;
     filter "myapp-*";
+    # disk_rate on;           # Override defaults.container values
+    # update_interval 10s;    # Override interval for auto containers only
 }
 
 # Auto-discover systemd services (filter REQUIRED for safety)
 services {
     auto on;
     filter "docker*";          # REQUIRED - too many services otherwise
+    # smaps on;                # Override defaults.service values
 }
 
 # Auto-discover processes (filter REQUIRED for safety)
 processes {
     auto on;
     filter "python*";           # REQUIRED - thousands of processes otherwise
+    # smaps on;                 # Override defaults.process values
 }
 ```
 
@@ -484,6 +492,8 @@ temperatures {
 - If **any exclude** pattern matches → excluded
 - If filters defined and **any matches** → included
 - If no filters → include all (except excluded)
+- Auto blocks **inherit per-source defaults**, then apply any boolean flags and `update_interval`
+  specified directly inside the auto block (e.g., `batteries { current off; temperature on; }`).
 
 ### Dynamic Auto-Refresh
 
