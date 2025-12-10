@@ -221,30 +221,14 @@ class TemperatureCollector(Collector):
             model="Temperature Monitor",
         )
 
-    def _add_temp_sensors(
+    def _add_temp_sensor(
         self,
         sensors: list[Sensor],
         sensor_name: str,
         display_name: str,
         device: Device,
-        enabled_by_default: bool = True,
     ) -> None:
-        """Add state and temp sensors for a temperature source."""
-        # State sensor: online/not_found
-        sensors.append(
-            create_sensor(
-                source_type="temperature",
-                source_name=sensor_name,
-                metric_name="state",
-                display_name=f"{display_name} State",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                icon="mdi:thermometer-check",
-                enabled_by_default=enabled_by_default,
-            )
-        )
-
-        # Temperature value sensor
+        """Add temperature sensor (state is in JSON but no HA sensor for it)."""
         sensors.append(
             create_sensor(
                 source_type="temperature",
@@ -257,7 +241,6 @@ class TemperatureCollector(Collector):
                 device_class=DeviceClass.TEMPERATURE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:thermometer",
-                enabled_by_default=enabled_by_default,
             )
         )
 
@@ -270,7 +253,7 @@ class TemperatureCollector(Collector):
         if self._hwmon_sensors:
             for chip, label, _ in self._hwmon_sensors:
                 # Manual config: use self.name as the sensor name
-                self._add_temp_sensors(
+                self._add_temp_sensor(
                     sensors,
                     sensor_name=self.name,
                     display_name=f"Temperature: {chip} {label}",
@@ -281,7 +264,7 @@ class TemperatureCollector(Collector):
         # Add thermal zones (auto-discovered)
         for zone in self._zones:
             zone_label = zone.type if zone.type != zone.name else zone.name
-            self._add_temp_sensors(
+            self._add_temp_sensor(
                 sensors,
                 sensor_name=zone_label,
                 display_name=f"Temperature: {zone.type}",
@@ -297,7 +280,7 @@ class TemperatureCollector(Collector):
                         label = entry.label or f"sensor{i}"
                         sensor_name = f"{name}_{label}".lower().replace(" ", "_")
 
-                        self._add_temp_sensors(
+                        self._add_temp_sensor(
                             sensors,
                             sensor_name=sensor_name,
                             display_name=f"Temperature: {name} {label}",
