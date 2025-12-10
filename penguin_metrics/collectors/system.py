@@ -44,7 +44,7 @@ class SystemCollector(Collector):
         """
         super().__init__(
             name=config.name,
-            collector_id=config.id,
+            collector_id=None,  # System uses fixed topic /system
             update_interval=config.update_interval or defaults.update_interval,
         )
 

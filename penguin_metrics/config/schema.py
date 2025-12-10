@@ -444,8 +444,7 @@ class AutoDiscoveryConfig:
 class SystemConfig:
     """System-wide metrics configuration."""
 
-    name: str = "system"  # Optional, not used in topics
-    id: str | None = None
+    name: str = "system"  # Optional, used for device name only
     device: DeviceConfig = field(default_factory=DeviceConfig)
 
     # Metrics flags
@@ -476,7 +475,6 @@ class SystemConfig:
 
         return cls(
             name=name,
-            id=block.get_value("id"),
             device=DeviceConfig.from_block(block.get_block("device")),
             cpu=get_bool("cpu", True),
             cpu_per_core=get_bool("cpu_per_core", False),
