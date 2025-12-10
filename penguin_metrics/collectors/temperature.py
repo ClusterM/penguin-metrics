@@ -150,9 +150,7 @@ class TemperatureCollector(Collector):
         else:
             # Legacy: SystemConfig passed (should not happen anymore)
             name = f"{config.name}_temperature"
-            collector_id = (
-                f"{config.id or config.name}_temp" if config.id else f"{config.name}_temp"
-            )
+            collector_id = f"{config.name}_temp"
             update_interval = config.update_interval
             self.specific_zone = None
             self.specific_hwmon = None

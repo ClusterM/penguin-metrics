@@ -225,7 +225,7 @@ class GPUCollector(Collector):
             parent_device: Parent device (if part of system collector)
         """
         name = f"{config.name}_gpu"
-        collector_id = f"{config.id or config.name}_gpu"
+        collector_id = f"{config.name}_gpu"
 
         super().__init__(
             name=name,
