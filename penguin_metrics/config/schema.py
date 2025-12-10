@@ -366,17 +366,18 @@ class BatteryDefaultsConfig:
     def from_block(cls, block: Block | None) -> "BatteryDefaultsConfig":
         if block is None:
             return cls()
+        defaults = cls()  # Get class defaults
         return cls(
-            capacity=bool(block.get_value("capacity", True)),
-            status=bool(block.get_value("status", True)),
-            voltage=bool(block.get_value("voltage", False)),
-            current=bool(block.get_value("current", False)),
-            power=bool(block.get_value("power", False)),
-            health=bool(block.get_value("health", False)),
-            cycles=bool(block.get_value("cycles", False)),
-            temperature=bool(block.get_value("temperature", False)),
-            time_to_empty=bool(block.get_value("time_to_empty", False)),
-            time_to_full=bool(block.get_value("time_to_full", False)),
+            capacity=bool(block.get_value("capacity", defaults.capacity)),
+            status=bool(block.get_value("status", defaults.status)),
+            voltage=bool(block.get_value("voltage", defaults.voltage)),
+            current=bool(block.get_value("current", defaults.current)),
+            power=bool(block.get_value("power", defaults.power)),
+            health=bool(block.get_value("health", defaults.health)),
+            cycles=bool(block.get_value("cycles", defaults.cycles)),
+            temperature=bool(block.get_value("temperature", defaults.temperature)),
+            time_to_empty=bool(block.get_value("time_to_empty", defaults.time_to_empty)),
+            time_to_full=bool(block.get_value("time_to_full", defaults.time_to_full)),
         )
 
 
