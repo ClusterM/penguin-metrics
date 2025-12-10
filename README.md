@@ -790,13 +790,22 @@ battery "main" {
     capacity on;               # Charge percentage
     status on;                 # Charging/Discharging/Full (published as 'state')
     voltage on;                # Current voltage
-    current on;                # Current amperage
-    power on;                  # Power consumption
+    current on;                # Current amperage (sign preserved: +charge / -discharge)
+    power on;                  # Power (sign preserved)
     health on;                 # Battery health
     cycles on;                 # Charge cycles
     temperature on;            # Battery temperature
     time_to_empty on;          # Estimated time remaining
     time_to_full on;           # Time to full charge
+    present on;                # Presence flag (0/1)
+    technology on;             # Chemistry (e.g., Li-ion)
+    voltage_max on;            # Current max voltage (V)
+    voltage_min on;            # Current min voltage (V)
+    voltage_max_design on;     # Design max voltage (V)
+    voltage_min_design on;     # Design min voltage (V)
+    constant_charge_current on;     # Target charge current (A)
+    constant_charge_current_max on; # Max charge current (A)
+    charge_full_design on;     # Design full charge (mAh)
     
     update_interval 30s;
 }
@@ -810,13 +819,22 @@ battery "main" {
 | `capacity` | `on` | Charge percentage |
 | `status` | `on` | Charging/Discharging/Full (published as `state` in JSON) |
 | `voltage` | `on` | Current voltage |
-| `current` | `on` | Current amperage |
-| `power` | `on` | Power consumption |
+| `current` | `on` | Current amperage (sign preserved) |
+| `power` | `on` | Power (sign preserved) |
 | `health` | `on` | Battery health |
 | `cycles` | `off` | Charge cycle count |
 | `temperature` | `off` | Battery temperature |
 | `time_to_empty` | `off` | Time remaining |
 | `time_to_full` | `off` | Time to full charge |
+| `present` | `off` | Presence flag |
+| `technology` | `off` | Battery chemistry |
+| `voltage_max` | `off` | Current max voltage |
+| `voltage_min` | `off` | Current min voltage |
+| `voltage_max_design` | `off` | Design max voltage |
+| `voltage_min_design` | `off` | Design min voltage |
+| `constant_charge_current` | `off` | Target charge current |
+| `constant_charge_current_max` | `off` | Max charge current |
+| `charge_full_design` | `off` | Design full charge (mAh) |
 | `update_interval` | *(from defaults)* | Override default interval |
 
 ### Custom Sensors
