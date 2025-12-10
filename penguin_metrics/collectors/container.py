@@ -18,9 +18,9 @@ from datetime import datetime
 
 from ..config.schema import ContainerConfig, ContainerMatchType, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
+from ..models.sensor import DeviceClass, Sensor, StateClass
 from ..utils.docker_api import ContainerInfo, DockerClient, DockerError
-from .base import Collector, CollectorResult
+from .base import Collector, CollectorResult, build_sensor
 
 
 def _calc_rate(
@@ -151,246 +151,146 @@ class ContainerCollector(Collector):
 
     def create_sensors(self) -> list[Sensor]:
         """Create sensors based on configuration."""
-        sensors = []
+        sensors: list[Sensor] = []
         device = self.device
+        ha_cfg = self.config.ha_config
 
-        # Container sensors use short names - device name provides context
-        if self.config.state:
+        def add(
+            metric: str,
+            display: str,
+            *,
+            unit: str | None = None,
+            device_class: DeviceClass | str | None = None,
+            state_class: StateClass | None = None,
+            icon: str | None = None,
+        ) -> None:
             sensors.append(
-                create_sensor(
-                    source_type="docker",
+                build_sensor(
+                    source_type=self.SOURCE_TYPE,
                     source_name=self.name,
-                    metric_name="state",
-                    display_name="State",
+                    metric_name=metric,
+                    display_name=display,
                     device=device,
                     topic_prefix=self.topic_prefix,
-                    icon="mdi:docker",
+                    unit=unit,
+                    device_class=device_class,
+                    state_class=state_class,
+                    icon=icon,
+                    ha_config=ha_cfg,
                 )
             )
+
+        if self.config.state:
+            add("state", "State", icon="mdi:docker")
 
         if self.config.health:
-            sensors.append(
-                create_sensor(
-                    source_type="docker",
-                    source_name=self.name,
-                    metric_name="health",
-                    display_name="Health",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    icon="mdi:heart-pulse",
-                )
-            )
+            add("health", "Health", icon="mdi:heart-pulse")
 
         if self.config.cpu:
-            sensors.append(
-                create_sensor(
-                    source_type="docker",
-                    source_name=self.name,
-                    metric_name="cpu_percent",
-                    display_name="CPU Usage",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="%",
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:chip",
-                )
-            )
+            add("cpu_percent", "CPU Usage", unit="%", state_class=StateClass.MEASUREMENT, icon="mdi:chip")
 
         if self.config.memory:
-            sensors.extend(
-                [
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="memory_usage",
-                        display_name="Memory Usage",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB",
-                        device_class=DeviceClass.DATA_SIZE,
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:memory",
-                    ),
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="memory_percent",
-                        display_name="Memory %",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="%",
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:memory",
-                    ),
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="memory_limit",
-                        display_name="Memory Limit",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB",
-                        device_class=DeviceClass.DATA_SIZE,
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:memory",
-                    ),
-                ]
+            add(
+                "memory_usage",
+                "Memory Usage",
+                unit="MiB",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:memory",
+            )
+            add("memory_percent", "Memory %", unit="%", state_class=StateClass.MEASUREMENT, icon="mdi:memory")
+            add(
+                "memory_limit",
+                "Memory Limit",
+                unit="MiB",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:memory",
             )
 
         if self.config.network:
-            sensors.extend(
-                [
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="network_rx",
-                        display_name="Network RX",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB",
-                        device_class=DeviceClass.DATA_SIZE,
-                        state_class=StateClass.TOTAL_INCREASING,
-                        icon="mdi:download",
-                    ),
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="network_tx",
-                        display_name="Network TX",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB",
-                        device_class=DeviceClass.DATA_SIZE,
-                        state_class=StateClass.TOTAL_INCREASING,
-                        icon="mdi:upload",
-                    ),
-                ]
+            add(
+                "network_rx",
+                "Network RX",
+                unit="MiB",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:download",
+            )
+            add(
+                "network_tx",
+                "Network TX",
+                unit="MiB",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:upload",
             )
 
         if self.config.network_rate:
-            sensors.extend(
-                [
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="network_rx_rate",
-                        display_name="Network RX Rate",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB/s",
-                        device_class=DeviceClass.DATA_RATE,
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:download",
-                    ),
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="network_tx_rate",
-                        display_name="Network TX Rate",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB/s",
-                        device_class=DeviceClass.DATA_RATE,
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:upload",
-                    ),
-                ]
+            add(
+                "network_rx_rate",
+                "Network RX Rate",
+                unit="MiB/s",
+                device_class=DeviceClass.DATA_RATE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:download",
+            )
+            add(
+                "network_tx_rate",
+                "Network TX Rate",
+                unit="MiB/s",
+                device_class=DeviceClass.DATA_RATE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:upload",
             )
 
         if self.config.disk:
-            sensors.extend(
-                [
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="disk_read",
-                        display_name="Disk Read",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB",
-                        device_class=DeviceClass.DATA_SIZE,
-                        state_class=StateClass.TOTAL_INCREASING,
-                        icon="mdi:harddisk",
-                    ),
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="disk_write",
-                        display_name="Disk Write",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB",
-                        device_class=DeviceClass.DATA_SIZE,
-                        state_class=StateClass.TOTAL_INCREASING,
-                        icon="mdi:harddisk",
-                    ),
-                ]
+            add(
+                "disk_read",
+                "Disk Read",
+                unit="MiB",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:harddisk",
+            )
+            add(
+                "disk_write",
+                "Disk Write",
+                unit="MiB",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:harddisk",
             )
 
         if self.config.disk_rate:
-            sensors.extend(
-                [
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="disk_read_rate",
-                        display_name="Disk Read Rate",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB/s",
-                        device_class=DeviceClass.DATA_RATE,
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:harddisk",
-                    ),
-                    create_sensor(
-                        source_type="docker",
-                        source_name=self.name,
-                        metric_name="disk_write_rate",
-                        display_name="Disk Write Rate",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB/s",
-                        device_class=DeviceClass.DATA_RATE,
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:harddisk",
-                    ),
-                ]
+            add(
+                "disk_read_rate",
+                "Disk Read Rate",
+                unit="MiB/s",
+                device_class=DeviceClass.DATA_RATE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:harddisk",
+            )
+            add(
+                "disk_write_rate",
+                "Disk Write Rate",
+                unit="MiB/s",
+                device_class=DeviceClass.DATA_RATE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:harddisk",
             )
 
         if self.config.uptime:
-            sensors.append(
-                create_sensor(
-                    source_type="docker",
-                    source_name=self.name,
-                    metric_name="uptime",
-                    display_name="Uptime",
-                    device=device,
-                    topic_prefix=self.topic_prefix,
-                    unit="s",
-                    device_class=DeviceClass.DURATION,
-                    state_class=StateClass.TOTAL_INCREASING,
-                    icon="mdi:clock-outline",
-                )
+            add(
+                "uptime",
+                "Uptime",
+                unit="s",
+                device_class=DeviceClass.DURATION,
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:clock-outline",
             )
 
-        # PIDs count
-        sensors.append(
-            create_sensor(
-                source_type="docker",
-                source_name=self.name,
-                metric_name="pids",
-                display_name="Processes",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                state_class=StateClass.MEASUREMENT,
-                icon="mdi:application-outline",
-            )
-        )
-
-        # Apply HA overrides from config to all sensors
-        if self.config.ha_config:
-            for sensor in sensors:
-                sensor.apply_ha_overrides(self.config.ha_config)
+        add("pids", "Processes", state_class=StateClass.MEASUREMENT, icon="mdi:application-outline")
 
         return sensors
 
