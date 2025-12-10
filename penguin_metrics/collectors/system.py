@@ -152,18 +152,6 @@ class SystemCollector(Collector):
                     create_sensor(
                         source_type="system",
                         source_name="",  # System has no source_name - uses /system/{metric}
-                        metric_name="memory_available",
-                        display_name="Memory Available",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB",
-                        device_class=DeviceClass.DATA_SIZE,
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:memory",
-                    ),
-                    create_sensor(
-                        source_type="system",
-                        source_name="",  # System has no source_name - uses /system/{metric}
                         metric_name="memory_total",
                         display_name="Memory Total",
                         device=device,
@@ -278,7 +266,6 @@ class SystemCollector(Collector):
             mem = psutil.virtual_memory()
             result.set("memory_percent", round(mem.percent, 1))
             result.set("memory_used", round(mem.used / (1024 * 1024), 1))
-            result.set("memory_available", round(mem.available / (1024 * 1024), 1))
             result.set("memory_total", round(mem.total / (1024 * 1024), 1))
 
         # Swap

@@ -598,7 +598,6 @@ Metrics:
 - `cpu{N}_percent` - Per-core CPU usage (%)
 - `memory_percent` - RAM usage (%)
 - `memory_used` - Used RAM (MB)
-- `memory_available` - Available RAM (MB)
 - `memory_total` - Total RAM (MB)
 - `swap_percent` - Swap usage (%)
 - `swap_used` - Used swap (MB)
