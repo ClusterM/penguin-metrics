@@ -6,7 +6,6 @@ Defines all configuration sections, their fields, defaults, and validation.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
 
 from .parser import Block, ConfigDocument, Directive
 
@@ -379,9 +378,8 @@ class AutoDiscoveryConfig:
     enabled: bool = False
     filters: list[str] = field(default_factory=list)  # Include only matching (glob patterns)
     excludes: list[str] = field(default_factory=list)  # Exclude matching (glob patterns)
-    # Temperature-specific options
-    thermal: bool = True  # Search /sys/class/thermal
-    hwmon: bool = False  # Search hwmon via psutil (often duplicates thermal)
+    # Temperature-specific: source "thermal" or "hwmon" (default: thermal)
+    source: str = "thermal"
 
     @classmethod
     def from_block(cls, block: Block | None) -> "AutoDiscoveryConfig":
@@ -402,28 +400,17 @@ class AutoDiscoveryConfig:
         filters = block.get_all_values("filter")
         excludes = block.get_all_values("exclude")
 
-        # Temperature source options (default: both enabled)
-        thermal = cls._parse_bool(block.get_value("thermal"), default=True)
-        hwmon = cls._parse_bool(block.get_value("hwmon"), default=True)
+        # Temperature source option (default: thermal)
+        source = block.get_value("source", "thermal")
+        if source not in ("thermal", "hwmon"):
+            source = "thermal"
 
         return cls(
             enabled=enabled,
             filters=filters,
             excludes=excludes,
-            thermal=thermal,
-            hwmon=hwmon,
+            source=source,
         )
-
-    @staticmethod
-    def _parse_bool(value: Any, default: bool) -> bool:
-        """Parse boolean value from config."""
-        if value is None:
-            return default
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, str):
-            return value.lower() in ("on", "true", "yes", "1")
-        return default
 
     def matches(self, name: str) -> bool:
         """

@@ -370,11 +370,10 @@ Penguin Metrics can automatically discover sensors, batteries, containers, and s
 Use **plural** block names for auto-discovery:
 
 ```nginx
-# Auto-discover temperature sensors from /sys/class/thermal
+# Auto-discover temperature sensors
 temperatures {
     auto on;
-    # thermal on;   # /sys/class/thermal (default: on)
-    # hwmon off;    # hwmon via psutil (default: off)
+    # source thermal;  # "thermal" or "hwmon" (default: thermal)
 }
 
 # Auto-discover batteries
@@ -406,10 +405,9 @@ processes {
 ```nginx
 temperatures {
     auto on;
-    thermal on;            # /sys/class/thermal (default: on)
-    hwmon on;              # hwmon via psutil (default: off)
+    source hwmon;          # Use hwmon instead of thermal zones
+    filter "nvme*";        # Include NVMe sensors
     filter "soc*";         # Include SoC sensors
-    filter "nvme*";        # Include NVMe sensors (hwmon)
     exclude "test*";       # Exclude test sensors
 }
 ```

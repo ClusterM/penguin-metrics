@@ -216,8 +216,8 @@ class Application:
 
         collectors = []
 
-        # Discover thermal zones from /sys/class/thermal
-        if auto_cfg.thermal:
+        if auto_cfg.source == "thermal":
+            # Discover thermal zones from /sys/class/thermal
             for zone in discover_thermal_zones():
                 name = zone.type if zone.type != zone.name else zone.name
                 if name in exclude:
@@ -242,8 +242,8 @@ class Application:
                 )
                 logger.debug(f"Auto-discovered thermal zone: {name}")
 
-        # Discover hwmon sensors via psutil
-        if auto_cfg.hwmon:
+        elif auto_cfg.source == "hwmon":
+            # Discover hwmon sensors via psutil
             for sensor in discover_hwmon_sensors():
                 name = f"{sensor.chip}_{sensor.label}".lower().replace(" ", "_")
                 if name in exclude:
