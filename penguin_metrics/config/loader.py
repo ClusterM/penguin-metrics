@@ -247,8 +247,8 @@ class ConfigLoader:
         all_ids: dict[str, list[str]] = {}
 
         for sys in config.system:
-            id_val = sys.id or sys.name
-            all_ids.setdefault(id_val, []).append(f"system:{sys.name}")
+            # System uses fixed topic, just check for duplicate system blocks
+            all_ids.setdefault("system", []).append(f"system:{sys.name}")
 
         for proc in config.processes:
             id_val = proc.id or proc.name
