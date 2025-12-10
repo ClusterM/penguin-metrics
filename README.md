@@ -792,7 +792,7 @@ container "monitored" {
 - `temperature` - battery temperature (°C)
 - `time_to_empty` - minutes remaining
 - `time_to_full` - minutes to full charge
-- `energy_now`, `energy_full`, `energy_full_design` - energy (Wh, always published)
+- `energy_now`, `energy_full`, `energy_full_design` - energy (Wh)
 - `present` - presence flag (0/1)
 - `technology` - chemistry (e.g., Li-ion)
 - `voltage_max`, `voltage_min` - current voltage limits (V)
@@ -812,6 +812,9 @@ battery "main" {
     current on;                # Current amperage (sign preserved: +charge / -discharge)
     power on;                  # Power (sign preserved)
     health on;                 # Battery health
+    energy_now on;             # Current energy (Wh)
+    energy_full on;            # Full energy (Wh)
+    energy_full_design on;     # Design full energy (Wh)
     cycles on;                 # Charge cycles
     temperature on;            # Battery temperature
     time_to_empty on;          # Estimated time remaining
@@ -841,6 +844,9 @@ battery "main" {
 | `current` | `on` | Current amperage (sign preserved) |
 | `power` | `on` | Power (sign preserved) |
 | `health` | `on` | Battery health |
+| `energy_now` | `on` | Current energy (Wh) |
+| `energy_full` | `on` | Full energy (Wh) |
+| `energy_full_design` | `on` | Design full energy (Wh) |
 | `cycles` | `off` | Charge cycle count |
 | `temperature` | `off` | Battery temperature |
 | `time_to_empty` | `off` | Time remaining |
@@ -855,8 +861,6 @@ battery "main" {
 | `constant_charge_current_max` | `off` | Max charge current |
 | `charge_full_design` | `off` | Design full charge (mAh) |
 | `update_interval` | *(from defaults)* | Override default interval |
-
-Energy metrics `energy_now`, `energy_full`, and `energy_full_design` are always published (no toggle).
 
 ### Custom Sensors
 

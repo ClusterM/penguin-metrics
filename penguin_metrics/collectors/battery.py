@@ -357,9 +357,8 @@ class BatteryCollector(Collector):
                 icon="mdi:battery-arrow-up",
             )
 
-        # Energy capacity sensors
-        sensors.extend(
-            [
+        if self.config.energy_now:
+            sensors.append(
                 build_sensor(
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
@@ -372,7 +371,11 @@ class BatteryCollector(Collector):
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
                     ha_config=ha_cfg,
-                ),
+                )
+            )
+
+        if self.config.energy_full:
+            sensors.append(
                 build_sensor(
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
@@ -385,7 +388,11 @@ class BatteryCollector(Collector):
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
                     ha_config=ha_cfg,
-                ),
+                )
+            )
+
+        if self.config.energy_full_design:
+            sensors.append(
                 build_sensor(
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
@@ -398,7 +405,11 @@ class BatteryCollector(Collector):
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
                     ha_config=ha_cfg,
-                ),
+                )
+            )
+
+        if self.config.charge_full_design:
+            sensors.append(
                 build_sensor(
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
@@ -411,9 +422,8 @@ class BatteryCollector(Collector):
                     state_class=StateClass.MEASUREMENT,
                     icon="mdi:battery",
                     ha_config=ha_cfg,
-                ),
-            ]
-        )
+                )
+            )
 
         return sensors
 
@@ -528,17 +538,20 @@ class BatteryCollector(Collector):
                 result.set("time_to_full", ttf)
 
         # Energy values
-        energy_now = read_sysfs_float(path / "energy_now", scale=0.000001)
-        if energy_now is not None:
-            result.set("energy_now", round(energy_now, 2))
+        if self.config.energy_now:
+            energy_now = read_sysfs_float(path / "energy_now", scale=0.000001)
+            if energy_now is not None:
+                result.set("energy_now", round(energy_now, 2))
 
-        energy_full = read_sysfs_float(path / "energy_full", scale=0.000001)
-        if energy_full is not None:
-            result.set("energy_full", round(energy_full, 2))
+        if self.config.energy_full:
+            energy_full = read_sysfs_float(path / "energy_full", scale=0.000001)
+            if energy_full is not None:
+                result.set("energy_full", round(energy_full, 2))
 
-        energy_full_design = read_sysfs_float(path / "energy_full_design", scale=0.000001)
-        if energy_full_design is not None:
-            result.set("energy_full_design", round(energy_full_design, 2))
+        if self.config.energy_full_design:
+            energy_full_design = read_sysfs_float(path / "energy_full_design", scale=0.000001)
+            if energy_full_design is not None:
+                result.set("energy_full_design", round(energy_full_design, 2))
 
         if self.config.charge_full_design:
             charge_full_design = read_sysfs_int(path / "charge_full_design")

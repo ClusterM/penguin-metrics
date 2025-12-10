@@ -366,6 +366,9 @@ class BatteryDefaultsConfig:
     current: bool = True
     power: bool = True
     health: bool = True
+    energy_now: bool = True
+    energy_full: bool = True
+    energy_full_design: bool = True
     cycles: bool = False
     temperature: bool = False
     time_to_empty: bool = False
@@ -392,6 +395,11 @@ class BatteryDefaultsConfig:
             current=bool(block.get_value("current", defaults.current)),
             power=bool(block.get_value("power", defaults.power)),
             health=bool(block.get_value("health", defaults.health)),
+            energy_now=bool(block.get_value("energy_now", defaults.energy_now)),
+            energy_full=bool(block.get_value("energy_full", defaults.energy_full)),
+            energy_full_design=bool(
+                block.get_value("energy_full_design", defaults.energy_full_design)
+            ),
             cycles=bool(block.get_value("cycles", defaults.cycles)),
             temperature=bool(block.get_value("temperature", defaults.temperature)),
             time_to_empty=bool(block.get_value("time_to_empty", defaults.time_to_empty)),
@@ -1107,6 +1115,9 @@ class BatteryConfig:
     current: bool = True
     power: bool = True
     health: bool = True
+    energy_now: bool = True
+    energy_full: bool = True
+    energy_full_design: bool = True
     cycles: bool = False
     temperature: bool = False
     time_to_empty: bool = False
@@ -1158,6 +1169,9 @@ class BatteryConfig:
             current=get_bool("current", bd.current),
             power=get_bool("power", bd.power),
             health=get_bool("health", bd.health),
+            energy_now=get_bool("energy_now", bd.energy_now),
+            energy_full=get_bool("energy_full", bd.energy_full),
+            energy_full_design=get_bool("energy_full_design", bd.energy_full_design),
             cycles=get_bool("cycles", bd.cycles),
             temperature=get_bool("temperature", bd.temperature),
             time_to_empty=get_bool("time_to_empty", bd.time_to_empty),
@@ -1191,6 +1205,9 @@ class BatteryConfig:
             current=bd.current,
             power=bd.power,
             health=bd.health,
+            energy_now=bd.energy_now,
+            energy_full=bd.energy_full,
+            energy_full_design=bd.energy_full_design,
             cycles=bd.cycles,
             temperature=bd.temperature,
             time_to_empty=bd.time_to_empty,
