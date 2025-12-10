@@ -4,6 +4,15 @@
 
 Linux system telemetry service that sends data to MQTT, with Home Assistant integration via MQTT Discovery.
 
+**Why monitor your servers through Home Assistant?**
+
+- 📊 **All in one place** — see your servers alongside smart home devices in a single dashboard
+- 🪶 **Lightweight** — no need for heavy monitoring stacks like Prometheus + Grafana
+- 🔔 **Smart automations** — get notifications when disk space is low, CPU is overloaded, or a service goes down
+- 📈 **Beautiful visualization** — Home Assistant offers flexible cards, graphs, and history tracking
+- 🔌 **Zero configuration on HA side** — MQTT Discovery automatically creates all sensors and devices
+- 🏠 **Perfect for home servers** — simple setup, minimal resource usage, native HA integration
+
 ## Features
 
 ### Data Collection
