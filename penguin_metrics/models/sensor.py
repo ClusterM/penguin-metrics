@@ -188,6 +188,8 @@ class Sensor:
                 valid_states = ("running",)
             elif source_type == "process":
                 valid_states = ("running",)
+            elif source_type == "battery":
+                valid_states = ("charging", "discharging", "full", "not charging")
             else:
                 valid_states = ("online",)
 
