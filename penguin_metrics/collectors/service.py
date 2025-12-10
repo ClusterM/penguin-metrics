@@ -274,7 +274,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory",
-                        display_name="Memory",
+                        display_name="Memory Cgroup",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="MiB",

@@ -621,7 +621,7 @@ service "docker" {
     match unit "docker.service";
     
     cpu on;                    # CPU time from cgroup
-    memory on;                 # Memory from cgroup
+    memory on;                 # Memory Cgroup (includes cache, use smaps for accurate)
     smaps on;                  # PSS/USS aggregated
     state on;                  # active/inactive/failed
     restart_count on;          # Number of restarts
@@ -641,7 +641,7 @@ service "nginx" {
 | Directive | Default | Description |
 |-----------|---------|-------------|
 | `cpu` | `on` | CPU usage (normalized to 0-100%) |
-| `memory` | `on` | Memory from cgroup |
+| `memory` | `on` | Memory Cgroup (includes cache) |
 | `smaps` | *(from defaults)* | PSS/USS + Real PSS/USS aggregated |
 | `state` | `on` | Service state (only 'active' collects metrics) |
 | `restart_count` | `off` | Number of restarts |

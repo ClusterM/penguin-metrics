@@ -672,7 +672,7 @@ Metrics:
 - `state` - active/inactive/failed/not_found
 - `restarts` - Restart count
 - `cpu_percent` - CPU usage (%, normalized to 0-100%, delta-based from cgroup)
-- `memory` - Memory from cgroup (MB)
+- `memory` - Memory Cgroup (MiB, includes cache - use PSS/USS for accurate RAM usage)
 - `memory_cache` - Cache memory (MB)
 - `memory_pss` - Real PSS memory (MB, excludes file-backed mappings, if smaps enabled)
 - `memory_uss` - Real USS memory (MB, excludes file-backed mappings, if smaps enabled)
