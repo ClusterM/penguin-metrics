@@ -342,7 +342,6 @@ class SystemConfig:
 @dataclass
 class ProcessConfig:
     name: str
-    id: str | None = None
     match: ProcessMatchConfig | None = None
     device_ref: str | None = None  # "system"/"auto"/"none"/template name
     sensor_prefix: str | None = None

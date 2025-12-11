@@ -721,11 +721,11 @@ class Application:
         # Get manually configured IDs (these should not be auto-removed)
         manual_ids: set[str] = set()
         for svc_cfg in self.config.services:
-            manual_ids.add(svc_cfg.id or svc_cfg.name)
+            manual_ids.add(svc_cfg.name)
         for cont_cfg in self.config.containers:
-            manual_ids.add(cont_cfg.id or cont_cfg.name)
+            manual_ids.add(cont_cfg.name)
         for proc_cfg in self.config.processes:
-            manual_ids.add(proc_cfg.id or proc_cfg.name)
+            manual_ids.add(proc_cfg.name)
 
         # Get system device from first system collector (if any)
         system_device = None

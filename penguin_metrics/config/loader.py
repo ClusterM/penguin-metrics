@@ -147,7 +147,6 @@ class ConfigLoader:
             "format",
         },
         "system": {
-            "id",
             "device",
             "cpu",
             "cpu_per_core",
@@ -159,7 +158,6 @@ class ConfigLoader:
             "update_interval",
         },
         "process": {
-            "id",
             "device",
             "match",
             "cpu",
@@ -173,7 +171,6 @@ class ConfigLoader:
             "update_interval",
         },
         "service": {
-            "id",
             "device",
             "match",
             "cpu",
@@ -186,7 +183,6 @@ class ConfigLoader:
             "update_interval",
         },
         "container": {
-            "id",
             "device",
             "match",
             "cpu",
@@ -200,9 +196,8 @@ class ConfigLoader:
             "uptime",
             "update_interval",
         },
-        "temperature": {"id", "zone", "hwmon", "path", "device", "update_interval"},
+        "temperature": {"zone", "hwmon", "path", "device", "update_interval"},
         "battery": {
-            "id",
             "device",
             "name",
             "path",
@@ -310,17 +305,7 @@ class ConfigLoader:
             "aggregate",
         },
         "disks": {"auto", "filter", "exclude", "device", "update_interval"},
-        "disk": {
-            "id",
-            "path",
-            "mountpoint",
-            "device",
-            "total",
-            "used",
-            "free",
-            "percent",
-            "update_interval",
-        },
+        "disk": {"path", "mountpoint", "device", "total", "used", "free", "percent", "update_interval"},
         "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
         "match": {"name", "pattern", "pid", "pidfile", "cmdline", "unit", "image", "label"},
     }
@@ -357,28 +342,24 @@ class ConfigLoader:
         if not config.mqtt.host:
             warnings.append("MQTT host is not configured")
 
-        # Check for duplicate IDs
-        all_ids: dict[str, list[str]] = {}
+        # Check for duplicate names (topic collisions)
+        all_names: dict[str, list[str]] = {}
 
         for sys in config.system:
-            # System uses fixed topic, just check for duplicate system blocks
-            all_ids.setdefault("system", []).append(f"system:{sys.name}")
+            all_names.setdefault(sys.name, []).append(f"system:{sys.name}")
 
         for proc in config.processes:
-            id_val = proc.id or proc.name
-            all_ids.setdefault(id_val, []).append(f"process:{proc.name}")
+            all_names.setdefault(proc.name, []).append(f"process:{proc.name}")
 
         for svc in config.services:
-            id_val = svc.id or svc.name
-            all_ids.setdefault(id_val, []).append(f"service:{svc.name}")
+            all_names.setdefault(svc.name, []).append(f"service:{svc.name}")
 
         for cont in config.containers:
-            id_val = cont.id or cont.name
-            all_ids.setdefault(id_val, []).append(f"container:{cont.name}")
+            all_names.setdefault(cont.name, []).append(f"container:{cont.name}")
 
-        for dup_id, sources in all_ids.items():
+        for dup_name, sources in all_names.items():
             if len(sources) > 1:
-                warnings.append(f"Duplicate ID '{dup_id}' used by: {', '.join(sources)}")
+                warnings.append(f"Duplicate name '{dup_name}' used by: {', '.join(sources)}")
 
         def warn_missing_match(items: list[Any], label: str) -> None:
             for entry in items:

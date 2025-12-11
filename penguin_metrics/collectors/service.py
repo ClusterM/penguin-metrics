@@ -177,7 +177,7 @@ class ServiceCollector(Collector):
         """
         super().__init__(
             name=config.name,
-            collector_id=config.id or config.name,
+            collector_id=config.name,
             update_interval=config.update_interval or defaults.update_interval,
         )
 

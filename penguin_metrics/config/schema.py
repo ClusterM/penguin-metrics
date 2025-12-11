@@ -719,7 +719,6 @@ class ProcessConfig:
     """Process monitoring configuration."""
 
     name: str
-    id: str | None = None
     match: ProcessMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     sensor_prefix: str | None = None
@@ -771,7 +770,6 @@ class ProcessConfig:
 
         return cls(
             name=name,
-            id=block.get_value("id"),
             match=ProcessMatchConfig.from_directive(block.get_directive("match")),
             device_ref=device_ref,
             sensor_prefix=block.get_value("sensor_prefix"),
@@ -850,7 +848,6 @@ class ServiceConfig:
     """Systemd service monitoring configuration."""
 
     name: str
-    id: str | None = None
     match: ServiceMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
@@ -899,7 +896,6 @@ class ServiceConfig:
 
         return cls(
             name=name,
-            id=block.get_value("id"),
             match=ServiceMatchConfig.from_directive(block.get_directive("match")),
             device_ref=device_ref,
             ha_config=ha_config,
@@ -977,7 +973,6 @@ class ContainerConfig:
     """Docker container monitoring configuration."""
 
     name: str
-    id: str | None = None
     match: ContainerMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
@@ -1020,7 +1015,6 @@ class ContainerConfig:
 
         return cls(
             name=name,
-            id=block.get_value("id"),
             match=ContainerMatchConfig.from_directive(block.get_directive("match")),
             device_ref=device_ref,
             ha_config=ha_config,
@@ -1064,7 +1058,6 @@ class TemperatureConfig:
     """Temperature sensor configuration."""
 
     name: str
-    id: str | None = None
     zone: str | None = None  # Thermal zone name (e.g., "soc-thermal", "thermal_zone0")
     hwmon: str | None = None  # Hwmon sensor name (e.g., "soc_thermal_sensor0")
     path: str | None = None  # Direct path to temp file
@@ -1098,7 +1091,6 @@ class TemperatureConfig:
 
         return cls(
             name=name,
-            id=block.get_value("id"),
             zone=block.get_value("zone"),
             hwmon=block.get_value("hwmon"),
             path=block.get_value("path"),
@@ -1113,7 +1105,6 @@ class BatteryConfig:
     """Battery monitoring configuration."""
 
     name: str
-    id: str | None = None
     path: str | None = None
     battery_name: str | None = None  # BAT0, BAT1, etc.
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
@@ -1168,7 +1159,6 @@ class BatteryConfig:
 
         return cls(
             name=name,
-            id=block.get_value("id"),
             path=block.get_value("path"),
             battery_name=block.get_value("name"),  # the battery name like BAT0
             device_ref=device_ref,
@@ -1356,7 +1346,6 @@ class DiskConfig:
     """Disk space monitoring configuration."""
 
     name: str
-    id: str | None = None
     path: str | None = None  # Device name: sda1, nvme0n1p1
     mountpoint: str | None = None  # Mount point: /, /home
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
@@ -1394,7 +1383,6 @@ class DiskConfig:
 
         return cls(
             name=name,
-            id=block.get_value("id"),
             path=block.get_value("path"),
             mountpoint=block.get_value("mountpoint"),
             device_ref=device_ref,

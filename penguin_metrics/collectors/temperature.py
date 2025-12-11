@@ -144,7 +144,7 @@ class TemperatureCollector(Collector):
         """
         if isinstance(config, TemperatureConfig):
             name = config.name
-            collector_id = config.id
+            collector_id = config.name
             update_interval = config.update_interval
             self.specific_zone = config.zone
             self.specific_hwmon = config.hwmon
