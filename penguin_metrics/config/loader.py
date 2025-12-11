@@ -236,7 +236,7 @@ class ConfigLoader:
             "update_interval",
             "timeout",
         },
-        "binary_sensor": {
+        "custom_binary": {
             "device",
             "command",
             "script",

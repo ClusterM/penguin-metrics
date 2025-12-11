@@ -14,9 +14,9 @@ from typing import Any
 
 from .collectors.base import Collector
 from .collectors.battery import BatteryCollector
-from .collectors.binary_sensor import BinarySensorCollector
 from .collectors.container import ContainerCollector
 from .collectors.custom import CustomCollector
+from .collectors.custom_binary import CustomBinarySensorCollector
 from .collectors.disk import DiskCollector
 from .collectors.gpu import GPUCollector
 from .collectors.process import ProcessCollector
@@ -247,10 +247,10 @@ class Application:
                 )
             )
 
-        # Binary sensor collectors
+        # Custom binary sensor collectors
         for binary_config in self.config.binary_sensors:
             collectors.append(
-                BinarySensorCollector(
+                CustomBinarySensorCollector(
                     config=binary_config,
                     defaults=self.config.defaults,
                     topic_prefix=topic_prefix,

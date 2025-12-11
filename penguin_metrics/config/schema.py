@@ -1286,8 +1286,8 @@ class CustomSensorConfig:
 
 
 @dataclass
-class BinarySensorConfig:
-    """Binary sensor configuration (on/off states)."""
+class CustomBinarySensorConfig:
+    """Custom binary sensor configuration (on/off states)."""
 
     name: str  # Sensor ID, used for MQTT topics
     command: str | None = None
@@ -1304,9 +1304,9 @@ class BinarySensorConfig:
     timeout: float = 5.0
 
     @classmethod
-    def from_block(cls, block: Block, defaults: DefaultsConfig) -> "BinarySensorConfig":
-        """Create BinarySensorConfig from a parsed 'binary_sensor' block."""
-        name = block.name or "binary_sensor"
+    def from_block(cls, block: Block, defaults: DefaultsConfig) -> "CustomBinarySensorConfig":
+        """Create CustomBinarySensorConfig from a parsed 'custom_binary' block."""
+        name = block.name or "custom_binary"
 
         interval = block.get_value("update_interval")
         if interval is None:
@@ -1441,7 +1441,7 @@ class Config:
     batteries: list[BatteryConfig] = field(default_factory=list)
     disks: list[DiskConfig] = field(default_factory=list)
     custom: list[CustomSensorConfig] = field(default_factory=list)
-    binary_sensors: list[BinarySensorConfig] = field(default_factory=list)
+    binary_sensors: list[CustomBinarySensorConfig] = field(default_factory=list)
 
     @staticmethod
     def _sanitize_id(value: str) -> str:
@@ -1522,7 +1522,7 @@ class Config:
         for block in doc.get_blocks("custom"):
             config.custom.append(CustomSensorConfig.from_block(block, config.defaults))
 
-        for block in doc.get_blocks("binary_sensor"):
-            config.binary_sensors.append(BinarySensorConfig.from_block(block, config.defaults))
+        for block in doc.get_blocks("custom_binary"):
+            config.binary_sensors.append(CustomBinarySensorConfig.from_block(block, config.defaults))
 
         return config

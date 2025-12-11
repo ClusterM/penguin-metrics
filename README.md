@@ -942,17 +942,17 @@ Custom sensors publish JSON with:
 - `value`: The parsed command output
 - `state`: `"online"` (command succeeded) or `"not_found"` (command failed)
 
-### Binary Sensors
+### Custom Binary Sensors
 
-Binary sensors interpret command execution results as ON/OFF states. Perfect for connectivity checks, service status, or any boolean condition.
+Custom binary sensors interpret command execution results as ON/OFF states. Perfect for connectivity checks, service status, or any boolean condition.
 
 The block name (e.g., `"server_ping"`) is the sensor ID, used for MQTT topics.
 Use the `homeassistant {}` block to override any Home Assistant discovery fields.
 
 ```nginx
 # Ping check (returns ON if host is reachable, OFF if not)
-# MQTT topic: {prefix}/binary_sensor/server_ping
-binary_sensor "server_ping" {
+# MQTT topic: {prefix}/custom_binary/server_ping
+custom_binary "server_ping" {
     command "ping -c 1 -W 1 8.8.8.8 > /dev/null 2>&1";
     
     value_source returncode;         # Default: "returncode" (0=ON, non-zero=OFF)
@@ -972,7 +972,7 @@ binary_sensor "server_ping" {
 }
 
 # Check service status using output parsing
-binary_sensor "nginx_running" {
+custom_binary "nginx_running" {
     command "systemctl is-active nginx";
     value_source output;            # Parse output: "active" = ON, other = OFF
     update_interval 10s;
@@ -996,10 +996,10 @@ binary_sensor "nginx_running" {
 | `output` | Parse stdout: `on`/`true`/`1`/`yes`/`ok`/`online`/`up` = ON, `off`/`false`/`0`/`no`/`error`/`offline`/`down` = OFF, empty = OFF |
 
 **Home Assistant overrides** (in `homeassistant {}` block):
-Same as custom sensors (see above). Binary sensors are automatically registered as `binary_sensor` entities in Home Assistant.
+Same as custom sensors (see above). Custom binary sensors are automatically registered as `binary_sensor` entities in Home Assistant.
 
 **JSON payload:**
-Binary sensors publish JSON with:
+Custom binary sensors publish JSON with:
 - `state`: `"ON"` or `"OFF"` (the binary value)
 - `state`: `"online"` (always online, even if command failed - failed = OFF)
 

@@ -251,9 +251,9 @@ class SystemCollector(Collector):
             add_sensor(
                 "cpu_percent",
                 "CPU Usage",
-                unit="%",
-                state_class=StateClass.MEASUREMENT,
-                icon="mdi:chip",
+                    unit="%",
+                    state_class=StateClass.MEASUREMENT,
+                    icon="mdi:chip",
             )
 
         if self.config.cpu_per_core:
@@ -264,9 +264,9 @@ class SystemCollector(Collector):
                     add_sensor(
                         f"cpu{i}_percent",
                         f"CPU Core {i} Usage",
-                        unit="%",
-                        state_class=StateClass.MEASUREMENT,
-                        icon="mdi:chip",
+                            unit="%",
+                            state_class=StateClass.MEASUREMENT,
+                            icon="mdi:chip",
                     )
 
         if self.config.memory:
@@ -387,10 +387,10 @@ class SystemCollector(Collector):
             add_sensor(
                 "uptime",
                 "Uptime",
-                unit="s",
-                device_class=DeviceClass.DURATION,
-                state_class=StateClass.TOTAL_INCREASING,
-                icon="mdi:clock-outline",
+                    unit="s",
+                    device_class=DeviceClass.DURATION,
+                    state_class=StateClass.TOTAL_INCREASING,
+                    icon="mdi:clock-outline",
             )
 
         return sensors

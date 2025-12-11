@@ -1,5 +1,5 @@
 """
-Binary sensor collector.
+Custom binary sensor collector.
 
 Executes user-defined commands or scripts and interprets the result
 as a binary state (ON/OFF).
@@ -13,33 +13,33 @@ Supports:
 
 import asyncio
 
-from ..config.schema import BinarySensorConfig, DefaultsConfig, DeviceConfig
+from ..config.schema import CustomBinarySensorConfig, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
 from ..models.sensor import Sensor
 from .base import Collector, CollectorResult, build_sensor
 
 
-class BinarySensorCollector(Collector):
-    SOURCE_TYPE = "binary_sensor"
+class CustomBinarySensorCollector(Collector):
+    SOURCE_TYPE = "custom_binary"
     """
-    Collector for binary sensors (ON/OFF states).
+    Collector for custom binary sensors (ON/OFF states).
 
     Executes a command or script and interprets the result as a binary state.
     """
 
     def __init__(
         self,
-        config: BinarySensorConfig,
+        config: CustomBinarySensorConfig,
         defaults: DefaultsConfig,
         topic_prefix: str = "penguin_metrics",
         device_templates: dict[str, DeviceConfig] | None = None,
         parent_device: Device | None = None,
     ):
         """
-        Initialize binary sensor collector.
+        Initialize custom binary sensor collector.
 
         Args:
-            config: Binary sensor configuration
+            config: Custom binary sensor configuration
             defaults: Default settings
             topic_prefix: MQTT topic prefix
             device_templates: Device template definitions
@@ -69,7 +69,7 @@ class BinarySensorCollector(Collector):
         self._last_error: str | None = None
 
     def create_device(self) -> Device | None:
-        """Create device for binary sensor."""
+        """Create device for custom binary sensor."""
         display_name = (
             self.config.ha_config.name
             if self.config.ha_config and self.config.ha_config.name
@@ -80,15 +80,15 @@ class BinarySensorCollector(Collector):
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Binary Sensor: {display_name}",
+            default_name=f"Sensor: {display_name}",
             manufacturer="Penguin Metrics",
-            model="Binary Sensor",
+            model="Custom Sensor",
             parent_device=self.parent_device,
             device_templates=self.device_templates,
         )
 
     def create_sensors(self) -> list[Sensor]:
-        """Create binary sensor."""
+        """Create custom binary sensor."""
         device = self.device
 
         # Display name: use ha_config.name if specified, otherwise use name (ID)
@@ -97,7 +97,7 @@ class BinarySensorCollector(Collector):
             display_name = self.config.ha_config.name
 
         sensor = build_sensor(
-            source_type="binary_sensor",
+            source_type=self.SOURCE_TYPE,
             source_name=self.collector_id,
             metric_name="state",
             display_name=display_name,

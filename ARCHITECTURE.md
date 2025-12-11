@@ -423,7 +423,7 @@ class CustomSensorConfig:
     ...
 
 @dataclass
-class BinarySensorConfig:
+class CustomBinarySensorConfig:
     name: str  # Sensor ID, used for MQTT topics
     command: str | None = None
     script: str | None = None
@@ -476,7 +476,7 @@ class Config:
     batteries: list[BatteryConfig]
     disks: list[DiskConfig]
     custom: list[CustomSensorConfig]
-    binary_sensors: list[BinarySensorConfig]
+    binary_sensors: list[CustomBinarySensorConfig]
     
     @classmethod
     def from_document(doc: ConfigDocument) -> Config
@@ -779,11 +779,11 @@ Metrics:
 
 ---
 
-### `binary_sensor.py` - Binary Sensor Collector
+### `custom_binary.py` - Custom Binary Sensor Collector
 
 Executes user-defined commands and interprets results as ON/OFF states.
 
-**Class: `BinarySensorCollector`**
+**Class: `CustomBinarySensorCollector`**
 
 Methods:
 - `_execute_command()` - Run command with timeout
