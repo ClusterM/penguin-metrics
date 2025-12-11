@@ -334,6 +334,7 @@ def create_sensor(
     icon: str | None = None,
     availability_topic: str | None = None,
     use_json: bool = True,
+    value_template: str | None = None,
     entity_type: str = "sensor",
     **kwargs: Any,
 ) -> Sensor:
@@ -385,8 +386,9 @@ def create_sensor(
     else:
         state_topic = f"{topic_prefix}/{source_type}"
 
-    # Build value_template to extract metric from JSON
-    value_template = f"{{{{ value_json.{metric_name} }}}}" if use_json else None
+    # Build value_template to extract metric from JSON, unless a custom template is provided
+    if value_template is None and use_json:
+        value_template = f"{{{{ value_json.{metric_name} }}}}"
 
     # Availability handling
     # For system: use only global status topic
