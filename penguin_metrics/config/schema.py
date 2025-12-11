@@ -416,9 +416,7 @@ class BatteryDefaultsConfig:
                 block.get_value("constant_charge_current", defaults.constant_charge_current)
             ),
             constant_charge_current_max=bool(
-                block.get_value(
-                    "constant_charge_current_max", defaults.constant_charge_current_max
-                )
+                block.get_value("constant_charge_current_max", defaults.constant_charge_current_max)
             ),
             charge_full_design=bool(
                 block.get_value("charge_full_design", defaults.charge_full_design)
@@ -1178,9 +1176,7 @@ class BatteryConfig:
             voltage_min=get_bool("voltage_min", bd.voltage_min),
             voltage_max_design=get_bool("voltage_max_design", bd.voltage_max_design),
             voltage_min_design=get_bool("voltage_min_design", bd.voltage_min_design),
-            constant_charge_current=get_bool(
-                "constant_charge_current", bd.constant_charge_current
-            ),
+            constant_charge_current=get_bool("constant_charge_current", bd.constant_charge_current),
             constant_charge_current_max=get_bool(
                 "constant_charge_current_max", bd.constant_charge_current_max
             ),

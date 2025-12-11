@@ -430,7 +430,14 @@ class ConfigLoader:
             elif block.type == "device":
                 # Device blocks allow any directives (extra_fields for HA device)
                 known = None
-            elif block.type in {"temperatures", "batteries", "containers", "services", "processes", "disks"}:
+            elif block.type in {
+                "temperatures",
+                "batteries",
+                "containers",
+                "services",
+                "processes",
+                "disks",
+            }:
                 # Auto-discovery blocks allow arbitrary boolean overrides and update_interval
                 known = None
             else:

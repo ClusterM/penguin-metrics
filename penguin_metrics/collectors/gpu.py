@@ -317,29 +317,29 @@ class GPUCollector(Collector):
             add_sensor(
                 "frequency",
                 "GPU Frequency",
-                    unit="MHz",
-                    device_class=DeviceClass.FREQUENCY,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:chip",
+                unit="MHz",
+                device_class=DeviceClass.FREQUENCY,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:chip",
             )
 
         if "temperature" in self._available_metrics:
             add_sensor(
                 "temperature",
                 "GPU Temperature",
-                    unit="°C",
-                    device_class=DeviceClass.TEMPERATURE,
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:thermometer",
+                unit="°C",
+                device_class=DeviceClass.TEMPERATURE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:thermometer",
             )
 
         if "utilization" in self._available_metrics:
             add_sensor(
                 "utilization",
                 "GPU Usage",
-                    unit="%",
-                    state_class=StateClass.MEASUREMENT,
-                    icon="mdi:chip",
+                unit="%",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:chip",
             )
 
         return sensors
