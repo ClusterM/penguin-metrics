@@ -395,6 +395,8 @@ def create_sensor(
     # For others: use both global status AND local state in JSON
     global_status_topic = f"{topic_prefix}/status"
 
+    ha_config = kwargs.pop("ha_config", None)
+
     sensor = Sensor(
         unique_id=unique_id,
         name=display_name,
@@ -409,6 +411,9 @@ def create_sensor(
         entity_type=entity_type,
         **kwargs,
     )
+
+    if ha_config:
+        sensor.apply_ha_overrides(ha_config)
 
     # For non-system sources, store dual availability info
     # Both global status AND local state must be available
