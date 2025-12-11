@@ -1523,6 +1523,8 @@ class Config:
             config.custom.append(CustomSensorConfig.from_block(block, config.defaults))
 
         for block in doc.get_blocks("custom_binary"):
-            config.binary_sensors.append(CustomBinarySensorConfig.from_block(block, config.defaults))
+            config.binary_sensors.append(
+                CustomBinarySensorConfig.from_block(block, config.defaults)
+            )
 
         return config
