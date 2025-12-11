@@ -305,7 +305,16 @@ class ConfigLoader:
             "aggregate",
         },
         "disks": {"auto", "filter", "exclude", "device", "update_interval"},
-        "disk": {"path", "mountpoint", "device", "total", "used", "free", "percent", "update_interval"},
+        "disk": {
+            "path",
+            "mountpoint",
+            "device",
+            "total",
+            "used",
+            "free",
+            "percent",
+            "update_interval",
+        },
         "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
         "match": {"name", "pattern", "pid", "pidfile", "cmdline", "unit", "image", "label"},
     }
