@@ -14,6 +14,9 @@ Collects:
 
 import asyncio
 import fnmatch
+import time
+
+import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, ServiceConfig, ServiceMatchType
 from ..models.device import Device, create_device_from_ref
@@ -193,6 +196,8 @@ class ServiceCollector(Collector):
         # For CPU percent calculation (delta-based)
         self._last_cpu_usec: int = 0
         self._last_cpu_time: float = 0.0
+        self._last_disk_bytes: tuple[int, int] | None = None
+        self._last_disk_time: float | None = None
 
     async def initialize(self) -> None:
         """Resolve the service unit name."""
@@ -343,6 +348,70 @@ class ServiceCollector(Collector):
                 ]
             )
 
+        if self.config.disk:
+            sensors.extend(
+                [
+                    build_sensor(
+                        source_type="service",
+                        source_name=self.name,
+                        metric_name="disk_read",
+                        display_name="Disk Read",
+                        device=device,
+                        topic_prefix=self.topic_prefix,
+                        unit="MiB",
+                        device_class=DeviceClass.DATA_SIZE,
+                        state_class=StateClass.TOTAL_INCREASING,
+                        icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
+                    ),
+                    build_sensor(
+                        source_type="service",
+                        source_name=self.name,
+                        metric_name="disk_write",
+                        display_name="Disk Write",
+                        device=device,
+                        topic_prefix=self.topic_prefix,
+                        unit="MiB",
+                        device_class=DeviceClass.DATA_SIZE,
+                        state_class=StateClass.TOTAL_INCREASING,
+                        icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
+                    ),
+                ]
+            )
+
+        if self.config.disk_rate:
+            sensors.extend(
+                [
+                    build_sensor(
+                        source_type="service",
+                        source_name=self.name,
+                        metric_name="disk_read_rate",
+                        display_name="Disk Read Rate",
+                        device=device,
+                        topic_prefix=self.topic_prefix,
+                        unit="MiB/s",
+                        device_class=DeviceClass.DATA_RATE,
+                        state_class=StateClass.MEASUREMENT,
+                        icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
+                    ),
+                    build_sensor(
+                        source_type="service",
+                        source_name=self.name,
+                        metric_name="disk_write_rate",
+                        display_name="Disk Write Rate",
+                        device=device,
+                        topic_prefix=self.topic_prefix,
+                        unit="MiB/s",
+                        device_class=DeviceClass.DATA_RATE,
+                        state_class=StateClass.MEASUREMENT,
+                        icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
+                    ),
+                ]
+            )
+
         # Process count
         sensors.append(
             build_sensor(
@@ -394,7 +463,6 @@ class ServiceCollector(Collector):
 
         if self.config.cpu:
             import os
-            import time
 
             current_time = time.time()
             current_cpu_usec = cg_stats.cpu_usage_usec
@@ -421,6 +489,35 @@ class ServiceCollector(Collector):
         # Get PIDs for smaps and process count
         pids = get_cgroup_pids(self._cgroup_path)
         result.set("processes", len(pids))
+
+        if (self.config.disk or self.config.disk_rate) and pids:
+            total_read = 0
+            total_write = 0
+            for pid in pids:
+                try:
+                    proc = psutil.Process(pid)
+                    io_counters = proc.io_counters()
+                    total_read += io_counters.read_bytes
+                    total_write += io_counters.write_bytes
+                except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
+                    continue
+
+            if self.config.disk:
+                result.set("disk_read", round(total_read / (1024 * 1024), 2))
+                result.set("disk_write", round(total_write / (1024 * 1024), 2))
+
+            if self.config.disk_rate:
+                now = time.time()
+                if self._last_disk_bytes and self._last_disk_time:
+                    prev_read, prev_write = self._last_disk_bytes
+                    dt = now - self._last_disk_time
+                    if dt > 0:
+                        read_rate = (total_read - prev_read) / dt / (1024 * 1024)
+                        write_rate = (total_write - prev_write) / dt / (1024 * 1024)
+                        result.set("disk_read_rate", round(read_rate, 2))
+                        result.set("disk_write_rate", round(write_rate, 2))
+                self._last_disk_bytes = (total_read, total_write)
+                self._last_disk_time = now
 
         if self.use_smaps and pids:
             smaps = aggregate_smaps(pids)

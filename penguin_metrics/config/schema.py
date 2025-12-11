@@ -281,6 +281,8 @@ class ProcessDefaultsConfig:
     memory: bool = True
     smaps: bool | None = None  # None = use global smaps setting
     io: bool = False
+    disk: bool = False
+    disk_rate: bool = False
     fds: bool = False
     threads: bool = False
     aggregate: bool = False
@@ -295,6 +297,8 @@ class ProcessDefaultsConfig:
             memory=bool(block.get_value("memory", True)),
             smaps=None if smaps_val is None else bool(smaps_val),
             io=bool(block.get_value("io", False)),
+            disk=bool(block.get_value("disk", False)),
+            disk_rate=bool(block.get_value("disk_rate", False)),
             fds=bool(block.get_value("fds", False)),
             threads=bool(block.get_value("threads", False)),
             aggregate=bool(block.get_value("aggregate", False)),
@@ -310,6 +314,8 @@ class ServiceDefaultsConfig:
     smaps: bool | None = None
     state: bool = True
     restart_count: bool = False
+    disk: bool = False
+    disk_rate: bool = False
 
     @classmethod
     def from_block(cls, block: Block | None) -> "ServiceDefaultsConfig":
@@ -322,6 +328,8 @@ class ServiceDefaultsConfig:
             smaps=None if smaps_val is None else bool(smaps_val),
             state=bool(block.get_value("state", True)),
             restart_count=bool(block.get_value("restart_count", False)),
+            disk=bool(block.get_value("disk", False)),
+            disk_rate=bool(block.get_value("disk_rate", False)),
         )
 
 
@@ -724,6 +732,8 @@ class ProcessConfig:
     memory: bool = True
     smaps: bool | None = None  # None = use defaults
     io: bool = False
+    disk: bool = False
+    disk_rate: bool = False
     fds: bool = False
     threads: bool = False
     aggregate: bool = False  # Sum metrics from all matching processes
@@ -773,6 +783,8 @@ class ProcessConfig:
             memory=get_bool("memory", pd.memory),
             smaps=smaps,
             io=get_bool("io", pd.io),
+            disk=get_bool("disk", pd.disk),
+            disk_rate=get_bool("disk_rate", pd.disk_rate),
             fds=get_bool("fds", pd.fds),
             threads=get_bool("threads", pd.threads),
             aggregate=get_bool("aggregate", pd.aggregate),
@@ -798,6 +810,8 @@ class ProcessConfig:
             memory=pd.memory,
             smaps=pd.smaps,
             io=pd.io,
+            disk=pd.disk,
+            disk_rate=pd.disk_rate,
             fds=pd.fds,
             threads=pd.threads,
             aggregate=pd.aggregate,
@@ -852,6 +866,8 @@ class ServiceConfig:
     smaps: bool | None = None
     state: bool = True
     restart_count: bool = False
+    disk: bool = False
+    disk_rate: bool = False
 
     # Settings
     update_interval: float | None = None
@@ -897,6 +913,8 @@ class ServiceConfig:
             smaps=smaps,
             state=get_bool("state", svd.state),
             restart_count=get_bool("restart_count", svd.restart_count),
+            disk=get_bool("disk", svd.disk),
+            disk_rate=get_bool("disk_rate", svd.disk_rate),
             update_interval=float(interval) if interval else None,
         )
 
@@ -920,6 +938,8 @@ class ServiceConfig:
             smaps=svd.smaps,
             state=svd.state,
             restart_count=svd.restart_count,
+            disk=svd.disk,
+            disk_rate=svd.disk_rate,
             update_interval=defaults.update_interval,
         )
 

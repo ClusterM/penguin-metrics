@@ -17,6 +17,7 @@ Collects:
 """
 
 import re
+import time
 from pathlib import Path
 
 import psutil
@@ -140,6 +141,9 @@ class ProcessCollector(MultiSourceCollector):
         # Cached process info
         self._processes: list[psutil.Process] = []
         self._process_state = "unknown"  # running, not_found, error
+        self._prev_pid_io: dict[int, tuple[int, int, float]] = {}
+        self._prev_agg_io: tuple[int, int] | None = None
+        self._prev_agg_time: float | None = None
 
     def create_device(self) -> Device | None:
         """Create device for process metrics."""
@@ -301,6 +305,70 @@ class ProcessCollector(MultiSourceCollector):
                 ]
             )
 
+        if self.config.disk:
+            sensors.extend(
+                [
+                    build_sensor(
+                        source_type="process",
+                        source_name=self.name,
+                        metric_name="disk_read",
+                        display_name="Disk Read",
+                        device=device,
+                        topic_prefix=self.topic_prefix,
+                        unit="MiB",
+                        device_class=DeviceClass.DATA_SIZE,
+                        state_class=StateClass.TOTAL_INCREASING,
+                        icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
+                    ),
+                    build_sensor(
+                        source_type="process",
+                        source_name=self.name,
+                        metric_name="disk_write",
+                        display_name="Disk Write",
+                        device=device,
+                        topic_prefix=self.topic_prefix,
+                        unit="MiB",
+                        device_class=DeviceClass.DATA_SIZE,
+                        state_class=StateClass.TOTAL_INCREASING,
+                        icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
+                    ),
+                ]
+            )
+
+        if self.config.disk_rate:
+            sensors.extend(
+                [
+                    build_sensor(
+                        source_type="process",
+                        source_name=self.name,
+                        metric_name="disk_read_rate",
+                        display_name="Disk Read Rate",
+                        device=device,
+                        topic_prefix=self.topic_prefix,
+                        unit="MiB/s",
+                        device_class=DeviceClass.DATA_RATE,
+                        state_class=StateClass.MEASUREMENT,
+                        icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
+                    ),
+                    build_sensor(
+                        source_type="process",
+                        source_name=self.name,
+                        metric_name="disk_write_rate",
+                        display_name="Disk Write Rate",
+                        device=device,
+                        topic_prefix=self.topic_prefix,
+                        unit="MiB/s",
+                        device_class=DeviceClass.DATA_RATE,
+                        state_class=StateClass.MEASUREMENT,
+                        icon="mdi:harddisk",
+                        ha_config=self.config.ha_config,
+                    ),
+                ]
+            )
+
         if self.config.fds:
             sensors.append(
                 build_sensor(
@@ -365,6 +433,7 @@ class ProcessCollector(MultiSourceCollector):
 
         try:
             proc = source
+            now = time.time()
 
             if self.config.cpu:
                 try:
@@ -397,6 +466,30 @@ class ProcessCollector(MultiSourceCollector):
                     io_counters = proc.io_counters()
                     result.set("io_read", round(io_counters.read_bytes / (1024 * 1024), 1))
                     result.set("io_write", round(io_counters.write_bytes / (1024 * 1024), 1))
+                except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
+                    pass
+
+            if self.config.disk or self.config.disk_rate:
+                try:
+                    io_counters = proc.io_counters()
+                    read_bytes = io_counters.read_bytes
+                    write_bytes = io_counters.write_bytes
+
+                    if self.config.disk:
+                        result.set("disk_read", round(read_bytes / (1024 * 1024), 2))
+                        result.set("disk_write", round(write_bytes / (1024 * 1024), 2))
+
+                    if self.config.disk_rate:
+                        prev = self._prev_pid_io.get(proc.pid)
+                        if prev:
+                            prev_read, prev_write, prev_ts = prev
+                            dt = now - prev_ts
+                            if dt > 0:
+                                read_rate = (read_bytes - prev_read) / dt / (1024 * 1024)
+                                write_rate = (write_bytes - prev_write) / dt / (1024 * 1024)
+                                result.set("disk_read_rate", round(read_rate, 2))
+                                result.set("disk_write_rate", round(write_rate, 2))
+                        self._prev_pid_io[proc.pid] = (read_bytes, write_bytes, now)
                 except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
                     pass
 
@@ -445,8 +538,11 @@ class ProcessCollector(MultiSourceCollector):
             total_anonymous = 0.0
             total_io_read = 0.0
             total_io_write = 0.0
+            total_disk_read_bytes = 0
+            total_disk_write_bytes = 0
             total_fds = 0
             total_threads = 0
+            current_time = time.time()
 
             for proc in sources:
                 try:
@@ -471,6 +567,14 @@ class ProcessCollector(MultiSourceCollector):
                             io = proc.io_counters()
                             total_io_read += io.read_bytes
                             total_io_write += io.write_bytes
+                        except (psutil.AccessDenied, AttributeError):
+                            pass
+
+                    if self.config.disk or self.config.disk_rate:
+                        try:
+                            io = proc.io_counters()
+                            total_disk_read_bytes += io.read_bytes
+                            total_disk_write_bytes += io.write_bytes
                         except (psutil.AccessDenied, AttributeError):
                             pass
 
@@ -513,6 +617,22 @@ class ProcessCollector(MultiSourceCollector):
             if self.config.io:
                 result.set("io_read", round(total_io_read / (1024 * 1024), 1))
                 result.set("io_write", round(total_io_write / (1024 * 1024), 1))
+
+            if self.config.disk:
+                result.set("disk_read", round(total_disk_read_bytes / (1024 * 1024), 2))
+                result.set("disk_write", round(total_disk_write_bytes / (1024 * 1024), 2))
+
+            if self.config.disk_rate:
+                if self._prev_agg_io and self._prev_agg_time:
+                    prev_read, prev_write = self._prev_agg_io
+                    dt = current_time - self._prev_agg_time
+                    if dt > 0:
+                        read_rate = (total_disk_read_bytes - prev_read) / dt / (1024 * 1024)
+                        write_rate = (total_disk_write_bytes - prev_write) / dt / (1024 * 1024)
+                        result.set("disk_read_rate", round(read_rate, 2))
+                        result.set("disk_write_rate", round(write_rate, 2))
+                self._prev_agg_io = (total_disk_read_bytes, total_disk_write_bytes)
+                self._prev_agg_time = current_time
 
             if self.config.fds:
                 result.set("num_fds", total_fds)
