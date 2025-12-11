@@ -316,6 +316,7 @@ def build_sensor(
     availability_topic: str | None = None,
     use_json: bool = True,
     ha_config: Any = None,
+    value_template: str | None = None,
 ) -> Sensor:
     """Wrapper around create_sensor with optional HA overrides."""
     sensor = create_sensor(
@@ -332,6 +333,7 @@ def build_sensor(
         availability_topic=availability_topic,
         use_json=use_json,
         entity_type=entity_type,
+        value_template=value_template,
     )
     if ha_config:
         sensor.apply_ha_overrides(ha_config)

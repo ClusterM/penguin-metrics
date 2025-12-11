@@ -65,7 +65,7 @@ class CustomBinarySensorCollector(Collector):
         else:
             self._command = None
 
-        self._last_value: str | None = None
+        self._last_value: bool | None = None
         self._last_error: str | None = None
 
     def create_device(self) -> Device | None:
@@ -99,13 +99,15 @@ class CustomBinarySensorCollector(Collector):
         sensor = build_sensor(
             source_type=self.SOURCE_TYPE,
             source_name=self.collector_id,
-            metric_name="state",
+            metric_name="value",
             display_name=display_name,
             device=device,
             topic_prefix=self.topic_prefix,
             entity_type="binary_sensor",
             icon="mdi:toggle-switch",
             ha_config=self.config.ha_config,
+            # Map boolean JSON value to ON/OFF for HA binary_sensor
+            value_template="{{ 'ON' if value_json.value else 'OFF' }}",
         )
 
         return [sensor]
@@ -146,7 +148,7 @@ class CustomBinarySensorCollector(Collector):
         except Exception as e:
             return "", str(e), -1
 
-    def _parse_binary_value(self, returncode: int, output: str) -> str:
+    def _parse_binary_value(self, returncode: int, output: str) -> bool:
         """
         Parse command result as binary value (ON/OFF).
 
@@ -155,25 +157,24 @@ class CustomBinarySensorCollector(Collector):
             output: Command stdout
 
         Returns:
-            "ON" or "OFF"
+            True for ON, False for OFF
         """
         if self.config.value_source == "returncode":
             # 0 = ON, non-zero = OFF
-            value = "ON" if returncode == 0 else "OFF"
+            value = returncode == 0
         else:  # output
             # Parse output: look for common ON/OFF patterns
             output_lower = output.lower().strip()
             if output_lower in ("on", "true", "1", "yes", "ok", "online", "up"):
-                value = "ON"
+                value = True
             elif output_lower in ("off", "false", "0", "no", "error", "offline", "down"):
-                value = "OFF"
+                value = False
             else:
                 # Default: non-empty output = ON, empty = OFF
-                value = "ON" if output else "OFF"
+                value = bool(output)
 
-        # Apply inversion if configured
         if self.config.invert:
-            value = "OFF" if value == "ON" else "ON"
+            value = not value
 
         return value
 
@@ -198,7 +199,8 @@ class CustomBinarySensorCollector(Collector):
         else:
             self._last_error = None
 
-        result.set("state", binary_value)
+        # Keep collector state and publish boolean value separately
         result.set_state("online")
+        result.set("value", binary_value)
 
         return result
