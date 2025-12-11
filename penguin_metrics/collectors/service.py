@@ -458,6 +458,10 @@ class ServiceCollector(Collector):
         if not self._cgroup_path:
             return result
 
+        # Get PIDs for smaps and process count
+        pids = get_cgroup_pids(self._cgroup_path)
+        result.set("processes", len(pids))
+
         # Get cgroup stats
         cg_stats = get_cgroup_stats(self._cgroup_path)
 
@@ -467,9 +471,9 @@ class ServiceCollector(Collector):
             current_time = time.time()
             current_cpu_usec = cg_stats.cpu_usage_usec
 
-            # Calculate CPU percent from delta
             cpu_percent = 0.0
-            if self._last_cpu_time > 0:
+
+            if current_cpu_usec > 0 and self._last_cpu_time > 0:
                 time_delta = current_time - self._last_cpu_time
                 cpu_delta_usec = current_cpu_usec - self._last_cpu_usec
 
@@ -478,17 +482,40 @@ class ServiceCollector(Collector):
                     cpu_percent = (cpu_delta_usec / 1_000_000) / time_delta / num_cpus * 100.0
                     cpu_percent = min(cpu_percent, 100.0)
 
+            # Fallback: if cgroup counters unavailable, sum per-process cpu_percent
+            if cpu_percent == 0.0 and pids:
+                num_cpus = os.cpu_count() or 1
+                cpu_sum = 0.0
+                for pid in pids:
+                    try:
+                        proc = psutil.Process(pid)
+                        cpu_sum += proc.cpu_percent()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                if cpu_sum > 0:
+                    cpu_percent = min(cpu_sum / num_cpus, 100.0)
+
             self._last_cpu_usec = current_cpu_usec
             self._last_cpu_time = current_time
             result.set("cpu_percent", round(cpu_percent, 1))
 
         if self.config.memory:
-            result.set("memory", round(cg_stats.memory_mb, 1))
-            result.set("memory_cache", round(cg_stats.memory_cache / (1024 * 1024), 1))
+            # Prefer cgroup memory if available
+            if cg_stats.memory_current > 0:
+                result.set("memory", round(cg_stats.memory_mb, 1))
+            else:
+                # Fallback: sum RSS of all processes
+                rss_total = 0
+                for pid in pids:
+                    try:
+                        rss_total += psutil.Process(pid).memory_info().rss
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                if rss_total > 0:
+                    result.set("memory", round(rss_total / (1024 * 1024), 1))
 
-        # Get PIDs for smaps and process count
-        pids = get_cgroup_pids(self._cgroup_path)
-        result.set("processes", len(pids))
+            if cg_stats.memory_cache > 0:
+                result.set("memory_cache", round(cg_stats.memory_cache / (1024 * 1024), 1))
 
         if (self.config.disk or self.config.disk_rate) and pids:
             total_read = 0
