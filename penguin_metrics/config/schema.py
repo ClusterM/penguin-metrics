@@ -280,7 +280,6 @@ class ProcessDefaultsConfig:
     cpu: bool = True
     memory: bool = True
     smaps: bool | None = None  # None = use global smaps setting
-    io: bool = False
     disk: bool = False
     disk_rate: bool = False
     fds: bool = False
@@ -296,7 +295,6 @@ class ProcessDefaultsConfig:
             cpu=bool(block.get_value("cpu", True)),
             memory=bool(block.get_value("memory", True)),
             smaps=None if smaps_val is None else bool(smaps_val),
-            io=bool(block.get_value("io", False)),
             disk=bool(block.get_value("disk", False)),
             disk_rate=bool(block.get_value("disk_rate", False)),
             fds=bool(block.get_value("fds", False)),
@@ -731,7 +729,6 @@ class ProcessConfig:
     cpu: bool = True
     memory: bool = True
     smaps: bool | None = None  # None = use defaults
-    io: bool = False
     disk: bool = False
     disk_rate: bool = False
     fds: bool = False
@@ -782,7 +779,6 @@ class ProcessConfig:
             cpu=get_bool("cpu", pd.cpu),
             memory=get_bool("memory", pd.memory),
             smaps=smaps,
-            io=get_bool("io", pd.io),
             disk=get_bool("disk", pd.disk),
             disk_rate=get_bool("disk_rate", pd.disk_rate),
             fds=get_bool("fds", pd.fds),
@@ -809,7 +805,6 @@ class ProcessConfig:
             cpu=pd.cpu,
             memory=pd.memory,
             smaps=pd.smaps,
-            io=pd.io,
             disk=pd.disk,
             disk_rate=pd.disk_rate,
             fds=pd.fds,

@@ -273,38 +273,6 @@ class ProcessCollector(MultiSourceCollector):
                 ]
             )
 
-        if self.config.io:
-            sensors.extend(
-                [
-                    build_sensor(
-                        source_type="process",
-                        source_name=self.name,
-                        metric_name="io_read",
-                        display_name="I/O Read",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB",
-                        device_class=DeviceClass.DATA_SIZE,
-                        state_class=StateClass.TOTAL_INCREASING,
-                        icon="mdi:harddisk",
-                        ha_config=self.config.ha_config,
-                    ),
-                    build_sensor(
-                        source_type="process",
-                        source_name=self.name,
-                        metric_name="io_write",
-                        display_name="I/O Write",
-                        device=device,
-                        topic_prefix=self.topic_prefix,
-                        unit="MiB",
-                        device_class=DeviceClass.DATA_SIZE,
-                        state_class=StateClass.TOTAL_INCREASING,
-                        icon="mdi:harddisk",
-                        ha_config=self.config.ha_config,
-                    ),
-                ]
-            )
-
         if self.config.disk:
             sensors.extend(
                 [
@@ -461,14 +429,6 @@ class ProcessCollector(MultiSourceCollector):
                     result.set("memory_pss", round(smaps.memory_real_pss_mb, 2))
                     result.set("memory_uss", round(smaps.memory_real_uss_mb, 2))
 
-            if self.config.io:
-                try:
-                    io_counters = proc.io_counters()
-                    result.set("io_read", round(io_counters.read_bytes / (1024 * 1024), 1))
-                    result.set("io_write", round(io_counters.write_bytes / (1024 * 1024), 1))
-                except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
-                    pass
-
             if self.config.disk or self.config.disk_rate:
                 try:
                     io_counters = proc.io_counters()
@@ -536,8 +496,6 @@ class ProcessCollector(MultiSourceCollector):
             total_pss_shmem = 0.0
             total_swap_pss = 0.0
             total_anonymous = 0.0
-            total_io_read = 0.0
-            total_io_write = 0.0
             total_disk_read_bytes = 0
             total_disk_write_bytes = 0
             total_fds = 0
@@ -561,14 +519,6 @@ class ProcessCollector(MultiSourceCollector):
                             total_pss_shmem += smaps.pss_shmem
                             total_swap_pss += smaps.swap_pss
                             total_anonymous += smaps.anonymous
-
-                    if self.config.io:
-                        try:
-                            io = proc.io_counters()
-                            total_io_read += io.read_bytes
-                            total_io_write += io.write_bytes
-                        except (psutil.AccessDenied, AttributeError):
-                            pass
 
                     if self.config.disk or self.config.disk_rate:
                         try:
@@ -613,10 +563,6 @@ class ProcessCollector(MultiSourceCollector):
                     memory_real_pss = 0.0
                 result.set("memory_pss", round(memory_real_pss, 2))
                 result.set("memory_uss", round(total_anonymous / (1024 * 1024), 2))
-
-            if self.config.io:
-                result.set("io_read", round(total_io_read / (1024 * 1024), 1))
-                result.set("io_write", round(total_io_write / (1024 * 1024), 1))
 
             if self.config.disk:
                 result.set("disk_read", round(total_disk_read_bytes / (1024 * 1024), 2))
