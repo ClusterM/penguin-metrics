@@ -591,7 +591,4 @@ class BatteryCollector(Collector):
                 # sysfs reports in µAh → convert to mAh
                 result.set("charge_full_design", round(charge_full_design / 1000, 0))
 
-        if len(result.data) <= 1:  # Only state
-            result.set_error("Failed to read battery data")
-
         return result
