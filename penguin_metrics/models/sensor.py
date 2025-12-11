@@ -182,6 +182,7 @@ class Sensor:
             # Build value_template based on source type
             # Maps various states to online/offline
             source_type = dual_avail["source_type"]
+            valid_states: tuple[str, ...]
             if source_type == "service":
                 valid_states = ("active",)
             elif source_type == "docker":

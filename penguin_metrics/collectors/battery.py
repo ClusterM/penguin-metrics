@@ -21,8 +21,8 @@ from typing import NamedTuple
 
 from ..config.schema import BatteryConfig, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass
-from .base import Collector, CollectorResult, build_sensor
+from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
+from .base import Collector, CollectorResult, apply_overrides_to_sensors, build_sensor
 
 
 class BatteryInfo(NamedTuple):
@@ -423,6 +423,39 @@ class BatteryCollector(Collector):
                     ha_config=ha_cfg,
                 )
             )
+
+        # HA binary sensors derived from status (no extra MQTT fields)
+        binary_sensors = [
+            create_sensor(
+                source_type=self.SOURCE_TYPE,
+                source_name=self.collector_id,
+                metric_name="is_charging",
+                display_name="Is Charging",
+                device=device,
+                topic_prefix=self.topic_prefix,
+                entity_type="binary_sensor",
+                use_json=False,
+                value_template="{{ 'ON' if value_json.state == 'charging' else 'OFF' }}",
+                device_class="battery_charging",
+                icon="mdi:battery-charging-outline",
+                ha_config=ha_cfg,
+            ),
+            create_sensor(
+                source_type=self.SOURCE_TYPE,
+                source_name=self.collector_id,
+                metric_name="is_discharging",
+                display_name="Is Discharging",
+                device=device,
+                topic_prefix=self.topic_prefix,
+                entity_type="binary_sensor",
+                use_json=False,
+                value_template="{{ 'ON' if value_json.state == 'discharging' else 'OFF' }}",
+                icon="mdi:battery-arrow-down",
+                ha_config=ha_cfg,
+            ),
+        ]
+        apply_overrides_to_sensors(binary_sensors, ha_cfg)
+        sensors.extend(binary_sensors)
 
         return sensors
 
