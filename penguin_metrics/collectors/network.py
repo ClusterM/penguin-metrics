@@ -3,9 +3,11 @@ Network interface monitoring collector.
 
 Uses psutil.net_io_counters(pernic=True) for bytes/packets/errors/drops
 and psutil.net_if_stats() for isup, speed, mtu, duplex.
-Supports auto-discovery and optional rate (bytes/s, packets/s).
+Supports auto-discovery, optional rate (KiB/s), and optional Wi-Fi RSSI (dBm).
 """
 
+import asyncio
+import re
 from datetime import datetime
 
 import psutil
@@ -41,6 +43,48 @@ def _calc_rate(
     if prev is None or time_delta is None or time_delta <= 0:
         return None
     return (current - prev) / time_delta
+
+
+async def _get_wifi_rssi(interface: str) -> int | None:
+    """
+    Get Wi-Fi signal strength (RSSI) in dBm for a wireless interface.
+
+    Tries `iw dev <iface> link` first (signal: -42 dBm), then
+    `iwconfig <iface>` (Signal level=-42). Returns None if not wireless or unavailable.
+    """
+    # Try iw first (nl80211)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "iw", "dev", interface, "link",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        stdout, _ = await proc.communicate()
+        if proc.returncode == 0 and stdout:
+            # Match "signal: -42 dBm"
+            m = re.search(r"signal:\s*(-?\d+)\s*dBm", stdout.decode("utf-8", errors="ignore"))
+            if m:
+                return int(m.group(1))
+    except (FileNotFoundError, asyncio.TimeoutError):
+        pass
+
+    # Fallback: iwconfig (wireless-tools)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "iwconfig", interface,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        stdout, _ = await proc.communicate()
+        if proc.returncode == 0 and stdout:
+            # Match "Signal level=-42" or "Signal level=-42 dBm"
+            m = re.search(r"Signal\s+level[=:](-?\d+)", stdout.decode("utf-8", errors="ignore"))
+            if m:
+                return int(m.group(1))
+    except (FileNotFoundError, asyncio.TimeoutError):
+        pass
+
+    return None
 
 
 class NetworkCollector(Collector):
@@ -175,6 +219,8 @@ class NetworkCollector(Collector):
             add("mtu", f"{prefix} MTU")
         if self.config.duplex:
             add("duplex", f"{prefix} Duplex")
+        if self.config.rssi:
+            add("rssi", f"{prefix} Signal", unit="dBm", state_class=StateClass.MEASUREMENT, icon="mdi:wifi", suggested_display_precision=0)
 
         return sensors
 
@@ -254,5 +300,10 @@ class NetworkCollector(Collector):
                 result.set("mtu", s.mtu)
             if self.config.duplex:
                 result.set("duplex", s.duplex.name.lower() if hasattr(s.duplex, "name") else str(s.duplex).lower())
+
+        if self.config.rssi:
+            rssi = await _get_wifi_rssi(name)
+            if rssi is not None:
+                result.set("rssi", rssi)
 
         return result

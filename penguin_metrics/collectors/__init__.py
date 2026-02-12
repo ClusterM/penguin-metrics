@@ -8,6 +8,7 @@ from .battery import BatteryCollector
 from .container import ContainerCollector
 from .custom import CustomCollector
 from .disk import DiskCollector
+from .fan import FanCollector
 from .gpu import GPUCollector
 from .network import NetworkCollector
 from .process import ProcessCollector
@@ -27,6 +28,7 @@ __all__ = [
     "ContainerCollector",
     "CustomCollector",
     "DiskCollector",
+    "FanCollector",
     "GPUCollector",
     "NetworkCollector",
 ]

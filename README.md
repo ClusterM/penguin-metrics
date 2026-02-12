@@ -16,7 +16,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 ## Features
 
 ### Data Collection
-- **System Metrics**: CPU (overall and per-core), RAM, swap, load average, uptime
+- **System Metrics**: CPU (overall and per-core), RAM, swap, load average, uptime, disk I/O (bytes + KiB/s rate), CPU frequency (MHz), process count, boot time
 - **Temperature**: Thermal zones and hwmon sensors (auto-discovery supported)
 - **Disk Space**: Total, used, free space and usage percentage (auto-discovery supported)
 - **Process Monitoring**: By name, regex pattern, PID, or pidfile
@@ -25,10 +25,11 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
   - PSS/USS via `/proc/PID/smaps` (requires root or `CAP_SYS_PTRACE`)
   - **Real PSS/USS**: Excludes file-backed mappings (accurate for apps that map large files)
 - **Systemd Services**: State, CPU, memory via cgroups (auto-discovery with filter)
-- **Docker Containers**: CPU, memory, network, disk I/O with optional rate metrics (KB/s)
+- **Docker Containers**: CPU, memory, network, disk I/O with optional rate metrics (KiB/s)
 - **Battery**: Capacity, status, voltage, current, health (auto-discovery supported)
 - **AC Power**: External power supply presence (`online`/`offline`, with auto-discovery)
-- **Network Interfaces**: Bytes, packets, errors, drops, rate, isup, speed, mtu, duplex (auto-discovery supported)
+- **Network Interfaces**: Bytes, packets, errors, drops, rate, isup, speed, mtu, duplex, optional Wi-Fi RSSI (dBm) (auto-discovery supported)
+- **Fan (RPM)**: hwmon fan*_input from sysfs (auto-discovery supported)
 - **Custom Sensors**: Run shell commands or scripts
 - **Binary Sensors**: ON/OFF states from command execution (e.g., ping checks)
 - **GPU**: Basic metrics via sysfs (frequency, temperature) - minimal implementation
@@ -495,9 +496,18 @@ networks {
     # device system;            # Group with system device (default)
     # filter "eth*";            # Only Ethernet
     # exclude "lo";             # Exclude loopback
-    # rate on;                  # Enable bytes rate (B/s)
+    # rate on;                  # Enable bytes rate (KiB/s)
+    # rssi on;                  # Wi-Fi signal (dBm) for wireless interfaces
     # update_interval 10s;
 }
+
+# Auto-discover fan (hwmon with fan*_input)
+# fans {
+#     auto on;
+#     # filter ".*";            # Include all (default)
+#     # device system;
+#     # update_interval 10s;
+# }
 ```
 
 **Multiple filters and excludes:**
@@ -529,8 +539,8 @@ auto_refresh_interval 60s;
 ```
 
 When enabled:
-- **New services/containers/processes** matching filters are automatically added
-- **Removed services/containers/processes** are automatically cleaned up
+- **New auto-discovered sources** (services, containers, processes, temperatures, batteries, disks, networks, fans) matching filters are automatically added
+- **Removed** auto-discovered sources are cleaned up from HA and JSON state
 - Home Assistant sensors are registered/unregistered dynamically
 - Manual configurations are never affected
 - Logs at `INFO` level only when sources are added/removed (not on every check)
@@ -638,6 +648,11 @@ system "My Server" {
 | `load` | `on` | Load average |
 | `uptime` | `on` | System uptime |
 | `gpu` | `off` | GPU metrics |
+| `disk_io` | `on` | Disk read/write totals (bytes) |
+| `disk_io_rate` | `off` | Disk read/write rate (KiB/s) |
+| `cpu_freq` | `on` | CPU frequency current/min/max (MHz; N/A on some ARM/virtual) |
+| `process_count` | `on` | Total and running process count |
+| `boot_time` | `on` | Boot time (timestamp for HA) |
 | `update_interval` | *(from defaults)* | Override default interval |
 
 ### Process Monitoring
@@ -689,8 +704,8 @@ process "python-script" {
 | `smaps` | *(from defaults)* | PSS/USS + Real PSS/USS memory |
 | `disk` | `off` | Read/write totals (bytes) |
 | `disk_rate` | `off` | Read/write rate (KiB/s) |
-| `fds` | `off` | Open file descriptors |
-| `threads` | `off` | Thread count |
+| `fds` | `off` | Open file descriptors (enable for open files monitoring) |
+| `threads` | `off` | Thread count (enable for thread monitoring) |
 | `aggregate` | `off` | Sum metrics from all matches |
 | `update_interval` | *(from defaults)* | Override default interval |
 
@@ -932,7 +947,7 @@ Monitors network interfaces via `psutil.net_io_counters(pernic=True)` and `psuti
 - `packets_sent`, `packets_recv` - Packet counts
 - `errin`, `errout` - Error counts
 - `dropin`, `dropout` - Dropped packet counts
-- `bytes_sent_rate`, `bytes_recv_rate` - Rate (bytes/s) when `rate on`
+- `bytes_sent_rate`, `bytes_recv_rate` - Rate (KiB/s) when `rate on`
 - `packets_sent_rate`, `packets_recv_rate` - Packet rate (p/s) when `packets_rate on`
 - `isup` - Interface up/down (boolean, binary_sensor in HA)
 - `speed` - Link speed (Mbps)
@@ -947,17 +962,33 @@ network "eth0" {
     packets off;                 # packets_sent, packets_recv
     errors off;                  # errin, errout
     drops off;                   # dropin, dropout
-    rate off;                    # bytes_sent_rate, bytes_recv_rate (bytes/s)
+    rate off;                    # bytes_sent_rate, bytes_recv_rate (KiB/s)
     packets_rate off;            # packets_sent_rate, packets_recv_rate (p/s)
     isup on;                     # Interface up/down (binary_sensor)
     speed off;                   # Speed (Mbps)
     mtu off;
     duplex off;
+    rssi off;                    # Wi-Fi signal (dBm) for wireless interfaces
     # update_interval 10s;
 }
 ```
 
-**Default values (defaults.network):** `bytes` on, `packets`/`errors`/`drops`/`rate`/`packets_rate` off, `isup` on, `speed`/`mtu`/`duplex` off.
+**Default values (defaults.network):** `bytes` on, `packets`/`errors`/`drops`/`rate`/`packets_rate` off, `isup` on, `speed`/`mtu`/`duplex` off, `rssi` off.
+
+Optional `rssi on`: Wi-Fi signal strength (dBm) for wireless interfaces (uses `iw` or `iwconfig`).
+
+### Fan (RPM)
+
+Fan speed from hwmon sysfs (`/sys/class/hwmon/hwmon*/fan*_input`). Manual config or auto-discovery via `fans { auto on; }`.
+
+```nginx
+fan "cpu_fan" {
+    hwmon "hwmon0";            # Hwmon directory name (required)
+    device system;
+}
+```
+
+Metrics: `fan1_rpm`, `fan2_rpm`, or `rpm` (single fan). Unit: RPM.
 
 ### Custom Sensors
 

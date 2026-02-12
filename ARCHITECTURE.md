@@ -30,7 +30,8 @@ penguin_metrics/
 │   ├── container.py         # Docker containers
 │   ├── battery.py           # Battery status
 │   ├── ac_power.py          # External power (AC/mains) status
-│   ├── network.py           # Network interface metrics (bytes, packets, rate, isup, speed, mtu, duplex)
+│   ├── network.py           # Network interface metrics (bytes, packets, rate, rssi, isup, speed, mtu, duplex)
+│   ├── fan.py               # Fan RPM from hwmon fan*_input
 │   ├── custom.py            # Custom commands/scripts
 │   └── gpu.py               # GPU metrics
 │
@@ -631,16 +632,19 @@ Collects system-wide metrics using psutil.
 
 Topic: `{prefix}/system` → JSON with all metrics
 
-Metrics:
+Metrics (configurable via system block):
+- `kernel_version` - Kernel release (always collected)
 - `cpu_percent` - Overall CPU usage (%)
 - `cpu{N}_percent` - Per-core CPU usage (%)
-- `memory_percent` - RAM usage (%)
-- `memory_used` - Used RAM (MB)
-- `memory_total` - Total RAM (MB)
-- `swap_percent` - Swap usage (%)
-- `swap_used` - Used swap (MB)
+- `memory_percent`, `memory_used`, `memory_total` - RAM (MiB)
+- `swap_percent`, `swap_used`, `swap_total` - Swap (MiB)
 - `load_1m`, `load_5m`, `load_15m` - Load average
 - `uptime` - System uptime (seconds)
+- `disk_read`, `disk_write` - System disk I/O totals (bytes; `disk_io`)
+- `disk_read_rate`, `disk_write_rate` - Disk I/O rate (KiB/s; `disk_io_rate`)
+- `cpu_freq_current`, `cpu_freq_min`, `cpu_freq_max` - CPU frequency (MHz; N/A on some platforms)
+- `process_count_total`, `process_count_running` - Process counts
+- `boot_time` - Boot time (ISO timestamp for HA)
 
 Note: System collector has no `state` field - uses global `{prefix}/status` for availability
 
@@ -826,13 +830,29 @@ Metrics (all configurable via config/defaults):
 - `packets_sent`, `packets_recv` - Packet counts
 - `errin`, `errout` - Error counts
 - `dropin`, `dropout` - Dropped packet counts
-- `bytes_sent_rate`, `bytes_recv_rate` - Rate (bytes/s) when `rate on`
+- `bytes_sent_rate`, `bytes_recv_rate` - Rate (KiB/s) when `rate on`
 - `packets_sent_rate`, `packets_recv_rate` - Packet rate when `packets_rate on`
 - `isup` - Interface up/down (boolean, binary_sensor in HA)
 - `speed` - Link speed (Mbps), `mtu`, `duplex`
 - `state` - online/not_found (source availability)
 
 Topic: `{prefix}/network/{name}` → JSON with above fields. Default device: system.
+Optional `rssi on`: Wi-Fi signal strength (dBm) via `iw dev <iface> link` or `iwconfig`.
+
+---
+
+### `fan.py` - Fan (RPM) Collector
+
+Reads fan speed from `/sys/class/hwmon/hwmon*/fan*_input` (RPM). One collector per hwmon; reports `fan1_rpm`, `fan2_rpm`, or `rpm` (single fan).
+
+**Functions:**
+- `discover_fan_hwmons()` - List (hwmon_basename, display_name, list of FanInput)
+
+**Class: `FanCollector`**
+
+Metrics: `fan{N}_rpm` or `rpm` (unit RPM). Supports manual `fan "name" { hwmon "hwmon0"; }` and auto-discovery via `fans { auto on; }`.
+
+Topic: `{prefix}/fan/{name}` → JSON with fan metrics. Default device: system.
 
 ---
 

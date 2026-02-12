@@ -19,6 +19,7 @@ from .collectors.container import ContainerCollector
 from .collectors.custom import CustomCollector
 from .collectors.custom_binary import CustomBinarySensorCollector
 from .collectors.disk import DiskCollector
+from .collectors.fan import FanCollector
 from .collectors.gpu import GPUCollector
 from .collectors.network import NetworkCollector
 from .collectors.process import ProcessCollector
@@ -276,6 +277,26 @@ class Application:
         if auto_networks:
             logger.info(f"Auto-discovered {len(auto_networks)} network interfaces")
         collectors.extend(auto_networks)
+
+        # Fan collectors (manual) - part of system device by default
+        manual_fans: set[str] = set()
+        for fan_config in self.config.fans:
+            manual_fans.add(fan_config.name)
+            collectors.append(
+                FanCollector(
+                    config=fan_config,
+                    defaults=self.config.defaults,
+                    topic_prefix=topic_prefix,
+                    parent_device=system_device,
+                    device_templates=device_templates,
+                )
+            )
+
+        # Auto-discover fans (hwmon with fan*_input)
+        auto_fans = self._auto_discover_fans(manual_fans, topic_prefix, system_device)
+        if auto_fans:
+            logger.info(f"Auto-discovered {len(auto_fans)} fan collectors")
+        collectors.extend(auto_fans)
 
         # Custom collectors
         for custom_config in self.config.custom:
@@ -566,6 +587,52 @@ class Application:
 
         if collectors:
             logger.debug(f"Found {len(collectors)} network interfaces")
+
+        return collectors
+
+    def _auto_discover_fans(
+        self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
+    ) -> list[Collector]:
+        """Auto-discover fan (hwmon) collectors."""
+        from .config.schema import FanConfig
+
+        from .collectors.fan import discover_fan_hwmons
+
+        auto_cfg = self.config.auto_fans
+        if not auto_cfg.enabled:
+            return []
+
+        collectors: list[Collector] = []
+        device_templates = self.config.device_templates
+
+        for hwmon_basename, display_name, _ in discover_fan_hwmons():
+            name = display_name if display_name != hwmon_basename else hwmon_basename
+            if name in exclude:
+                continue
+            if not auto_cfg.matches(name):
+                continue
+
+            config = FanConfig.from_defaults(name=name, hwmon=hwmon_basename, defaults=self.config.defaults)
+            config.device_ref = auto_cfg.device_ref
+            for key, val in auto_cfg.options.items():
+                if hasattr(config, key):
+                    setattr(config, key, val)
+            if auto_cfg.update_interval is not None:
+                config.update_interval = auto_cfg.update_interval
+
+            collectors.append(
+                FanCollector(
+                    config=config,
+                    defaults=self.config.defaults,
+                    topic_prefix=topic_prefix,
+                    parent_device=parent_device,
+                    device_templates=device_templates,
+                )
+            )
+            logger.debug(f"Auto-discovered fan hwmon: {name} ({hwmon_basename})")
+
+        if collectors:
+            logger.debug(f"Found {len(collectors)} fan collectors")
 
         return collectors
 
@@ -867,6 +934,7 @@ class Application:
         manual_ac_power: set[str] = {a.name for a in self.config.ac_power}
         manual_disks: set[str] = {d.name for d in self.config.disks}
         manual_networks: set[str] = {n.name for n in self.config.networks}
+        manual_fans: set[str] = {f.name for f in self.config.fans}
 
         # Get system device from first system collector (if any)
         system_device = None
@@ -928,12 +996,16 @@ class Application:
         new_networks = self._auto_discover_networks(
             manual_networks, topic_prefix, system_device
         )
+        new_fans = self._auto_discover_fans(
+            manual_fans, topic_prefix, system_device
+        )
 
         new_temp_ids = {c.collector_id for c in new_temps}
         new_battery_ids = {c.collector_id for c in new_batteries}
         new_ac_power_ids = {c.collector_id for c in new_ac_power}
         new_disk_ids = {c.collector_id for c in new_disks}
         new_network_ids = {c.collector_id for c in new_networks}
+        new_fan_ids = {c.collector_id for c in new_fans}
 
         auto_temp_ids = {
             c.collector_id
@@ -960,18 +1032,25 @@ class Application:
             for c in self.collectors
             if c.SOURCE_TYPE == "network" and c.collector_id not in manual_networks
         }
+        auto_fan_ids = {
+            c.collector_id
+            for c in self.collectors
+            if c.SOURCE_TYPE == "fan" and c.collector_id not in manual_fans
+        }
 
         removed_temps = auto_temp_ids - new_temp_ids
         removed_batteries = auto_battery_ids - new_battery_ids
         removed_ac_power = auto_ac_power_ids - new_ac_power_ids
         removed_disks = auto_disk_ids - new_disk_ids
         removed_networks = auto_network_ids - new_network_ids
+        removed_fans = auto_fan_ids - new_fan_ids
 
         added_temps = new_temp_ids - auto_temp_ids
         added_batteries = new_battery_ids - auto_battery_ids
         added_ac_power = new_ac_power_ids - auto_ac_power_ids
         added_disks = new_disk_ids - auto_disk_ids
         added_networks = new_network_ids - auto_network_ids
+        added_fans = new_fan_ids - auto_fan_ids
 
         # Add new collectors
         for collector in new_services:
@@ -1014,6 +1093,11 @@ class Application:
                 await self._add_collector(collector)
                 logger.info(f"Auto-discovered new network: {collector.name}")
 
+        for collector in new_fans:
+            if collector.collector_id in added_fans:
+                await self._add_collector(collector)
+                logger.info(f"Auto-discovered new fan: {collector.name}")
+
         # Remove disappeared collectors (from JSON and Home Assistant)
         for collector_id in removed_services:
             await self._remove_collector(collector_id)
@@ -1046,6 +1130,10 @@ class Application:
         for collector_id in removed_networks:
             await self._remove_collector(collector_id)
             logger.info(f"Removed disappeared network: {collector_id}")
+
+        for collector_id in removed_fans:
+            await self._remove_collector(collector_id)
+            logger.info(f"Removed disappeared fan: {collector_id}")
 
     async def _add_collector(self, collector: Collector) -> None:
         """Add and start a new collector."""

@@ -156,6 +156,11 @@ class ConfigLoader:
             "load",
             "uptime",
             "gpu",
+            "disk_io",
+            "disk_io_rate",
+            "cpu_freq",
+            "process_count",
+            "boot_time",
             "update_interval",
         },
         "process": {
@@ -329,8 +334,10 @@ class ConfigLoader:
             "speed",
             "mtu",
             "duplex",
+            "rssi",
             "update_interval",
         },
+        "fan": {"device", "hwmon", "update_interval"},
         "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
         "match": {"name", "pattern", "pid", "pidfile", "cmdline", "unit", "image", "label"},
     }
@@ -382,6 +389,9 @@ class ConfigLoader:
         for cont in config.containers:
             all_names.setdefault(cont.name, []).append(f"container:{cont.name}")
 
+        for fan in config.fans:
+            all_names.setdefault(fan.name, []).append(f"fan:{fan.name}")
+
         for dup_name, sources in all_names.items():
             if len(sources) > 1:
                 warnings.append(f"Duplicate name '{dup_name}' used by: {', '.join(sources)}")
@@ -394,6 +404,11 @@ class ConfigLoader:
         warn_missing_match(config.processes, "Process")
         warn_missing_match(config.services, "Service")
         warn_missing_match(config.containers, "Container")
+
+        # Check fan collectors (manual config requires hwmon)
+        for fan in config.fans:
+            if not fan.hwmon:
+                warnings.append(f"Fan '{fan.name}' has no hwmon (required for manual config)")
 
         # Check custom sensors
         for custom in config.custom:
@@ -433,6 +448,8 @@ class ConfigLoader:
             validate_device_ref(disk.device_ref, "Disk", disk.name)
         for net in config.networks:
             validate_device_ref(net.device_ref, "Network", net.name)
+        for fan in config.fans:
+            validate_device_ref(fan.device_ref, "Fan", fan.name)
         for custom in config.custom:
             validate_device_ref(custom.device_ref, "Custom", custom.name)
 
@@ -456,6 +473,9 @@ class ConfigLoader:
         )
         validate_device_ref(
             config.auto_networks.device_ref, "networks auto-discovery", "networks"
+        )
+        validate_device_ref(
+            config.auto_fans.device_ref, "fans auto-discovery", "fans"
         )
 
         return warnings
@@ -485,6 +505,7 @@ class ConfigLoader:
                 "disks",
                 "ac_powers",
                 "networks",
+                "fans",
             }:
                 # Auto-discovery blocks allow arbitrary boolean overrides and update_interval
                 known = None

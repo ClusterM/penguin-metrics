@@ -2,16 +2,19 @@
 System-wide metrics collector.
 
 Collects:
+- Kernel version (always)
 - CPU usage (overall and per-core)
-- Memory usage (total, used, available, percent)
-- Swap usage
+- Memory and swap (total, used, percent)
 - Load average (1, 5, 15 minutes)
-- Uptime
+- Uptime and boot time
+- Disk I/O (bytes and KiB/s rate)
+- CPU frequency (current/min/max MHz; N/A on some ARM/virtual)
+- Process count (total and running)
 """
 
 import platform
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import psutil
@@ -20,6 +23,17 @@ from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig
 from ..models.device import Device
 from ..models.sensor import DeviceClass, Sensor, StateClass
 from .base import Collector, CollectorResult, build_sensor
+
+
+def _calc_rate_kib(
+    current: float,
+    previous: float | None,
+    time_delta: float | None,
+) -> float | None:
+    """Calculate KiB/s rate from bytes and time delta."""
+    if previous is None or time_delta is None or time_delta <= 0:
+        return None
+    return max(0.0, (current - previous) / 1024 / time_delta)
 
 
 def _get_system_info() -> dict[str, str | None]:
@@ -161,6 +175,11 @@ class SystemCollector(Collector):
         self._last_cpu_times = None
         self._last_per_cpu_times = None
 
+        # For disk I/O rate (KiB/s)
+        self._prev_disk_read: float | None = None
+        self._prev_disk_write: float | None = None
+        self._prev_disk_timestamp: datetime | None = None
+
     def create_device(self) -> Device | None:
         """Create device for system metrics."""
         device_ref = self.config.device_ref
@@ -230,11 +249,12 @@ class SystemCollector(Collector):
             device_class: DeviceClass | None = None,
             state_class: StateClass | None = None,
             icon: str | None = None,
+            suggested_display_precision: int | None = None,
         ) -> None:
             sensors.append(
                 build_sensor(
                     source_type="system",
-                    source_name="",  # System has no source_name - uses /system/{metric}
+                    source_name="",
                     metric_name=metric,
                     display_name=display,
                     device=device,
@@ -244,6 +264,7 @@ class SystemCollector(Collector):
                     state_class=state_class,
                     icon=icon,
                     ha_config=ha_cfg,
+                    suggested_display_precision=suggested_display_precision,
                 )
             )
 
@@ -344,7 +365,7 @@ class SystemCollector(Collector):
                     ),
                     build_sensor(
                         source_type="system",
-                        source_name="",  # System has no source_name - uses /system/{metric}
+                        source_name="",
                         metric_name="swap_used",
                         display_name="Swap Used",
                         device=device,
@@ -354,8 +375,119 @@ class SystemCollector(Collector):
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
                         ha_config=ha_cfg,
+                        suggested_display_precision=1,
+                    ),
+                    build_sensor(
+                        source_type="system",
+                        source_name="",
+                        metric_name="swap_total",
+                        display_name="Swap Total",
+                        device=device,
+                        topic_prefix=self.topic_prefix,
+                        unit="MiB",
+                        device_class=DeviceClass.DATA_SIZE,
+                        state_class=StateClass.MEASUREMENT,
+                        icon="mdi:harddisk",
+                        ha_config=ha_cfg,
+                        suggested_display_precision=1,
                     ),
                 ]
+            )
+
+        if self.config.disk_io:
+            add_sensor(
+                "disk_read",
+                "Disk Read",
+                unit="B",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:harddisk",
+                suggested_display_precision=0,
+            )
+            add_sensor(
+                "disk_write",
+                "Disk Write",
+                unit="B",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:harddisk",
+                suggested_display_precision=0,
+            )
+        if self.config.disk_io_rate:
+            add_sensor(
+                "disk_read_rate",
+                "Disk Read Rate",
+                unit="KiB/s",
+                device_class=DeviceClass.DATA_RATE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:harddisk",
+                suggested_display_precision=2,
+            )
+            add_sensor(
+                "disk_write_rate",
+                "Disk Write Rate",
+                unit="KiB/s",
+                device_class=DeviceClass.DATA_RATE,
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:harddisk",
+                suggested_display_precision=2,
+            )
+
+        if self.config.cpu_freq and psutil.cpu_freq() is not None:
+            add_sensor(
+                "cpu_freq_current",
+                "CPU Frequency",
+                unit="MHz",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:chip",
+                suggested_display_precision=0,
+            )
+            add_sensor(
+                "cpu_freq_min",
+                "CPU Frequency Min",
+                unit="MHz",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:chip",
+                suggested_display_precision=0,
+            )
+            add_sensor(
+                "cpu_freq_max",
+                "CPU Frequency Max",
+                unit="MHz",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:chip",
+                suggested_display_precision=0,
+            )
+
+        if self.config.process_count:
+            add_sensor(
+                "process_count_total",
+                "Process Count Total",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:counter",
+                suggested_display_precision=0,
+            )
+            add_sensor(
+                "process_count_running",
+                "Process Count Running",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:counter",
+                suggested_display_precision=0,
+            )
+
+        if self.config.boot_time:
+            sensors.append(
+                build_sensor(
+                    source_type="system",
+                    source_name="",
+                    metric_name="boot_time",
+                    display_name="Boot Time",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    icon="mdi:clock-outline",
+                    ha_config=ha_cfg,
+                    device_class=DeviceClass.TIMESTAMP,
+                )
             )
 
         if self.config.load:
@@ -441,6 +573,64 @@ class SystemCollector(Collector):
             swap = psutil.swap_memory()
             result.set("swap_percent", round(swap.percent, 1))
             result.set("swap_used", round(swap.used / (1024 * 1024), 1))
+            result.set("swap_total", round(swap.total / (1024 * 1024), 1))
+
+        # Disk I/O (system-wide)
+        if self.config.disk_io or self.config.disk_io_rate:
+            io = psutil.disk_io_counters()
+            if io is not None:
+                read_bytes = io.read_bytes
+                write_bytes = io.write_bytes
+                if self.config.disk_io:
+                    result.set("disk_read", read_bytes)
+                    result.set("disk_write", write_bytes)
+                now = datetime.now()
+                if self.config.disk_io_rate:
+                    time_delta = None
+                    if self._prev_disk_timestamp is not None:
+                        time_delta = (now - self._prev_disk_timestamp).total_seconds()
+                    read_rate = _calc_rate_kib(read_bytes, self._prev_disk_read, time_delta)
+                    write_rate = _calc_rate_kib(write_bytes, self._prev_disk_write, time_delta)
+                    if read_rate is not None:
+                        result.set("disk_read_rate", round(read_rate, 2))
+                    if write_rate is not None:
+                        result.set("disk_write_rate", round(write_rate, 2))
+                self._prev_disk_read = float(read_bytes)
+                self._prev_disk_write = float(write_bytes)
+                self._prev_disk_timestamp = now
+
+        # CPU frequency (may be None on ARM/virtual)
+        if self.config.cpu_freq:
+            freq = psutil.cpu_freq()
+            if freq is not None:
+                result.set("cpu_freq_current", round(freq.current, 0))
+                if freq.min is not None:
+                    result.set("cpu_freq_min", round(freq.min, 0))
+                if freq.max is not None:
+                    result.set("cpu_freq_max", round(freq.max, 0))
+
+        # Process count
+        if self.config.process_count:
+            try:
+                total = len(psutil.pids())
+                running = sum(
+                    1
+                    for p in psutil.process_iter(attrs=["status"], ad_value=None)
+                    if p.info.get("status") == "running"
+                )
+                result.set("process_count_total", total)
+                result.set("process_count_running", running)
+            except (psutil.Error, AttributeError):
+                pass
+
+        # Boot time (ISO string for HA timestamp)
+        if self.config.boot_time:
+            try:
+                bt = psutil.boot_time()
+                boot_dt = datetime.fromtimestamp(bt, tz=timezone.utc)
+                result.set("boot_time", boot_dt.isoformat())
+            except (OSError, ValueError):
+                pass
 
         # Load average
         if self.config.load:

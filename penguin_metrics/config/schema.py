@@ -476,12 +476,13 @@ class NetworkDefaultsConfig:
     packets: bool = False
     errors: bool = False
     drops: bool = False
-    rate: bool = False  # bytes_sent_rate, bytes_recv_rate (bytes/s)
+    rate: bool = False  # bytes_sent_rate, bytes_recv_rate (KiB/s)
     packets_rate: bool = False
     isup: bool = True  # interface up/down from net_if_stats
     speed: bool = False  # Mbps from net_if_stats
     mtu: bool = False
     duplex: bool = False
+    rssi: bool = False  # Wi-Fi signal (dBm) via iw/iwconfig
 
     @classmethod
     def from_block(cls, block: Block | None) -> "NetworkDefaultsConfig":
@@ -498,6 +499,7 @@ class NetworkDefaultsConfig:
             speed=bool(block.get_value("speed", False)),
             mtu=bool(block.get_value("mtu", False)),
             duplex=bool(block.get_value("duplex", False)),
+            rssi=bool(block.get_value("rssi", False)),
         )
 
 
@@ -679,6 +681,11 @@ class SystemConfig:
     load: bool = True
     uptime: bool = True
     gpu: bool = False
+    disk_io: bool = True        # Disk read/write totals (bytes)
+    disk_io_rate: bool = False  # Disk read/write rate (KiB/s)
+    cpu_freq: bool = True
+    process_count: bool = True
+    boot_time: bool = True
 
     # Settings
     update_interval: float | None = None  # None = use defaults
@@ -710,6 +717,11 @@ class SystemConfig:
             load=get_bool("load", True),
             uptime=get_bool("uptime", True),
             gpu=get_bool("gpu", False),
+            disk_io=get_bool("disk_io", True),
+            disk_io_rate=get_bool("disk_io_rate", False),
+            cpu_freq=get_bool("cpu_freq", True),
+            process_count=get_bool("process_count", True),
+            boot_time=get_bool("boot_time", True),
             update_interval=float(interval) if interval else None,
         )
 
@@ -1512,6 +1524,7 @@ class NetworkConfig:
     speed: bool = False
     mtu: bool = False
     duplex: bool = False
+    rssi: bool = False
 
     update_interval: float | None = None
 
@@ -1543,6 +1556,7 @@ class NetworkConfig:
             speed=get_bool("speed", nd.speed),
             mtu=get_bool("mtu", nd.mtu),
             duplex=get_bool("duplex", nd.duplex),
+            rssi=get_bool("rssi", nd.rssi),
             update_interval=float(interval) if interval else None,
         )
 
@@ -1562,6 +1576,38 @@ class NetworkConfig:
             speed=nd.speed,
             mtu=nd.mtu,
             duplex=nd.duplex,
+            rssi=nd.rssi,
+            update_interval=defaults.update_interval,
+        )
+
+
+@dataclass
+class FanConfig:
+    """Fan (RPM) monitoring configuration from hwmon sysfs."""
+
+    name: str  # Collector/source name (e.g. hwmon0, or display name)
+    hwmon: str | None = None  # Hwmon directory name (e.g. hwmon0) for manual config
+    device_ref: str | None = None  # Device template or "system"/"auto"/"none"
+    update_interval: float | None = None
+
+    @classmethod
+    def from_block(cls, block: Block, defaults: DefaultsConfig) -> "FanConfig":
+        """Create FanConfig from a parsed 'fan' block."""
+        name = block.name or "fan"
+        interval = block.get_value("update_interval") or defaults.update_interval
+        return cls(
+            name=name,
+            hwmon=block.get_value("hwmon"),
+            device_ref=block.get_value("device"),
+            update_interval=float(interval) if interval else None,
+        )
+
+    @classmethod
+    def from_defaults(cls, name: str, hwmon: str, defaults: DefaultsConfig) -> "FanConfig":
+        """Create FanConfig from defaults (for auto-discovery)."""
+        return cls(
+            name=name,
+            hwmon=hwmon,
             update_interval=defaults.update_interval,
         )
 
@@ -1590,6 +1636,7 @@ class Config:
     auto_disks: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_ac_powers: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_networks: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
+    auto_fans: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
 
     # Manual collectors (singular blocks: temperature, battery, etc.)
     system: list[SystemConfig] = field(default_factory=list)
@@ -1601,6 +1648,7 @@ class Config:
     ac_power: list[ACPowerConfig] = field(default_factory=list)
     disks: list[DiskConfig] = field(default_factory=list)
     networks: list[NetworkConfig] = field(default_factory=list)
+    fans: list[FanConfig] = field(default_factory=list)
     custom: list[CustomSensorConfig] = field(default_factory=list)
     binary_sensors: list[CustomBinarySensorConfig] = field(default_factory=list)
 
@@ -1659,6 +1707,7 @@ class Config:
         config.auto_disks = AutoDiscoveryConfig.from_block(doc.get_block("disks"))
         config.auto_ac_powers = AutoDiscoveryConfig.from_block(doc.get_block("ac_powers"))
         config.auto_networks = AutoDiscoveryConfig.from_block(doc.get_block("networks"))
+        config.auto_fans = AutoDiscoveryConfig.from_block(doc.get_block("fans"))
 
         # Parse collector blocks (singular names for manual configuration)
         for block in doc.get_blocks("system"):
@@ -1687,6 +1736,9 @@ class Config:
 
         for block in doc.get_blocks("network"):
             config.networks.append(NetworkConfig.from_block(block, config.defaults))
+
+        for block in doc.get_blocks("fan"):
+            config.fans.append(FanConfig.from_block(block, config.defaults))
 
         for block in doc.get_blocks("custom"):
             config.custom.append(CustomSensorConfig.from_block(block, config.defaults))
