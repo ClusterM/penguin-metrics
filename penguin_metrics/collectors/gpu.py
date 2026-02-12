@@ -355,6 +355,11 @@ class GPUCollector(Collector):
         # Collect metrics from first (primary) GPU
         gpu = self._gpus[0]
 
+        # Check if GPU still exists (device was unplugged)
+        if not gpu.path.exists():
+            result.set_unavailable("not_found")
+            return result
+
         if gpu.type == "devfreq":
             metrics = get_devfreq_metrics(gpu)
         elif gpu.type == "drm":

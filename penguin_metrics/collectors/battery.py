@@ -469,8 +469,20 @@ class BatteryCollector(Collector):
 
         path = self._battery.path
 
+        # Check if battery still exists (device was unplugged)
+        # When device is unplugged, the sysfs directory disappears
+        if not path.exists():
+            result.set_unavailable("not_found")
+            return result
+
         # Status is always collected for state
-        status = read_sysfs_value(path / "status")
+        # Check if status file exists (may be missing if device partially disappeared)
+        status_file = path / "status"
+        if not status_file.exists():
+            result.set_unavailable("not_found")
+            return result
+
+        status = read_sysfs_value(status_file)
         if status:
             result.set_state(status.lower())
         else:

@@ -210,12 +210,20 @@ class DiskCollector(Collector):
         """Collect disk metrics."""
         result = CollectorResult()
 
-        if not self._disk:
+        # Re-resolve disk in case partition was unmounted
+        if self.config.mountpoint:
+            disk = get_disk_by_mountpoint(self.config.mountpoint)
+        elif self.config.path:
+            disk = get_disk_by_name(self.config.path)
+        else:
+            disk = get_disk_by_name(self.config.name)
+
+        if not disk:
             result.set_unavailable("not_found")
             return result
 
         try:
-            usage = psutil.disk_usage(self._disk.mountpoint)
+            usage = psutil.disk_usage(disk.mountpoint)
         except (OSError, PermissionError) as e:
             result.set_error(str(e))
             result.set_unavailable("error")

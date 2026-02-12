@@ -782,17 +782,24 @@ class Application:
                 logger.error(f"Error during auto-refresh: {e}")
 
     async def _refresh_auto_discovered(self) -> None:
-        """Check for new/removed services, containers, and processes."""
+        """Check for new/removed auto-discovered sources (services, containers, processes, temperatures, batteries, ac_power, disks)."""
         topic_prefix = self.config.mqtt.topic_prefix
 
         # Get manually configured IDs (these should not be auto-removed)
-        manual_ids: set[str] = set()
+        manual_svc: set[str] = set()
+        manual_cont: set[str] = set()
+        manual_proc: set[str] = set()
         for svc_cfg in self.config.services:
-            manual_ids.add(svc_cfg.name)
+            manual_svc.add(svc_cfg.name)
         for cont_cfg in self.config.containers:
-            manual_ids.add(cont_cfg.name)
+            manual_cont.add(cont_cfg.name)
         for proc_cfg in self.config.processes:
-            manual_ids.add(proc_cfg.name)
+            manual_proc.add(proc_cfg.name)
+
+        manual_temps: set[str] = {t.name for t in self.config.temperatures}
+        manual_batteries: set[str] = {b.name for b in self.config.batteries}
+        manual_ac_power: set[str] = {a.name for a in self.config.ac_power}
+        manual_disks: set[str] = {d.name for d in self.config.disks}
 
         # Get system device from first system collector (if any)
         system_device = None
@@ -801,44 +808,92 @@ class Application:
                 system_device = collector.device
                 break
 
-        # Discover current services
-        new_services = self._auto_discover_services(manual_ids, topic_prefix, system_device)
+        # --- Services, containers, processes ---
+        new_services = self._auto_discover_services(manual_svc, topic_prefix, system_device)
         new_service_ids = {c.collector_id for c in new_services}
 
-        # Discover current containers
         new_containers = await self._auto_discover_containers(
-            manual_ids, topic_prefix, system_device
+            manual_cont, topic_prefix, system_device
         )
         new_container_ids = {c.collector_id for c in new_containers}
 
-        # Discover current processes
-        new_processes = self._auto_discover_processes(manual_ids, topic_prefix, system_device)
+        new_processes = self._auto_discover_processes(
+            manual_proc, topic_prefix, system_device
+        )
         new_process_ids = {c.collector_id for c in new_processes}
 
-        # Find auto-discovered collectors that are currently running
         auto_service_ids = {
             c.collector_id
             for c in self.collectors
-            if c.SOURCE_TYPE == "service" and c.collector_id not in manual_ids
+            if c.SOURCE_TYPE == "service" and c.collector_id not in manual_svc
         }
         auto_container_ids = {
             c.collector_id
             for c in self.collectors
-            if c.SOURCE_TYPE == "docker" and c.collector_id not in manual_ids
+            if c.SOURCE_TYPE == "docker" and c.collector_id not in manual_cont
         }
         auto_process_ids = {
             c.collector_id
             for c in self.collectors
-            if c.SOURCE_TYPE == "process" and c.collector_id not in manual_ids
+            if c.SOURCE_TYPE == "process" and c.collector_id not in manual_proc
         }
 
-        # Find new and removed
         added_services = new_service_ids - auto_service_ids
         removed_services = auto_service_ids - new_service_ids
         added_containers = new_container_ids - auto_container_ids
         removed_containers = auto_container_ids - new_container_ids
         added_processes = new_process_ids - auto_process_ids
         removed_processes = auto_process_ids - new_process_ids
+
+        # --- Temperatures, batteries, ac_power, disks ---
+        new_temps = self._auto_discover_temperatures(
+            manual_temps, topic_prefix, system_device
+        )
+        new_batteries = self._auto_discover_batteries(
+            manual_batteries, topic_prefix, system_device
+        )
+        new_ac_power = self._auto_discover_ac_power(
+            manual_ac_power, topic_prefix, system_device
+        )
+        new_disks = self._auto_discover_disks(
+            manual_disks, topic_prefix, system_device
+        )
+
+        new_temp_ids = {c.collector_id for c in new_temps}
+        new_battery_ids = {c.collector_id for c in new_batteries}
+        new_ac_power_ids = {c.collector_id for c in new_ac_power}
+        new_disk_ids = {c.collector_id for c in new_disks}
+
+        auto_temp_ids = {
+            c.collector_id
+            for c in self.collectors
+            if c.SOURCE_TYPE == "temperature" and c.collector_id not in manual_temps
+        }
+        auto_battery_ids = {
+            c.collector_id
+            for c in self.collectors
+            if c.SOURCE_TYPE == "battery" and c.collector_id not in manual_batteries
+        }
+        auto_ac_power_ids = {
+            c.collector_id
+            for c in self.collectors
+            if c.SOURCE_TYPE == "ac_power" and c.collector_id not in manual_ac_power
+        }
+        auto_disk_ids = {
+            c.collector_id
+            for c in self.collectors
+            if c.SOURCE_TYPE == "disk" and c.collector_id not in manual_disks
+        }
+
+        removed_temps = auto_temp_ids - new_temp_ids
+        removed_batteries = auto_battery_ids - new_battery_ids
+        removed_ac_power = auto_ac_power_ids - new_ac_power_ids
+        removed_disks = auto_disk_ids - new_disk_ids
+
+        added_temps = new_temp_ids - auto_temp_ids
+        added_batteries = new_battery_ids - auto_battery_ids
+        added_ac_power = new_ac_power_ids - auto_ac_power_ids
+        added_disks = new_disk_ids - auto_disk_ids
 
         # Add new collectors
         for collector in new_services:
@@ -856,7 +911,27 @@ class Application:
                 await self._add_collector(collector)
                 logger.info(f"Auto-discovered new process: {collector.name}")
 
-        # Remove old collectors
+        for collector in new_temps:
+            if collector.collector_id in added_temps:
+                await self._add_collector(collector)
+                logger.info(f"Auto-discovered new temperature: {collector.name}")
+
+        for collector in new_batteries:
+            if collector.collector_id in added_batteries:
+                await self._add_collector(collector)
+                logger.info(f"Auto-discovered new battery: {collector.name}")
+
+        for collector in new_ac_power:
+            if collector.collector_id in added_ac_power:
+                await self._add_collector(collector)
+                logger.info(f"Auto-discovered new AC power: {collector.name}")
+
+        for collector in new_disks:
+            if collector.collector_id in added_disks:
+                await self._add_collector(collector)
+                logger.info(f"Auto-discovered new disk: {collector.name}")
+
+        # Remove disappeared collectors (from JSON and Home Assistant)
         for collector_id in removed_services:
             await self._remove_collector(collector_id)
             logger.info(f"Removed disappeared service: {collector_id}")
@@ -868,6 +943,22 @@ class Application:
         for collector_id in removed_processes:
             await self._remove_collector(collector_id)
             logger.info(f"Removed disappeared process: {collector_id}")
+
+        for collector_id in removed_temps:
+            await self._remove_collector(collector_id)
+            logger.info(f"Removed disappeared temperature: {collector_id}")
+
+        for collector_id in removed_batteries:
+            await self._remove_collector(collector_id)
+            logger.info(f"Removed disappeared battery: {collector_id}")
+
+        for collector_id in removed_ac_power:
+            await self._remove_collector(collector_id)
+            logger.info(f"Removed disappeared AC power: {collector_id}")
+
+        for collector_id in removed_disks:
+            await self._remove_collector(collector_id)
+            logger.info(f"Removed disappeared disk: {collector_id}")
 
     async def _add_collector(self, collector: Collector) -> None:
         """Add and start a new collector."""
@@ -893,7 +984,7 @@ class Application:
             logger.error(f"Failed to add collector {collector.name}: {e}")
 
     async def _remove_collector(self, collector_id: str) -> None:
-        """Stop and remove a collector."""
+        """Stop and remove a collector. Clears HA entities and JSON source topic."""
         # Find collector
         collector = None
         for c in self.collectors:
@@ -915,11 +1006,14 @@ class Application:
             self._tasks.remove(task)
             del self._collector_tasks[collector_id]
 
-        # Remove sensors from Home Assistant
+        # Clear JSON source topic (so retained message does not show stale data)
+        source_topic = collector.source_topic(self.config.mqtt.topic_prefix)
+        await self.mqtt.publish(source_topic, "", qos=1, retain=True)
+
+        # Remove sensors from Home Assistant (use entity_type: sensor vs binary_sensor)
         if self.config.homeassistant.discovery:
             for sensor in collector.sensors:
-                topic = f"{self.ha.discovery_prefix}/sensor/{sensor.unique_id}/config"
-                await self.mqtt.publish(topic, "", qos=1, retain=True)
+                await self.ha.unregister_sensor(sensor)
 
         # Remove from list
         self.collectors.remove(collector)

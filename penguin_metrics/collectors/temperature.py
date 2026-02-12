@@ -328,6 +328,10 @@ class TemperatureCollector(Collector):
         # Read from thermal zones (first one only - each collector handles one sensor)
         if self._zones:
             zone = self._zones[0]
+            # Check if zone still exists (sensor/device was removed)
+            if not zone.path.exists():
+                result.set_unavailable("not_found")
+                return result
             temp = read_thermal_zone_temp(zone)
             if temp is not None:
                 result.set("temp", round(temp, 1))
