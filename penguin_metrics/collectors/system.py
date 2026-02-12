@@ -14,7 +14,7 @@ Collects:
 
 import platform
 import socket
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import psutil
@@ -627,7 +627,7 @@ class SystemCollector(Collector):
         if self.config.boot_time:
             try:
                 bt = psutil.boot_time()
-                boot_dt = datetime.fromtimestamp(bt, tz=timezone.utc)
+                boot_dt = datetime.fromtimestamp(bt, tz=UTC)
                 result.set("boot_time", boot_dt.isoformat())
             except (OSError, ValueError):
                 pass

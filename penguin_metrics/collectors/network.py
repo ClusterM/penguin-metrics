@@ -55,7 +55,10 @@ async def _get_wifi_rssi(interface: str) -> int | None:
     # Try iw first (nl80211)
     try:
         proc = await asyncio.create_subprocess_exec(
-            "iw", "dev", interface, "link",
+            "iw",
+            "dev",
+            interface,
+            "link",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
         )
@@ -65,13 +68,14 @@ async def _get_wifi_rssi(interface: str) -> int | None:
             m = re.search(r"signal:\s*(-?\d+)\s*dBm", stdout.decode("utf-8", errors="ignore"))
             if m:
                 return int(m.group(1))
-    except (FileNotFoundError, asyncio.TimeoutError):
+    except (TimeoutError, FileNotFoundError):
         pass
 
     # Fallback: iwconfig (wireless-tools)
     try:
         proc = await asyncio.create_subprocess_exec(
-            "iwconfig", interface,
+            "iwconfig",
+            interface,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
         )
@@ -81,7 +85,7 @@ async def _get_wifi_rssi(interface: str) -> int | None:
             m = re.search(r"Signal\s+level[=:](-?\d+)", stdout.decode("utf-8", errors="ignore"))
             if m:
                 return int(m.group(1))
-    except (FileNotFoundError, asyncio.TimeoutError):
+    except (TimeoutError, FileNotFoundError):
         pass
 
     return None
@@ -181,8 +185,22 @@ class NetworkCollector(Collector):
             )
 
         if self.config.bytes:
-            add("bytes_sent", f"{prefix} Bytes Sent", unit="B", device_class=DeviceClass.DATA_SIZE, state_class=StateClass.TOTAL_INCREASING, suggested_display_precision=0)
-            add("bytes_recv", f"{prefix} Bytes Recv", unit="B", device_class=DeviceClass.DATA_SIZE, state_class=StateClass.TOTAL_INCREASING, suggested_display_precision=0)
+            add(
+                "bytes_sent",
+                f"{prefix} Bytes Sent",
+                unit="B",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.TOTAL_INCREASING,
+                suggested_display_precision=0,
+            )
+            add(
+                "bytes_recv",
+                f"{prefix} Bytes Recv",
+                unit="B",
+                device_class=DeviceClass.DATA_SIZE,
+                state_class=StateClass.TOTAL_INCREASING,
+                suggested_display_precision=0,
+            )
         if self.config.packets:
             add("packets_sent", f"{prefix} Packets Sent", state_class=StateClass.TOTAL_INCREASING)
             add("packets_recv", f"{prefix} Packets Recv", state_class=StateClass.TOTAL_INCREASING)
@@ -193,11 +211,35 @@ class NetworkCollector(Collector):
             add("dropin", f"{prefix} Drops In", state_class=StateClass.TOTAL_INCREASING)
             add("dropout", f"{prefix} Drops Out", state_class=StateClass.TOTAL_INCREASING)
         if self.config.rate:
-            add("bytes_sent_rate", f"{prefix} Send Rate", unit="KiB/s", device_class=DeviceClass.DATA_RATE, state_class=StateClass.MEASUREMENT, suggested_display_precision=2)
-            add("bytes_recv_rate", f"{prefix} Recv Rate", unit="KiB/s", device_class=DeviceClass.DATA_RATE, state_class=StateClass.MEASUREMENT, suggested_display_precision=2)
+            add(
+                "bytes_sent_rate",
+                f"{prefix} Send Rate",
+                unit="KiB/s",
+                device_class=DeviceClass.DATA_RATE,
+                state_class=StateClass.MEASUREMENT,
+                suggested_display_precision=2,
+            )
+            add(
+                "bytes_recv_rate",
+                f"{prefix} Recv Rate",
+                unit="KiB/s",
+                device_class=DeviceClass.DATA_RATE,
+                state_class=StateClass.MEASUREMENT,
+                suggested_display_precision=2,
+            )
         if self.config.packets_rate:
-            add("packets_sent_rate", f"{prefix} Packets Sent Rate", unit="p/s", state_class=StateClass.MEASUREMENT)
-            add("packets_recv_rate", f"{prefix} Packets Recv Rate", unit="p/s", state_class=StateClass.MEASUREMENT)
+            add(
+                "packets_sent_rate",
+                f"{prefix} Packets Sent Rate",
+                unit="p/s",
+                state_class=StateClass.MEASUREMENT,
+            )
+            add(
+                "packets_recv_rate",
+                f"{prefix} Packets Recv Rate",
+                unit="p/s",
+                state_class=StateClass.MEASUREMENT,
+            )
         if self.config.isup:
             sensors.append(
                 build_sensor(
@@ -220,7 +262,14 @@ class NetworkCollector(Collector):
         if self.config.duplex:
             add("duplex", f"{prefix} Duplex")
         if self.config.rssi:
-            add("rssi", f"{prefix} Signal", unit="dBm", state_class=StateClass.MEASUREMENT, icon="mdi:wifi", suggested_display_precision=0)
+            add(
+                "rssi",
+                f"{prefix} Signal",
+                unit="dBm",
+                state_class=StateClass.MEASUREMENT,
+                icon="mdi:wifi",
+                suggested_display_precision=0,
+            )
 
         return sensors
 
@@ -299,7 +348,10 @@ class NetworkCollector(Collector):
             if self.config.mtu:
                 result.set("mtu", s.mtu)
             if self.config.duplex:
-                result.set("duplex", s.duplex.name.lower() if hasattr(s.duplex, "name") else str(s.duplex).lower())
+                result.set(
+                    "duplex",
+                    s.duplex.name.lower() if hasattr(s.duplex, "name") else str(s.duplex).lower(),
+                )
 
         if self.config.rssi:
             rssi = await _get_wifi_rssi(name)

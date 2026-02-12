@@ -681,7 +681,7 @@ class SystemConfig:
     load: bool = True
     uptime: bool = True
     gpu: bool = False
-    disk_io: bool = True        # Disk read/write totals (bytes)
+    disk_io: bool = True  # Disk read/write totals (bytes)
     disk_io_rate: bool = False  # Disk read/write rate (KiB/s)
     cpu_freq: bool = True
     process_count: bool = True

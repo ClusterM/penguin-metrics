@@ -471,12 +471,8 @@ class ConfigLoader:
         validate_device_ref(
             config.auto_ac_powers.device_ref, "ac_powers auto-discovery", "ac_powers"
         )
-        validate_device_ref(
-            config.auto_networks.device_ref, "networks auto-discovery", "networks"
-        )
-        validate_device_ref(
-            config.auto_fans.device_ref, "fans auto-discovery", "fans"
-        )
+        validate_device_ref(config.auto_networks.device_ref, "networks auto-discovery", "networks")
+        validate_device_ref(config.auto_fans.device_ref, "fans auto-discovery", "fans")
 
         return warnings
 

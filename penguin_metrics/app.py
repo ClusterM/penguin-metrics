@@ -549,9 +549,8 @@ class Application:
         self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
     ) -> list[Collector]:
         """Auto-discover network interfaces."""
-        from .config.schema import NetworkConfig
-
         from .collectors.network import discover_network_interfaces
+        from .config.schema import NetworkConfig
 
         auto_cfg = self.config.auto_networks
         if not auto_cfg.enabled:
@@ -594,9 +593,8 @@ class Application:
         self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
     ) -> list[Collector]:
         """Auto-discover fan (hwmon) collectors."""
-        from .config.schema import FanConfig
-
         from .collectors.fan import discover_fan_hwmons
+        from .config.schema import FanConfig
 
         auto_cfg = self.config.auto_fans
         if not auto_cfg.enabled:
@@ -612,7 +610,9 @@ class Application:
             if not auto_cfg.matches(name):
                 continue
 
-            config = FanConfig.from_defaults(name=name, hwmon=hwmon_basename, defaults=self.config.defaults)
+            config = FanConfig.from_defaults(
+                name=name, hwmon=hwmon_basename, defaults=self.config.defaults
+            )
             config.device_ref = auto_cfg.device_ref
             for key, val in auto_cfg.options.items():
                 if hasattr(config, key):
@@ -952,9 +952,7 @@ class Application:
         )
         new_container_ids = {c.collector_id for c in new_containers}
 
-        new_processes = self._auto_discover_processes(
-            manual_proc, topic_prefix, system_device
-        )
+        new_processes = self._auto_discover_processes(manual_proc, topic_prefix, system_device)
         new_process_ids = {c.collector_id for c in new_processes}
 
         auto_service_ids = {
@@ -981,24 +979,12 @@ class Application:
         removed_processes = auto_process_ids - new_process_ids
 
         # --- Temperatures, batteries, ac_power, disks ---
-        new_temps = self._auto_discover_temperatures(
-            manual_temps, topic_prefix, system_device
-        )
-        new_batteries = self._auto_discover_batteries(
-            manual_batteries, topic_prefix, system_device
-        )
-        new_ac_power = self._auto_discover_ac_power(
-            manual_ac_power, topic_prefix, system_device
-        )
-        new_disks = self._auto_discover_disks(
-            manual_disks, topic_prefix, system_device
-        )
-        new_networks = self._auto_discover_networks(
-            manual_networks, topic_prefix, system_device
-        )
-        new_fans = self._auto_discover_fans(
-            manual_fans, topic_prefix, system_device
-        )
+        new_temps = self._auto_discover_temperatures(manual_temps, topic_prefix, system_device)
+        new_batteries = self._auto_discover_batteries(manual_batteries, topic_prefix, system_device)
+        new_ac_power = self._auto_discover_ac_power(manual_ac_power, topic_prefix, system_device)
+        new_disks = self._auto_discover_disks(manual_disks, topic_prefix, system_device)
+        new_networks = self._auto_discover_networks(manual_networks, topic_prefix, system_device)
+        new_fans = self._auto_discover_fans(manual_fans, topic_prefix, system_device)
 
         new_temp_ids = {c.collector_id for c in new_temps}
         new_battery_ids = {c.collector_id for c in new_batteries}

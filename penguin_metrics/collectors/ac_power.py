@@ -129,8 +129,8 @@ class ACPowerCollector(Collector):
             model="AC Power",
             parent_device=self.parent_device,
             device_templates=self.device_templates,
-             # By default, group with system device (device system;)
-             use_parent_as_default=True,
+            # By default, group with system device (device system;)
+            use_parent_as_default=True,
         )
 
     def create_sensors(self) -> list[Sensor]:
