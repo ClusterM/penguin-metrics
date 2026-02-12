@@ -351,7 +351,8 @@ class ProcessConfig:
     cpu: bool = True
     memory: bool = True
     smaps: bool | None = None
-    io: bool = False
+    disk: bool = False
+    disk_rate: bool = False
     fds: bool = False
     threads: bool = False
     aggregate: bool = False

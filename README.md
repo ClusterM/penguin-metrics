@@ -371,7 +371,7 @@ defaults {
         cpu on;
         memory on;
         smaps on;        # Enable smaps for all processes
-        io on;
+        disk on;         # Read/write totals (MiB)
         fds off;
         threads off;
     }
@@ -638,7 +638,7 @@ process "docker" {
     cpu on;
     memory on;
     smaps on;                  # PSS/USS + Real PSS/USS (requires root)
-    io on;                     # I/O bytes
+    disk on;                   # Read/write totals (MiB)
     fds on;                    # Open file descriptors
     threads on;                # Thread count
 }
@@ -675,7 +675,8 @@ process "python-script" {
 | `cpu` | `on` | CPU usage (normalized to 0-100%) |
 | `memory` | `on` | Memory (RSS) |
 | `smaps` | *(from defaults)* | PSS/USS + Real PSS/USS memory |
-| `io` | `off` | I/O bytes read/write |
+| `disk` | `off` | Read/write totals (MiB) |
+| `disk_rate` | `off` | Read/write rate (MiB/s) |
 | `fds` | `off` | Open file descriptors |
 | `threads` | `off` | Thread count |
 | `aggregate` | `off` | Sum metrics from all matches |

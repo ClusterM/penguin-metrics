@@ -463,6 +463,7 @@ class ConfigLoader:
                 "services",
                 "processes",
                 "disks",
+                "ac_powers",
             }:
                 # Auto-discovery blocks allow arbitrary boolean overrides and update_interval
                 known = None
