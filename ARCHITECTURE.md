@@ -29,6 +29,7 @@ penguin_metrics/
 │   ├── service.py           # Systemd services
 │   ├── container.py         # Docker containers
 │   ├── battery.py           # Battery status
+│   ├── ac_power.py          # External power (AC/mains) status
 │   ├── custom.py            # Custom commands/scripts
 │   └── gpu.py               # GPU metrics
 │
@@ -125,6 +126,7 @@ class Application:
     # Auto-discovery methods
     def _auto_discover_temperatures(exclude, topic_prefix) -> list[Collector]
     def _auto_discover_batteries(exclude, topic_prefix) -> list[Collector]
+    def _auto_discover_ac_power(exclude, topic_prefix) -> list[Collector]
     async def _auto_discover_containers(exclude, topic_prefix) -> list[Collector]
     def _auto_discover_services(exclude, topic_prefix) -> list[Collector]
     def _auto_discover_processes(exclude, topic_prefix) -> list[Collector]
@@ -325,6 +327,7 @@ class Config:
     auto_services: AutoDiscoveryConfig
     auto_processes: AutoDiscoveryConfig
     auto_disks: AutoDiscoveryConfig
+    auto_ac_powers: AutoDiscoveryConfig
 
 @dataclass
 class SystemConfig:
@@ -386,16 +389,35 @@ class BatteryConfig:
     path: str | None = None
     battery_name: str | None = None
     capacity: bool = True
-    status: bool = True
-    voltage: bool = False
-    current: bool = False
-    power: bool = False
-    health: bool = False
+    voltage: bool = True
+    current: bool = True
+    power: bool = True
+    health: bool = True
+    energy_now: bool = True
+    energy_full: bool = True
+    energy_full_design: bool = True
     cycles: bool = False
     temperature: bool = False
     time_to_empty: bool = False
     time_to_full: bool = False
-    ...
+    present: bool = False
+    technology: bool = False
+    voltage_max: bool = False
+    voltage_min: bool = False
+    voltage_max_design: bool = False
+    voltage_min_design: bool = False
+    constant_charge_current: bool = False
+    constant_charge_current_max: bool = False
+    charge_full_design: bool = False
+    update_interval: float | None = None
+
+@dataclass
+class ACPowerConfig:
+    name: str                   # Sysfs device name (e.g. axp22x-ac)
+    path: str | None = None     # Optional full path to power_supply directory
+    device_ref: str | None = None  # "system"/"auto"/"none"/template name
+    ha_config: HomeAssistantSensorConfig | None = None
+    update_interval: float | None = None
 
 @dataclass
 class DiskConfig:
@@ -475,6 +497,7 @@ class Config:
     temperatures: list[TemperatureConfig]
     batteries: list[BatteryConfig]
     disks: list[DiskConfig]
+    ac_power: list[ACPowerConfig]
     custom: list[CustomSensorConfig]
     binary_sensors: list[CustomBinarySensorConfig]
     
@@ -763,6 +786,25 @@ Topic: `{prefix}/disk/{name}` → JSON: `{"total": 100.0, "used": 50.0, "free": 
 
 ---
 
+### `ac_power.py` - AC Power Collector
+
+Monitors external power supplies (non-battery) from `/sys/class/power_supply/`.
+
+**Functions:**
+- `discover_ac_power()` - Find non-battery power supplies (mains/USB/etc.)
+- `read_online(path)` - Read `online` attribute (1 = connected, 0 = disconnected)
+
+**Class: `ACPowerCollector`**
+
+Metrics:
+- `state` - online/not_found (source availability: "online" if data read successfully, "not_found" if source unavailable)
+- `online` - boolean: `true` if external power is present, `false` otherwise
+
+Topic: `{prefix}/ac_power/{name}` → JSON: `{"online": true, "state": "online"}`.
+Exposed to Home Assistant as a `binary_sensor` with `ON`/`OFF` derived from `online`.
+
+---
+
 ### `custom.py` - Custom Command Collector
 
 Executes user-defined commands.
@@ -895,7 +937,7 @@ class HomeAssistantDiscovery:
 - `service`: `active` → online, else → offline
 - `docker`: `running` → online, else → offline
 - `process`: `running` → online, else → offline
-- `temperature/battery/custom`: `online` → online, else → offline
+- `temperature/battery/ac_power/custom`: `online` → online, else → offline
 - `system`: Uses only global status (no local state field)
 
 ---
@@ -1211,7 +1253,7 @@ class DockerClient:
 
 ## Auto-Discovery
 
-Unified auto-discovery system for temperatures, batteries, containers, services, and processes.
+Unified auto-discovery system for temperatures, batteries, AC power supplies, containers, services, processes, and disks.
 
 **Configuration:**
 ```nginx
@@ -1241,6 +1283,13 @@ disks {
     auto on;
     filter "*";  # All partitions
     # filter "nvme*";  # Only NVMe
+}
+
+ac_powers {
+    auto on;
+    # device system;      # Group with system device (default via parent device)
+    # filter "axp*";      # Filter by power_supply name
+    # exclude "usb*";     # Exclude specific power supplies
 }
 ```
 

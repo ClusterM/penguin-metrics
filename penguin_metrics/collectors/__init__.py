@@ -2,6 +2,7 @@
 Metric collectors for system telemetry.
 """
 
+from .ac_power import ACPowerCollector
 from .base import Collector, CollectorResult
 from .battery import BatteryCollector
 from .container import ContainerCollector
@@ -15,6 +16,7 @@ from .temperature import TemperatureCollector
 __all__ = [
     "Collector",
     "CollectorResult",
+    "ACPowerCollector",
     "SystemCollector",
     "TemperatureCollector",
     "ProcessCollector",

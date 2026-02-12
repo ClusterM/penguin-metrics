@@ -1222,6 +1222,55 @@ class BatteryConfig:
 
 
 @dataclass
+class ACPowerConfig:
+    """External AC power supply (mains) monitoring configuration.
+
+    Reads the 'online' attribute from /sys/class/power_supply/<device_name>/online.
+    """
+
+    name: str  # Block name: collector ID and MQTT topic (e.g. "main", "axp22x-ac")
+    device_name: str | None = None  # Sysfs device name (e.g. axp22x-ac). If not set, name is used
+    path: str | None = None  # Optional full path; overrides device_name when set
+    device_ref: str | None = None  # Device template or "system"/"auto"/"none"
+    ha_config: HomeAssistantSensorConfig | None = None
+    update_interval: float | None = None
+
+    @classmethod
+    def from_block(cls, block: Block, defaults: DefaultsConfig) -> "ACPowerConfig":
+        """Create ACPowerConfig from a parsed 'ac_power' block."""
+        name = block.name or "ac"
+        device_name = block.get_value("name")  # Optional: sysfs device name (like battery "name")
+
+        interval = block.get_value("update_interval")
+        if interval is None:
+            interval = defaults.update_interval
+
+        # Parse device reference (string: template name or "system"/"auto"/"none")
+        device_ref = block.get_value("device")
+
+        # Parse homeassistant block for sensor overrides
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
+        return cls(
+            name=name,
+            device_name=device_name,
+            path=block.get_value("path"),
+            device_ref=device_ref,
+            ha_config=ha_config,
+            update_interval=float(interval) if interval else None,
+        )
+
+    @classmethod
+    def from_defaults(cls, name: str, defaults: DefaultsConfig) -> "ACPowerConfig":
+        """Create ACPowerConfig from defaults (for auto-discovery)."""
+        return cls(
+            name=name,
+            update_interval=defaults.update_interval,
+        )
+
+
+@dataclass
 class CustomSensorConfig:
     """Custom command/script sensor configuration."""
 
@@ -1431,6 +1480,7 @@ class Config:
     auto_services: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_processes: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_disks: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
+    auto_ac_powers: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
 
     # Manual collectors (singular blocks: temperature, battery, etc.)
     system: list[SystemConfig] = field(default_factory=list)
@@ -1439,6 +1489,7 @@ class Config:
     containers: list[ContainerConfig] = field(default_factory=list)
     temperatures: list[TemperatureConfig] = field(default_factory=list)
     batteries: list[BatteryConfig] = field(default_factory=list)
+    ac_power: list[ACPowerConfig] = field(default_factory=list)
     disks: list[DiskConfig] = field(default_factory=list)
     custom: list[CustomSensorConfig] = field(default_factory=list)
     binary_sensors: list[CustomBinarySensorConfig] = field(default_factory=list)
@@ -1496,6 +1547,7 @@ class Config:
         config.auto_services = AutoDiscoveryConfig.from_block(doc.get_block("services"))
         config.auto_processes = AutoDiscoveryConfig.from_block(doc.get_block("processes"))
         config.auto_disks = AutoDiscoveryConfig.from_block(doc.get_block("disks"))
+        config.auto_ac_powers = AutoDiscoveryConfig.from_block(doc.get_block("ac_powers"))
 
         # Parse collector blocks (singular names for manual configuration)
         for block in doc.get_blocks("system"):
@@ -1515,6 +1567,9 @@ class Config:
 
         for block in doc.get_blocks("battery"):
             config.batteries.append(BatteryConfig.from_block(block, config.defaults))
+
+        for block in doc.get_blocks("ac_power"):
+            config.ac_power.append(ACPowerConfig.from_block(block, config.defaults))
 
         for block in doc.get_blocks("disk"):
             config.disks.append(DiskConfig.from_block(block, config.defaults))

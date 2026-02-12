@@ -12,6 +12,7 @@ import asyncio
 import signal
 from typing import Any
 
+from .collectors.ac_power import ACPowerCollector
 from .collectors.base import Collector
 from .collectors.battery import BatteryCollector
 from .collectors.container import ContainerCollector
@@ -215,6 +216,26 @@ class Application:
             logger.info(f"Auto-discovered {len(auto_batteries)} batteries")
         collectors.extend(auto_batteries)
 
+        # AC power (external power supply) - part of system device by default
+        manual_ac_power: set[str] = set()
+        for ac_config in self.config.ac_power:
+            manual_ac_power.add(ac_config.name)
+            collectors.append(
+                ACPowerCollector(
+                    config=ac_config,
+                    defaults=self.config.defaults,
+                    topic_prefix=topic_prefix,
+                    parent_device=system_device,
+                    device_templates=device_templates,
+                )
+            )
+
+        # Auto-discover AC power supplies - always use system device
+        auto_ac_power = self._auto_discover_ac_power(manual_ac_power, topic_prefix, system_device)
+        if auto_ac_power:
+            logger.info(f"Auto-discovered {len(auto_ac_power)} AC power supplies")
+        collectors.extend(auto_ac_power)
+
         # Disk collectors (manual) - part of system device by default
         manual_disks: set[str] = set()
         for disk_config in self.config.disks:
@@ -382,6 +403,52 @@ class Application:
 
         if collectors:
             logger.debug(f"Found {len(collectors)} batteries")
+
+        return collectors
+
+    def _auto_discover_ac_power(
+        self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
+    ) -> list[Collector]:
+        """Auto-discover external power supplies (non-battery)."""
+        from .collectors.ac_power import discover_ac_power
+
+        auto_cfg = self.config.auto_ac_powers
+        if not auto_cfg.enabled:
+            return []
+
+        collectors: list[Collector] = []
+        device_templates = self.config.device_templates
+
+        for ps in discover_ac_power():
+            name = ps.name
+            if name in exclude:
+                continue
+            if not auto_cfg.matches(name) and not auto_cfg.matches(ps.type):
+                continue
+
+            from .config.schema import ACPowerConfig
+
+            config = ACPowerConfig.from_defaults(name=name, defaults=self.config.defaults)
+            # For auto-discovery, always point to the concrete path we found
+            config.path = str(ps.path)
+            # Apply auto-discovery device_ref and overrides (if any)
+            config.device_ref = auto_cfg.device_ref
+            if auto_cfg.update_interval is not None:
+                config.update_interval = auto_cfg.update_interval
+
+            collectors.append(
+                ACPowerCollector(
+                    config=config,
+                    defaults=self.config.defaults,
+                    topic_prefix=topic_prefix,
+                    parent_device=parent_device,
+                    device_templates=device_templates,
+                )
+            )
+            logger.debug(f"Auto-discovered AC power supply: {name} (type={ps.type})")
+
+        if collectors:
+            logger.debug(f"Found {len(collectors)} AC power supplies")
 
         return collectors
 

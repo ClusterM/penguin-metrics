@@ -197,6 +197,7 @@ class ConfigLoader:
             "update_interval",
         },
         "temperature": {"zone", "hwmon", "path", "device", "update_interval"},
+        "ac_power": {"name", "path", "device", "update_interval"},
         "battery": {
             "device",
             "name",
@@ -411,6 +412,8 @@ class ConfigLoader:
             validate_device_ref(temp.device_ref, "Temperature", temp.name)
         for batt in config.batteries:
             validate_device_ref(batt.device_ref, "Battery", batt.name)
+        for ac in config.ac_power:
+            validate_device_ref(ac.device_ref, "AC power", ac.name)
         for disk in config.disks:
             validate_device_ref(disk.device_ref, "Disk", disk.name)
         for custom in config.custom:
@@ -431,6 +434,9 @@ class ConfigLoader:
             config.auto_processes.device_ref, "processes auto-discovery", "processes"
         )
         validate_device_ref(config.auto_disks.device_ref, "disks auto-discovery", "disks")
+        validate_device_ref(
+            config.auto_ac_powers.device_ref, "ac_powers auto-discovery", "ac_powers"
+        )
 
         return warnings
 

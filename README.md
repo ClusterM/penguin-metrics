@@ -27,6 +27,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 - **Systemd Services**: State, CPU, memory via cgroups (auto-discovery with filter)
 - **Docker Containers**: CPU, memory, network, disk I/O with optional rate metrics (KB/s)
 - **Battery**: Capacity, status, voltage, current, health (auto-discovery supported)
+- **AC Power**: External power supply presence (`online`/`offline`, with auto-discovery)
 - **Custom Sensors**: Run shell commands or scripts
 - **Binary Sensors**: ON/OFF states from command execution (e.g., ping checks)
 - **GPU**: Basic metrics via sysfs (frequency, temperature) - minimal implementation
@@ -48,6 +49,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 - **Temperature Sensors**: Automatic detection with filter/exclude patterns
 - **Disk Partitions**: Auto-discovery of mounted block devices
 - **Batteries**: Auto-discovery of all power supplies
+- **AC Power Supplies**: Auto-discovery of non-battery power sources under `/sys/class/power_supply`
 - **Docker Containers**: Auto-discovery with name/image/label filters
 - **Systemd Services**: Auto-discovery with required filter (safety)
 - **Processes**: Auto-discovery with required filter (safety)
@@ -186,6 +188,7 @@ Configuration summary:
   Service monitors: 1
   Container monitors: 1
   Battery monitors: 0
+  AC power monitors: 0
   Custom sensors: 1
 
 Configuration is valid!
@@ -434,7 +437,7 @@ process "low-priority" {
 
 ### Auto-Discovery
 
-Penguin Metrics can automatically discover sensors, batteries, containers, and services.
+Penguin Metrics can automatically discover sensors, batteries, AC power supplies, containers, services, processes, and disks.
 Use **plural** block names for auto-discovery:
 
 ```nginx
@@ -473,6 +476,15 @@ processes {
     auto on;
     filter "python*";           # REQUIRED - thousands of processes otherwise
     # smaps on;                 # Override defaults.process values
+}
+
+# Auto-discover external power supplies (non-battery)
+ac_powers {
+    auto on;
+    # device system;            # Group with system device (default)
+    # filter "axp*";            # Match by power_supply name
+    # exclude "usb*";           # Exclude specific supplies
+    # update_interval 30s;      # Override interval for auto AC power
 }
 ```
 
@@ -861,6 +873,42 @@ battery "main" {
 | `update_interval` | *(from defaults)* | Override default interval |
 
 Status (`state`) is always collected and published (required for availability/HA) and is not configurable.
+
+### AC Power Monitoring
+
+Monitors external power supply (mains) presence from `/sys/class/power_supply/<device>/online`.
+
+**Metrics (published as JSON fields):**
+- `state` - online/not_found (source availability: "online" if data read successfully, "not_found" if source unavailable)
+- `online` - boolean: `true` if external power is present, `false` otherwise
+
+```nginx
+ac_power "axp22x-ac" {
+    # Block name = collector ID (MQTT topic). Use "name" for sysfs device.
+    # name "axp22x-ac";           # Sysfs device name (default: same as block name)
+    # path "/sys/class/power_supply/axp22x-ac";  # Optional: full path (overrides name)
+    
+    device system;                # Group with system device (default)
+    # update_interval 30s;
+    # homeassistant { name "AC Power"; icon "mdi:power-plug"; }
+}
+
+# Friendly block name with explicit device name:
+ac_power "main" {
+    name "axp22x-ac";             # Read from /sys/class/power_supply/axp22x-ac
+    device system;
+}
+```
+
+**Default values:**
+| Directive | Default | Description |
+|-----------|---------|-------------|
+| `name` | *(block name)* | Sysfs device name (e.g. axp22x-ac) |
+| `path` | *(none)* | Optional full path to power_supply directory |
+| `device` | `system` | Group with system device (via parent device) |
+| `update_interval` | *(from defaults)* | Override default interval |
+
+**Note:** AC power sensors publish JSON with `online` (boolean) and `state` fields. Exposed to Home Assistant as a `binary_sensor` with `ON`/`OFF` derived from `online`.
 
 ### Custom Sensors
 

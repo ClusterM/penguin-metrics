@@ -46,6 +46,7 @@ def validate_config(config_path: str) -> int:
         print(f"  Service monitors: {len(config.services)}")
         print(f"  Container monitors: {len(config.containers)}")
         print(f"  Battery monitors: {len(config.batteries)}")
+        print(f"  AC power monitors: {len(config.ac_power)}")
         print(f"  Custom sensors: {len(config.custom)}")
 
         print("\nConfiguration is valid!")
