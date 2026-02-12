@@ -469,6 +469,39 @@ class DiskDefaultsConfig:
 
 
 @dataclass
+class NetworkDefaultsConfig:
+    """Default settings for network interface collectors."""
+
+    bytes: bool = True  # bytes_sent, bytes_recv (bytes)
+    packets: bool = False
+    errors: bool = False
+    drops: bool = False
+    rate: bool = False  # bytes_sent_rate, bytes_recv_rate (bytes/s)
+    packets_rate: bool = False
+    isup: bool = True  # interface up/down from net_if_stats
+    speed: bool = False  # Mbps from net_if_stats
+    mtu: bool = False
+    duplex: bool = False
+
+    @classmethod
+    def from_block(cls, block: Block | None) -> "NetworkDefaultsConfig":
+        if block is None:
+            return cls()
+        return cls(
+            bytes=bool(block.get_value("bytes", True)),
+            packets=bool(block.get_value("packets", False)),
+            errors=bool(block.get_value("errors", False)),
+            drops=bool(block.get_value("drops", False)),
+            rate=bool(block.get_value("rate", False)),
+            packets_rate=bool(block.get_value("packets_rate", False)),
+            isup=bool(block.get_value("isup", True)),
+            speed=bool(block.get_value("speed", False)),
+            mtu=bool(block.get_value("mtu", False)),
+            duplex=bool(block.get_value("duplex", False)),
+        )
+
+
+@dataclass
 class DefaultsConfig:
     """Default settings inherited by collectors."""
 
@@ -483,6 +516,7 @@ class DefaultsConfig:
     battery: BatteryDefaultsConfig = field(default_factory=BatteryDefaultsConfig)
     custom: CustomDefaultsConfig = field(default_factory=CustomDefaultsConfig)
     disk: DiskDefaultsConfig = field(default_factory=DiskDefaultsConfig)
+    network: NetworkDefaultsConfig = field(default_factory=NetworkDefaultsConfig)
 
     @classmethod
     def from_block(cls, block: Block | None) -> "DefaultsConfig":
@@ -504,6 +538,7 @@ class DefaultsConfig:
             battery=BatteryDefaultsConfig.from_block(block.get_block("battery")),
             custom=CustomDefaultsConfig.from_block(block.get_block("custom")),
             disk=DiskDefaultsConfig.from_block(block.get_block("disk")),
+            network=NetworkDefaultsConfig.from_block(block.get_block("network")),
         )
 
 
@@ -1459,6 +1494,79 @@ class DiskConfig:
 
 
 @dataclass
+class NetworkConfig:
+    """Network interface monitoring configuration."""
+
+    name: str  # Interface name: eth0, wlan0, etc.
+    device_ref: str | None = None  # Device template or "system"/"auto"/"none"
+    ha_config: HomeAssistantSensorConfig | None = None
+
+    # Metrics flags (net_io_counters + net_if_stats)
+    bytes: bool = True
+    packets: bool = False
+    errors: bool = False
+    drops: bool = False
+    rate: bool = False
+    packets_rate: bool = False
+    isup: bool = True
+    speed: bool = False
+    mtu: bool = False
+    duplex: bool = False
+
+    update_interval: float | None = None
+
+    @classmethod
+    def from_block(cls, block: Block, defaults: DefaultsConfig) -> "NetworkConfig":
+        """Create NetworkConfig from a parsed 'network' block."""
+        name = block.name or "network"
+        nd = defaults.network
+
+        def get_bool(n: str, d: bool) -> bool:
+            val = block.get_value(n)
+            return bool(val) if val is not None else d
+
+        interval = block.get_value("update_interval") or defaults.update_interval
+        ha_block = block.get_block("homeassistant")
+        ha_config = HomeAssistantSensorConfig.from_block(ha_block)
+
+        return cls(
+            name=name,
+            device_ref=block.get_value("device"),
+            ha_config=ha_config,
+            bytes=get_bool("bytes", nd.bytes),
+            packets=get_bool("packets", nd.packets),
+            errors=get_bool("errors", nd.errors),
+            drops=get_bool("drops", nd.drops),
+            rate=get_bool("rate", nd.rate),
+            packets_rate=get_bool("packets_rate", nd.packets_rate),
+            isup=get_bool("isup", nd.isup),
+            speed=get_bool("speed", nd.speed),
+            mtu=get_bool("mtu", nd.mtu),
+            duplex=get_bool("duplex", nd.duplex),
+            update_interval=float(interval) if interval else None,
+        )
+
+    @classmethod
+    def from_defaults(cls, name: str, defaults: DefaultsConfig) -> "NetworkConfig":
+        """Create NetworkConfig from defaults (for auto-discovery)."""
+        nd = defaults.network
+        return cls(
+            name=name,
+            bytes=nd.bytes,
+            packets=nd.packets,
+            errors=nd.errors,
+            drops=nd.drops,
+            rate=nd.rate,
+            packets_rate=nd.packets_rate,
+            isup=nd.isup,
+            speed=nd.speed,
+            mtu=nd.mtu,
+            duplex=nd.duplex,
+            update_interval=defaults.update_interval,
+        )
+
+
+@dataclass
 class Config:
     """Complete application configuration."""
 
@@ -1481,6 +1589,7 @@ class Config:
     auto_processes: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_disks: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_ac_powers: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
+    auto_networks: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
 
     # Manual collectors (singular blocks: temperature, battery, etc.)
     system: list[SystemConfig] = field(default_factory=list)
@@ -1491,6 +1600,7 @@ class Config:
     batteries: list[BatteryConfig] = field(default_factory=list)
     ac_power: list[ACPowerConfig] = field(default_factory=list)
     disks: list[DiskConfig] = field(default_factory=list)
+    networks: list[NetworkConfig] = field(default_factory=list)
     custom: list[CustomSensorConfig] = field(default_factory=list)
     binary_sensors: list[CustomBinarySensorConfig] = field(default_factory=list)
 
@@ -1548,6 +1658,7 @@ class Config:
         config.auto_processes = AutoDiscoveryConfig.from_block(doc.get_block("processes"))
         config.auto_disks = AutoDiscoveryConfig.from_block(doc.get_block("disks"))
         config.auto_ac_powers = AutoDiscoveryConfig.from_block(doc.get_block("ac_powers"))
+        config.auto_networks = AutoDiscoveryConfig.from_block(doc.get_block("networks"))
 
         # Parse collector blocks (singular names for manual configuration)
         for block in doc.get_blocks("system"):
@@ -1573,6 +1684,9 @@ class Config:
 
         for block in doc.get_blocks("disk"):
             config.disks.append(DiskConfig.from_block(block, config.defaults))
+
+        for block in doc.get_blocks("network"):
+            config.networks.append(NetworkConfig.from_block(block, config.defaults))
 
         for block in doc.get_blocks("custom"):
             config.custom.append(CustomSensorConfig.from_block(block, config.defaults))

@@ -317,6 +317,7 @@ def build_sensor(
     use_json: bool = True,
     ha_config: Any = None,
     value_template: str | None = None,
+    suggested_display_precision: int | None = None,
 ) -> Sensor:
     """Wrapper around create_sensor with optional HA overrides."""
     sensor = create_sensor(
@@ -334,6 +335,7 @@ def build_sensor(
         use_json=use_json,
         entity_type=entity_type,
         value_template=value_template,
+        suggested_display_precision=suggested_display_precision,
     )
     if ha_config:
         sensor.apply_ha_overrides(ha_config)

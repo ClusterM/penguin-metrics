@@ -23,15 +23,15 @@ from ..utils.docker_api import ContainerInfo, DockerClient, DockerError
 from .base import Collector, CollectorResult, build_sensor
 
 
-def _calc_rate(
+def _calc_rate_kib(
     current: int,
     previous: float | None,
     time_delta: float | None,
 ) -> float | None:
-    """Calculate MiB/s rate based on previous value and time delta."""
+    """Calculate KiB/s rate based on previous value and time delta."""
     if previous is None or time_delta is None or time_delta <= 0:
         return None
-    return max(0.0, (current - previous) / (1024 * 1024) / time_delta)
+    return max(0.0, (current - previous) / 1024 / time_delta)
 
 
 class ContainerCollector(Collector):
@@ -163,6 +163,7 @@ class ContainerCollector(Collector):
             device_class: DeviceClass | str | None = None,
             state_class: StateClass | None = None,
             icon: str | None = None,
+            suggested_display_precision: int | None = None,
         ) -> None:
             sensors.append(
                 build_sensor(
@@ -177,6 +178,7 @@ class ContainerCollector(Collector):
                     state_class=state_class,
                     icon=icon,
                     ha_config=ha_cfg,
+                    suggested_display_precision=suggested_display_precision,
                 )
             )
 
@@ -224,72 +226,80 @@ class ContainerCollector(Collector):
             add(
                 "network_rx",
                 "Network RX",
-                unit="MiB",
+                unit="B",
                 device_class=DeviceClass.DATA_SIZE,
                 state_class=StateClass.TOTAL_INCREASING,
                 icon="mdi:download",
+                suggested_display_precision=0,
             )
             add(
                 "network_tx",
                 "Network TX",
-                unit="MiB",
+                unit="B",
                 device_class=DeviceClass.DATA_SIZE,
                 state_class=StateClass.TOTAL_INCREASING,
                 icon="mdi:upload",
+                suggested_display_precision=0,
             )
 
         if self.config.network_rate:
             add(
                 "network_rx_rate",
                 "Network RX Rate",
-                unit="MiB/s",
+                unit="KiB/s",
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:download",
+                suggested_display_precision=2,
             )
             add(
                 "network_tx_rate",
                 "Network TX Rate",
-                unit="MiB/s",
+                unit="KiB/s",
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:upload",
+                suggested_display_precision=2,
             )
 
         if self.config.disk:
             add(
                 "disk_read",
                 "Disk Read",
-                unit="MiB",
+                unit="B",
                 device_class=DeviceClass.DATA_SIZE,
                 state_class=StateClass.TOTAL_INCREASING,
                 icon="mdi:harddisk",
+                suggested_display_precision=0,
             )
             add(
                 "disk_write",
                 "Disk Write",
-                unit="MiB",
+                unit="B",
                 device_class=DeviceClass.DATA_SIZE,
                 state_class=StateClass.TOTAL_INCREASING,
                 icon="mdi:harddisk",
+                suggested_display_precision=0,
             )
 
         if self.config.disk_rate:
             add(
                 "disk_read_rate",
                 "Disk Read Rate",
-                unit="MiB/s",
+                unit="KiB/s",
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:harddisk",
+                suggested_display_precision=2,
             )
             add(
                 "disk_write_rate",
                 "Disk Write Rate",
-                unit="MiB/s",
+                unit="KiB/s",
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:harddisk",
+                suggested_display_precision=2,
             )
 
         if self.config.uptime:
@@ -352,17 +362,17 @@ class ContainerCollector(Collector):
             result.set("memory_percent", round(stats.memory_percent, 1))
             result.set("memory_limit", round(stats.memory_limit_mb, 1))
 
-        # Network total
+        # Network total (bytes)
         network_rx_bytes = stats.network_rx_bytes
         network_tx_bytes = stats.network_tx_bytes
         if self.config.network:
-            result.set("network_rx", round(network_rx_bytes / (1024 * 1024), 2))
-            result.set("network_tx", round(network_tx_bytes / (1024 * 1024), 2))
+            result.set("network_rx", network_rx_bytes)
+            result.set("network_tx", network_tx_bytes)
 
-        # Network rate (MiB/s)
+        # Network rate (KiB/s)
         if self.config.network_rate:
-            rx_rate = _calc_rate(network_rx_bytes, self._prev_network_rx, time_delta)
-            tx_rate = _calc_rate(network_tx_bytes, self._prev_network_tx, time_delta)
+            rx_rate = _calc_rate_kib(network_rx_bytes, self._prev_network_rx, time_delta)
+            tx_rate = _calc_rate_kib(network_tx_bytes, self._prev_network_tx, time_delta)
             if rx_rate is not None:
                 result.set("network_rx_rate", round(rx_rate, 2))
             if tx_rate is not None:
@@ -370,17 +380,17 @@ class ContainerCollector(Collector):
             self._prev_network_rx = network_rx_bytes
             self._prev_network_tx = network_tx_bytes
 
-        # Disk total
+        # Disk total (bytes)
         disk_read_bytes = stats.block_read
         disk_write_bytes = stats.block_write
         if self.config.disk:
-            result.set("disk_read", round(disk_read_bytes / (1024 * 1024), 2))
-            result.set("disk_write", round(disk_write_bytes / (1024 * 1024), 2))
+            result.set("disk_read", disk_read_bytes)
+            result.set("disk_write", disk_write_bytes)
 
-        # Disk rate (MiB/s)
+        # Disk rate (KiB/s)
         if self.config.disk_rate:
-            read_rate = _calc_rate(disk_read_bytes, self._prev_disk_read, time_delta)
-            write_rate = _calc_rate(disk_write_bytes, self._prev_disk_write, time_delta)
+            read_rate = _calc_rate_kib(disk_read_bytes, self._prev_disk_read, time_delta)
+            write_rate = _calc_rate_kib(disk_write_bytes, self._prev_disk_write, time_delta)
             if read_rate is not None:
                 result.set("disk_read_rate", round(read_rate, 2))
             if write_rate is not None:

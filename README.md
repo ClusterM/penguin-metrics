@@ -28,6 +28,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 - **Docker Containers**: CPU, memory, network, disk I/O with optional rate metrics (KB/s)
 - **Battery**: Capacity, status, voltage, current, health (auto-discovery supported)
 - **AC Power**: External power supply presence (`online`/`offline`, with auto-discovery)
+- **Network Interfaces**: Bytes, packets, errors, drops, rate, isup, speed, mtu, duplex (auto-discovery supported)
 - **Custom Sensors**: Run shell commands or scripts
 - **Binary Sensors**: ON/OFF states from command execution (e.g., ping checks)
 - **GPU**: Basic metrics via sysfs (frequency, temperature) - minimal implementation
@@ -50,6 +51,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 - **Disk Partitions**: Auto-discovery of mounted block devices
 - **Batteries**: Auto-discovery of all power supplies
 - **AC Power Supplies**: Auto-discovery of non-battery power sources under `/sys/class/power_supply`
+- **Network Interfaces**: Auto-discovery of interfaces (filter/exclude by name, e.g. eth*, wlan*)
 - **Docker Containers**: Auto-discovery with name/image/label filters
 - **Systemd Services**: Auto-discovery with required filter (safety)
 - **Processes**: Auto-discovery with required filter (safety)
@@ -371,7 +373,7 @@ defaults {
         cpu on;
         memory on;
         smaps on;        # Enable smaps for all processes
-        disk on;         # Read/write totals (MiB)
+        disk on;         # Read/write totals (bytes)
         fds off;
         threads off;
     }
@@ -485,6 +487,16 @@ ac_powers {
     # filter "axp*";            # Match by power_supply name
     # exclude "usb*";           # Exclude specific supplies
     # update_interval 30s;      # Override interval for auto AC power
+}
+
+# Auto-discover network interfaces
+networks {
+    auto on;
+    # device system;            # Group with system device (default)
+    # filter "eth*";            # Only Ethernet
+    # exclude "lo";             # Exclude loopback
+    # rate on;                  # Enable bytes rate (B/s)
+    # update_interval 10s;
 }
 ```
 
@@ -638,7 +650,7 @@ process "docker" {
     cpu on;
     memory on;
     smaps on;                  # PSS/USS + Real PSS/USS (requires root)
-    disk on;                   # Read/write totals (MiB)
+    disk on;                   # Read/write totals (bytes)
     fds on;                    # Open file descriptors
     threads on;                # Thread count
 }
@@ -675,8 +687,8 @@ process "python-script" {
 | `cpu` | `on` | CPU usage (normalized to 0-100%) |
 | `memory` | `on` | Memory (RSS) |
 | `smaps` | *(from defaults)* | PSS/USS + Real PSS/USS memory |
-| `disk` | `off` | Read/write totals (MiB) |
-| `disk_rate` | `off` | Read/write rate (MiB/s) |
+| `disk` | `off` | Read/write totals (bytes) |
+| `disk_rate` | `off` | Read/write rate (KiB/s) |
 | `fds` | `off` | Open file descriptors |
 | `threads` | `off` | Thread count |
 | `aggregate` | `off` | Sum metrics from all matches |
@@ -910,6 +922,42 @@ ac_power "main" {
 | `update_interval` | *(from defaults)* | Override default interval |
 
 **Note:** AC power sensors publish JSON with `online` (boolean) and `state` fields. Exposed to Home Assistant as a `binary_sensor` with `ON`/`OFF` derived from `online`.
+
+### Network Interfaces
+
+Monitors network interfaces via `psutil.net_io_counters(pernic=True)` and `psutil.net_if_stats()`.
+
+**Metrics (published as JSON fields):**
+- `bytes_sent`, `bytes_recv` - Total bytes
+- `packets_sent`, `packets_recv` - Packet counts
+- `errin`, `errout` - Error counts
+- `dropin`, `dropout` - Dropped packet counts
+- `bytes_sent_rate`, `bytes_recv_rate` - Rate (bytes/s) when `rate on`
+- `packets_sent_rate`, `packets_recv_rate` - Packet rate (p/s) when `packets_rate on`
+- `isup` - Interface up/down (boolean, binary_sensor in HA)
+- `speed` - Link speed (Mbps)
+- `mtu` - MTU
+- `duplex` - full/half
+- `state` - online/not_found (source availability)
+
+```nginx
+network "eth0" {
+    device system;               # Group with system device (default)
+    bytes on;                    # bytes_sent, bytes_recv (bytes)
+    packets off;                 # packets_sent, packets_recv
+    errors off;                  # errin, errout
+    drops off;                   # dropin, dropout
+    rate off;                    # bytes_sent_rate, bytes_recv_rate (bytes/s)
+    packets_rate off;            # packets_sent_rate, packets_recv_rate (p/s)
+    isup on;                     # Interface up/down (binary_sensor)
+    speed off;                   # Speed (Mbps)
+    mtu off;
+    duplex off;
+    # update_interval 10s;
+}
+```
+
+**Default values (defaults.network):** `bytes` on, `packets`/`errors`/`drops`/`rate`/`packets_rate` off, `isup` on, `speed`/`mtu`/`duplex` off.
 
 ### Custom Sensors
 

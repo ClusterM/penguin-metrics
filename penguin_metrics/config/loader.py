@@ -136,6 +136,7 @@ class ConfigLoader:
             "battery",
             "custom",
             "disk",
+            "network",
         },
         "logging": {
             "level",
@@ -316,6 +317,20 @@ class ConfigLoader:
             "percent",
             "update_interval",
         },
+        "network": {
+            "device",
+            "bytes",
+            "packets",
+            "errors",
+            "drops",
+            "rate",
+            "packets_rate",
+            "isup",
+            "speed",
+            "mtu",
+            "duplex",
+            "update_interval",
+        },
         "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
         "match": {"name", "pattern", "pid", "pidfile", "cmdline", "unit", "image", "label"},
     }
@@ -416,6 +431,8 @@ class ConfigLoader:
             validate_device_ref(ac.device_ref, "AC power", ac.name)
         for disk in config.disks:
             validate_device_ref(disk.device_ref, "Disk", disk.name)
+        for net in config.networks:
+            validate_device_ref(net.device_ref, "Network", net.name)
         for custom in config.custom:
             validate_device_ref(custom.device_ref, "Custom", custom.name)
 
@@ -436,6 +453,9 @@ class ConfigLoader:
         validate_device_ref(config.auto_disks.device_ref, "disks auto-discovery", "disks")
         validate_device_ref(
             config.auto_ac_powers.device_ref, "ac_powers auto-discovery", "ac_powers"
+        )
+        validate_device_ref(
+            config.auto_networks.device_ref, "networks auto-discovery", "networks"
         )
 
         return warnings
@@ -464,6 +484,7 @@ class ConfigLoader:
                 "processes",
                 "disks",
                 "ac_powers",
+                "networks",
             }:
                 # Auto-discovery blocks allow arbitrary boolean overrides and update_interval
                 known = None

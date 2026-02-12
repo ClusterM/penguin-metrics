@@ -96,6 +96,7 @@ class Sensor:
     # Value configuration
     value_template: str | None = None
     unit_of_measurement: str | None = None
+    suggested_display_precision: int | None = None
 
     # Home Assistant configuration
     device_class: DeviceClass | str | None = None
@@ -223,6 +224,9 @@ class Sensor:
         if self.unit_of_measurement:
             result["unit_of_measurement"] = self.unit_of_measurement
 
+        if self.suggested_display_precision is not None:
+            result["suggested_display_precision"] = self.suggested_display_precision
+
         # Device class
         if self.device_class:
             if isinstance(self.device_class, DeviceClass):
@@ -336,6 +340,7 @@ def create_sensor(
     use_json: bool = True,
     value_template: str | None = None,
     entity_type: str = "sensor",
+    suggested_display_precision: int | None = None,
     **kwargs: Any,
 ) -> Sensor:
     """
@@ -409,6 +414,7 @@ def create_sensor(
         state_class=state_class,
         icon=icon,
         entity_type=entity_type,
+        suggested_display_precision=suggested_display_precision,
         **kwargs,
     )
 

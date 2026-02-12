@@ -20,6 +20,7 @@ from .collectors.custom import CustomCollector
 from .collectors.custom_binary import CustomBinarySensorCollector
 from .collectors.disk import DiskCollector
 from .collectors.gpu import GPUCollector
+from .collectors.network import NetworkCollector
 from .collectors.process import ProcessCollector
 from .collectors.service import ServiceCollector
 from .collectors.system import SystemCollector
@@ -255,6 +256,26 @@ class Application:
         if auto_disks:
             logger.info(f"Auto-discovered {len(auto_disks)} disks")
         collectors.extend(auto_disks)
+
+        # Network interface collectors (manual) - part of system device by default
+        manual_networks: set[str] = set()
+        for net_config in self.config.networks:
+            manual_networks.add(net_config.name)
+            collectors.append(
+                NetworkCollector(
+                    config=net_config,
+                    defaults=self.config.defaults,
+                    topic_prefix=topic_prefix,
+                    parent_device=system_device,
+                    device_templates=device_templates,
+                )
+            )
+
+        # Auto-discover network interfaces - always use system device
+        auto_networks = self._auto_discover_networks(manual_networks, topic_prefix, system_device)
+        if auto_networks:
+            logger.info(f"Auto-discovered {len(auto_networks)} network interfaces")
+        collectors.extend(auto_networks)
 
         # Custom collectors
         for custom_config in self.config.custom:
@@ -500,6 +521,51 @@ class Application:
 
         if collectors:
             logger.debug(f"Found {len(collectors)} disks")
+
+        return collectors
+
+    def _auto_discover_networks(
+        self, exclude: set[str], topic_prefix: str, parent_device: Device | None = None
+    ) -> list[Collector]:
+        """Auto-discover network interfaces."""
+        from .config.schema import NetworkConfig
+
+        from .collectors.network import discover_network_interfaces
+
+        auto_cfg = self.config.auto_networks
+        if not auto_cfg.enabled:
+            return []
+
+        collectors: list[Collector] = []
+        device_templates = self.config.device_templates
+
+        for iface in discover_network_interfaces():
+            if iface in exclude:
+                continue
+            if not auto_cfg.matches(iface):
+                continue
+
+            config = NetworkConfig.from_defaults(name=iface, defaults=self.config.defaults)
+            config.device_ref = auto_cfg.device_ref
+            for key, val in auto_cfg.options.items():
+                if hasattr(config, key):
+                    setattr(config, key, val)
+            if auto_cfg.update_interval is not None:
+                config.update_interval = auto_cfg.update_interval
+
+            collectors.append(
+                NetworkCollector(
+                    config=config,
+                    defaults=self.config.defaults,
+                    topic_prefix=topic_prefix,
+                    parent_device=parent_device,
+                    device_templates=device_templates,
+                )
+            )
+            logger.debug(f"Auto-discovered network interface: {iface}")
+
+        if collectors:
+            logger.debug(f"Found {len(collectors)} network interfaces")
 
         return collectors
 
@@ -800,6 +866,7 @@ class Application:
         manual_batteries: set[str] = {b.name for b in self.config.batteries}
         manual_ac_power: set[str] = {a.name for a in self.config.ac_power}
         manual_disks: set[str] = {d.name for d in self.config.disks}
+        manual_networks: set[str] = {n.name for n in self.config.networks}
 
         # Get system device from first system collector (if any)
         system_device = None
@@ -858,11 +925,15 @@ class Application:
         new_disks = self._auto_discover_disks(
             manual_disks, topic_prefix, system_device
         )
+        new_networks = self._auto_discover_networks(
+            manual_networks, topic_prefix, system_device
+        )
 
         new_temp_ids = {c.collector_id for c in new_temps}
         new_battery_ids = {c.collector_id for c in new_batteries}
         new_ac_power_ids = {c.collector_id for c in new_ac_power}
         new_disk_ids = {c.collector_id for c in new_disks}
+        new_network_ids = {c.collector_id for c in new_networks}
 
         auto_temp_ids = {
             c.collector_id
@@ -884,16 +955,23 @@ class Application:
             for c in self.collectors
             if c.SOURCE_TYPE == "disk" and c.collector_id not in manual_disks
         }
+        auto_network_ids = {
+            c.collector_id
+            for c in self.collectors
+            if c.SOURCE_TYPE == "network" and c.collector_id not in manual_networks
+        }
 
         removed_temps = auto_temp_ids - new_temp_ids
         removed_batteries = auto_battery_ids - new_battery_ids
         removed_ac_power = auto_ac_power_ids - new_ac_power_ids
         removed_disks = auto_disk_ids - new_disk_ids
+        removed_networks = auto_network_ids - new_network_ids
 
         added_temps = new_temp_ids - auto_temp_ids
         added_batteries = new_battery_ids - auto_battery_ids
         added_ac_power = new_ac_power_ids - auto_ac_power_ids
         added_disks = new_disk_ids - auto_disk_ids
+        added_networks = new_network_ids - auto_network_ids
 
         # Add new collectors
         for collector in new_services:
@@ -931,6 +1009,11 @@ class Application:
                 await self._add_collector(collector)
                 logger.info(f"Auto-discovered new disk: {collector.name}")
 
+        for collector in new_networks:
+            if collector.collector_id in added_networks:
+                await self._add_collector(collector)
+                logger.info(f"Auto-discovered new network: {collector.name}")
+
         # Remove disappeared collectors (from JSON and Home Assistant)
         for collector_id in removed_services:
             await self._remove_collector(collector_id)
@@ -959,6 +1042,10 @@ class Application:
         for collector_id in removed_disks:
             await self._remove_collector(collector_id)
             logger.info(f"Removed disappeared disk: {collector_id}")
+
+        for collector_id in removed_networks:
+            await self._remove_collector(collector_id)
+            logger.info(f"Removed disappeared network: {collector_id}")
 
     async def _add_collector(self, collector: Collector) -> None:
         """Add and start a new collector."""

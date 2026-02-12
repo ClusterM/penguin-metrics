@@ -30,6 +30,7 @@ penguin_metrics/
 │   ├── container.py         # Docker containers
 │   ├── battery.py           # Battery status
 │   ├── ac_power.py          # External power (AC/mains) status
+│   ├── network.py           # Network interface metrics (bytes, packets, rate, isup, speed, mtu, duplex)
 │   ├── custom.py            # Custom commands/scripts
 │   └── gpu.py               # GPU metrics
 │
@@ -131,6 +132,7 @@ class Application:
     def _auto_discover_services(exclude, topic_prefix) -> list[Collector]
     def _auto_discover_processes(exclude, topic_prefix) -> list[Collector]
     def _auto_discover_disks(exclude, topic_prefix) -> list[Collector]
+    def _auto_discover_networks(exclude, topic_prefix) -> list[Collector]
 ```
 
 **Functions:**
@@ -328,6 +330,7 @@ class Config:
     auto_processes: AutoDiscoveryConfig
     auto_disks: AutoDiscoveryConfig
     auto_ac_powers: AutoDiscoveryConfig
+    auto_networks: AutoDiscoveryConfig
 
 @dataclass
 class SystemConfig:
@@ -489,6 +492,8 @@ class Config:
     auto_services: AutoDiscoveryConfig
     auto_processes: AutoDiscoveryConfig
     auto_disks: AutoDiscoveryConfig
+    auto_ac_powers: AutoDiscoveryConfig
+    auto_networks: AutoDiscoveryConfig
     
     # Manual collectors
     system: list[SystemConfig]
@@ -498,6 +503,7 @@ class Config:
     temperatures: list[TemperatureConfig]
     batteries: list[BatteryConfig]
     disks: list[DiskConfig]
+    networks: list[NetworkConfig]
     ac_power: list[ACPowerConfig]
     custom: list[CustomSensorConfig]
     binary_sensors: list[CustomBinarySensorConfig]
@@ -803,6 +809,30 @@ Metrics:
 
 Topic: `{prefix}/ac_power/{name}` → JSON: `{"online": true, "state": "online"}`.
 Exposed to Home Assistant as a `binary_sensor` with `ON`/`OFF` derived from `online`.
+
+---
+
+### `network.py` - Network Interface Collector
+
+Monitors network interfaces via `psutil.net_io_counters(pernic=True)` and `psutil.net_if_stats()`.
+
+**Functions:**
+- `discover_network_interfaces()` - List interface names (e.g. eth0, wlan0)
+
+**Class: `NetworkCollector`**
+
+Metrics (all configurable via config/defaults):
+- `bytes_sent`, `bytes_recv` - Total bytes
+- `packets_sent`, `packets_recv` - Packet counts
+- `errin`, `errout` - Error counts
+- `dropin`, `dropout` - Dropped packet counts
+- `bytes_sent_rate`, `bytes_recv_rate` - Rate (bytes/s) when `rate on`
+- `packets_sent_rate`, `packets_recv_rate` - Packet rate when `packets_rate on`
+- `isup` - Interface up/down (boolean, binary_sensor in HA)
+- `speed` - Link speed (Mbps), `mtu`, `duplex`
+- `state` - online/not_found (source availability)
+
+Topic: `{prefix}/network/{name}` → JSON with above fields. Default device: system.
 
 ---
 
@@ -1291,6 +1321,13 @@ ac_powers {
     # device system;      # Group with system device (default via parent device)
     # filter "axp*";      # Filter by power_supply name
     # exclude "usb*";     # Exclude specific power supplies
+}
+
+networks {
+    auto on;
+    # device system;      # Group with system device (default)
+    # filter "eth*";     # Only Ethernet interfaces
+    # exclude "lo";      # Exclude loopback
 }
 ```
 
