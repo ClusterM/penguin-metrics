@@ -1,7 +1,7 @@
 # Penguin Metrics Docker Image
 # Linux system telemetry for Home Assistant via MQTT
 
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 LABEL maintainer="Penguin Metrics"
 LABEL description="Linux system telemetry for Home Assistant via MQTT"
