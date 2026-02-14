@@ -6,17 +6,19 @@ Defines all configuration sections, their fields, defaults, and validation.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TypeVar
 
 from .parser import Block, ConfigDocument, Directive
 
+_T = TypeVar("_T")
 
-def _parse_match_directive[T](
+
+def _parse_match_directive(
     directive: Directive | None,
-    type_map: dict[str, T],
+    type_map: dict[str, _T],
     block_type: str,
     block_name: str,
-) -> tuple[T, str] | None:
+) -> tuple[_T, str] | None:
     """Parse a 'match' directive into (match_type, value) or None if no directive.
 
     Raises ValueError on malformed or unknown match types.
@@ -1113,7 +1115,9 @@ class ContainerConfig:
 
         return cls(
             name=name,
-            match=ContainerMatchConfig.from_directive(block.get_directive("match"), block_name=name),
+            match=ContainerMatchConfig.from_directive(
+                block.get_directive("match"), block_name=name
+            ),
             device_ref=device_ref,
             ha_config=ha_config,
             auto_discover=bool(block.get_value("auto_discover", False)),

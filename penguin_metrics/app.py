@@ -354,7 +354,11 @@ class Application:
                 if not auto_cfg.matches(name):
                     continue
 
-                from .config.schema import TemperatureConfig, TemperatureMatchConfig, TemperatureMatchType
+                from .config.schema import (
+                    TemperatureConfig,
+                    TemperatureMatchConfig,
+                    TemperatureMatchType,
+                )
 
                 config = TemperatureConfig.from_defaults(
                     name=name,
@@ -383,7 +387,11 @@ class Application:
                 if not auto_cfg.matches(name):
                     continue
 
-                from .config.schema import TemperatureConfig, TemperatureMatchConfig, TemperatureMatchType
+                from .config.schema import (
+                    TemperatureConfig,
+                    TemperatureMatchConfig,
+                    TemperatureMatchType,
+                )
 
                 config = TemperatureConfig.from_defaults(
                     name=name,

@@ -342,15 +342,22 @@ class ConfigLoader:
         "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
         "match": {
             # process
-            "name", "pattern", "pid", "pidfile", "cmdline",
+            "name",
+            "pattern",
+            "pid",
+            "pidfile",
+            "cmdline",
             # service
             "unit",
             # container
-            "image", "label",
+            "image",
+            "label",
             # disk
-            "mountpoint", "uuid",
+            "mountpoint",
+            "uuid",
             # temperature
-            "zone", "hwmon",
+            "zone",
+            "hwmon",
             # battery, ac_power, temperature
             "path",
         },
