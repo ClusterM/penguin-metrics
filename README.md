@@ -452,84 +452,93 @@ process "low-priority" {
 ### Auto-Discovery
 
 Penguin Metrics can automatically discover sensors, batteries, AC power supplies, containers, services, processes, and disks.
-Use **plural** block names for auto-discovery:
+All auto-discovery settings are grouped inside the `auto_discovery { }` block:
 
 ```nginx
-# Auto-discover temperature sensors
-temperatures {
-    auto on;
-    # source thermal;  # "thermal" or "hwmon" (default: thermal)
-    # update_interval 15s;   # Optional override (otherwise uses defaults.update_interval)
-}
+auto_discovery {
 
-# Auto-discover batteries
-batteries {
-    auto on;
-    # current off;            # Optional per-metric override (inherits defaults.battery first)
-    # temperature on;         # Enable temperature metrics for auto-discovered batteries
-    # update_interval 30s;    # Override interval for auto batteries only
-}
+    # Auto-discover temperature sensors
+    temperatures {
+        auto on;
+        # source thermal;  # "thermal" or "hwmon" (default: thermal)
+        # update_interval 15s;   # Optional override
+    }
 
-# Auto-discover running Docker containers (with filter)
-containers {
-    auto on;
-    filter "myapp-*";
-    # disk_rate on;           # Override defaults.container values
-    # update_interval 10s;    # Override interval for auto containers only
-}
+    # Auto-discover batteries
+    batteries {
+        auto on;
+        # current off;            # Optional per-metric override
+        # temperature on;         # Enable temperature metrics
+        # update_interval 30s;
+    }
 
-# Auto-discover systemd services (filter REQUIRED for safety)
-services {
-    auto on;
-    filter "docker*";          # REQUIRED - too many services otherwise
-    # smaps on;                # Override defaults.service values
-}
+    # Auto-discover running Docker containers (with filter)
+    containers {
+        auto on;
+        filter "myapp-*";
+        # disk_rate on;           # Override defaults.container values
+        # update_interval 10s;
+    }
 
-# Auto-discover processes (filter REQUIRED for safety)
-processes {
-    auto on;
-    filter "python*";           # REQUIRED - thousands of processes otherwise
-    # smaps on;                 # Override defaults.process values
-}
+    # Auto-discover systemd services (filter REQUIRED for safety)
+    services {
+        auto on;
+        filter "docker*";          # REQUIRED - too many services otherwise
+        # smaps on;
+    }
 
-# Auto-discover external power supplies (non-battery)
-ac_powers {
-    auto on;
-    # device system;            # Group with system device (default)
-    # filter "axp*";            # Match by power_supply name
-    # exclude "usb*";           # Exclude specific supplies
-    # update_interval 30s;      # Override interval for auto AC power
-}
+    # Auto-discover processes (filter REQUIRED for safety)
+    processes {
+        auto on;
+        filter "python*";           # REQUIRED - thousands of processes otherwise
+        # smaps on;
+    }
 
-# Auto-discover network interfaces
-networks {
-    auto on;
-    # device system;            # Group with system device (default)
-    # filter "eth*";            # Only Ethernet
-    # exclude "lo";             # Exclude loopback
-    # rate on;                  # Enable bytes rate (KiB/s)
-    # rssi on;                  # Wi-Fi signal (dBm) for wireless interfaces
-    # update_interval 10s;
-}
+    # Auto-discover external power supplies (non-battery)
+    ac_powers {
+        auto on;
+        # filter "axp*";
+        # exclude "usb*";
+        # update_interval 30s;
+    }
 
-# Auto-discover fan (hwmon with fan*_input)
-# fans {
-#     auto on;
-#     # filter ".*";            # Include all (default)
-#     # device system;
-#     # update_interval 10s;
-# }
+    # Auto-discover network interfaces
+    networks {
+        auto on;
+        # filter "eth*";            # Only Ethernet
+        # exclude "lo";             # Exclude loopback
+        # rate on;                  # Enable bytes rate (KiB/s)
+        # update_interval 10s;
+    }
+
+    # Auto-discover disk partitions
+    disks {
+        auto on;
+        filter "*";                 # All partitions
+        # exclude "loop*";
+        # update_interval 60s;
+    }
+
+    # Auto-discover fans (hwmon fan*_input)
+    # fans {
+    #     auto on;
+    #     # filter "fan*";
+    #     # update_interval 10s;
+    # }
+}
 ```
 
 **Multiple filters and excludes:**
 
 ```nginx
-temperatures {
-    auto on;
-    source hwmon;          # Use hwmon instead of thermal zones
-    filter "nvme*";        # Include NVMe sensors
-    filter "soc*";         # Include SoC sensors
-    exclude "test*";       # Exclude test sensors
+auto_discovery {
+    temperatures {
+        auto on;
+        source hwmon;          # Use hwmon instead of thermal zones
+        filter "nvme*";        # Include NVMe sensors
+        filter "soc*";         # Include SoC sensors
+        exclude "test*";       # Exclude test sensors
+    }
 }
 ```
 
@@ -647,7 +656,7 @@ system "My Server" {
 }
 ```
 
-**Note:** Temperature sensors are configured separately via the `temperatures` block (see Auto-Discovery section).
+**Note:** Temperature sensors are configured separately via `auto_discovery { temperatures { ... } }` (see Auto-Discovery section).
 
 **Default values:**
 | Directive | Default | Description |
@@ -985,7 +994,7 @@ Optional `rssi on`: Wi-Fi signal strength (dBm) for wireless interfaces (uses `i
 
 ### Fan (RPM)
 
-Fan speed from hwmon sysfs (`/sys/class/hwmon/hwmon*/fan*_input`). Manual config or auto-discovery via `fans { auto on; }`.
+Fan speed from hwmon sysfs (`/sys/class/hwmon/hwmon*/fan*_input`). Manual config or auto-discovery via `auto_discovery { fans { auto on; } }`.
 
 ```nginx
 fan "cpu_fan" {

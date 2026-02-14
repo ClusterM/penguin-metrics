@@ -626,15 +626,18 @@ class AutoDiscoveryConfig:
     """
     Unified auto-discovery configuration.
 
-    Used by: temperatures, batteries, containers, services
+    Used by sub-blocks inside auto_discovery { }:
+    temperatures, batteries, containers, services, processes,
+    disks, networks, ac_powers, fans.
 
     Example:
-        temperatures {
-            auto on;
-            thermal on;   # /sys/class/thermal (default: on)
-            hwmon off;    # psutil hwmon sensors (default: on)
-            filter "soc_*";
-            exclude "test*";
+        auto_discovery {
+            temperatures {
+                auto on;
+                source thermal;
+                filter "soc_*";
+                exclude "test*";
+            }
         }
     """
 
@@ -1933,7 +1936,7 @@ class Config:
     # Device templates for grouping sensors
     device_templates: dict[str, DeviceConfig] = field(default_factory=dict)
 
-    # Auto-discovery settings (plural blocks: temperatures, batteries, etc.)
+    # Auto-discovery settings (inside auto_discovery { ... } block)
     auto_temperatures: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_batteries: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
     auto_containers: AutoDiscoveryConfig = field(default_factory=AutoDiscoveryConfig)
@@ -2004,16 +2007,22 @@ class Config:
                     device_config.extra_fields["name"] = template_name
                 config.device_templates[template_name] = device_config
 
-        # Parse auto-discovery blocks (plural names)
-        config.auto_temperatures = AutoDiscoveryConfig.from_block(doc.get_block("temperatures"))
-        config.auto_batteries = AutoDiscoveryConfig.from_block(doc.get_block("batteries"))
-        config.auto_containers = AutoDiscoveryConfig.from_block(doc.get_block("containers"))
-        config.auto_services = AutoDiscoveryConfig.from_block(doc.get_block("services"))
-        config.auto_processes = AutoDiscoveryConfig.from_block(doc.get_block("processes"))
-        config.auto_disks = AutoDiscoveryConfig.from_block(doc.get_block("disks"))
-        config.auto_ac_powers = AutoDiscoveryConfig.from_block(doc.get_block("ac_powers"))
-        config.auto_networks = AutoDiscoveryConfig.from_block(doc.get_block("networks"))
-        config.auto_fans = AutoDiscoveryConfig.from_block(doc.get_block("fans"))
+        # Parse auto_discovery block (contains sub-blocks: temperatures, batteries, etc.)
+        ad_block = doc.get_block("auto_discovery")
+        if ad_block is not None:
+            config.auto_temperatures = AutoDiscoveryConfig.from_block(
+                ad_block.get_block("temperatures")
+            )
+            config.auto_batteries = AutoDiscoveryConfig.from_block(ad_block.get_block("batteries"))
+            config.auto_containers = AutoDiscoveryConfig.from_block(
+                ad_block.get_block("containers")
+            )
+            config.auto_services = AutoDiscoveryConfig.from_block(ad_block.get_block("services"))
+            config.auto_processes = AutoDiscoveryConfig.from_block(ad_block.get_block("processes"))
+            config.auto_disks = AutoDiscoveryConfig.from_block(ad_block.get_block("disks"))
+            config.auto_ac_powers = AutoDiscoveryConfig.from_block(ad_block.get_block("ac_powers"))
+            config.auto_networks = AutoDiscoveryConfig.from_block(ad_block.get_block("networks"))
+            config.auto_fans = AutoDiscoveryConfig.from_block(ad_block.get_block("fans"))
 
         # Parse collector blocks (singular names for manual configuration)
         for block in doc.get_blocks("system"):

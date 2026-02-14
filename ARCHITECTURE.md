@@ -324,7 +324,7 @@ class Config:
     logging: LoggingConfig
     auto_refresh_interval: float = 0  # Top-level: 0 = disabled
     device_templates: dict[str, DeviceConfig]  # Device templates for grouping
-    # Auto-discovery configs
+    # Auto-discovery configs (parsed from auto_discovery { ... } block)
     auto_temperatures: AutoDiscoveryConfig
     auto_batteries: AutoDiscoveryConfig
     auto_containers: AutoDiscoveryConfig
@@ -506,7 +506,7 @@ class Config:
     logging: LoggingConfig
     auto_refresh_interval: float = 0  # Top-level setting (0 = disabled)
     
-    # Auto-discovery configs
+    # Auto-discovery configs (parsed from auto_discovery { ... } block)
     auto_temperatures: AutoDiscoveryConfig
     auto_batteries: AutoDiscoveryConfig
     auto_containers: AutoDiscoveryConfig
@@ -874,7 +874,7 @@ Reads fan speed from `/sys/class/hwmon/hwmon*/fan*_input` (RPM). One collector p
 
 **Class: `FanCollector`**
 
-Metrics: `fan{N}_rpm` or `rpm` (unit RPM). Supports manual `fan "name" { hwmon "hwmon0"; }` and auto-discovery via `fans { auto on; }`.
+Metrics: `fan{N}_rpm` or `rpm` (unit RPM). Supports manual `fan "name" { hwmon "hwmon0"; }` and auto-discovery via `auto_discovery { fans { auto on; } }`.
 
 Topic: `{prefix}/fan/{name}` → JSON with fan metrics. Default device: system.
 
@@ -1331,47 +1331,47 @@ class DockerClient:
 Unified auto-discovery system for temperatures, batteries, AC power supplies, containers, services, processes, and disks.
 
 **Configuration:**
+
+All auto-discovery settings are grouped inside the `auto_discovery { }` block:
+
 ```nginx
-temperatures {
-    auto on;
-    filter "nvme_*";
-    filter "soc_*";
-    exclude "internal*";
-}
+auto_discovery {
+    temperatures {
+        auto on;
+        filter "nvme_*";
+        filter "soc_*";
+        exclude "internal*";
+    }
 
-containers {
-    auto on;
-    filter "myapp-*";
-}
+    containers {
+        auto on;
+        filter "myapp-*";
+    }
 
-services {
-    auto on;
-    filter "docker*";  # Required for services/processes
-}
+    services {
+        auto on;
+        filter "docker*";  # Required for services/processes
+    }
 
-processes {
-    auto on;
-    filter "python*";  # Required for processes
-}
+    processes {
+        auto on;
+        filter "python*";  # Required for processes
+    }
 
-disks {
-    auto on;
-    filter "*";  # All partitions
-    # filter "nvme*";  # Only NVMe
-}
+    disks {
+        auto on;
+        filter "*";  # All partitions
+    }
 
-ac_powers {
-    auto on;
-    # device system;      # Group with system device (default via parent device)
-    # filter "axp*";      # Filter by power_supply name
-    # exclude "usb*";     # Exclude specific power supplies
-}
+    ac_powers {
+        auto on;
+        # filter "axp*";
+    }
 
-networks {
-    auto on;
-    # device system;      # Group with system device (default)
-    # filter "eth*";     # Only Ethernet interfaces
-    # exclude "lo";      # Exclude loopback
+    networks {
+        auto on;
+        # filter "eth*";
+    }
 }
 ```
 

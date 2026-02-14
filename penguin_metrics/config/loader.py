@@ -108,6 +108,19 @@ class ConfigLoader:
     # Known top-level directives (not in blocks)
     KNOWN_TOP_LEVEL = {"auto_refresh_interval"}
 
+    # Valid sub-block types inside auto_discovery { ... }
+    _AUTO_DISCOVERY_SUB_BLOCKS = {
+        "temperatures",
+        "batteries",
+        "containers",
+        "services",
+        "processes",
+        "disks",
+        "ac_powers",
+        "networks",
+        "fans",
+    }
+
     # Known directives for each block type
     KNOWN_DIRECTIVES = {
         "mqtt": {
@@ -259,65 +272,6 @@ class ConfigLoader:
             "invert",
             "update_interval",
             "timeout",
-        },
-        "temperatures": {"auto", "filter", "exclude", "source", "device", "update_interval"},
-        "batteries": {
-            "auto",
-            "filter",
-            "exclude",
-            "device",
-            "update_interval",
-            "capacity",
-            "voltage",
-            "current",
-            "power",
-            "health",
-            "energy_now",
-            "energy_full",
-            "energy_full_design",
-            "cycles",
-            "temperature",
-            "time_to_empty",
-            "time_to_full",
-            "present",
-            "technology",
-            "voltage_max",
-            "voltage_min",
-            "voltage_max_design",
-            "voltage_min_design",
-            "constant_charge_current",
-            "constant_charge_current_max",
-            "charge_full_design",
-        },
-        "containers": {"auto", "filter", "exclude", "device", "update_interval"},
-        "services": {
-            "auto",
-            "filter",
-            "exclude",
-            "device",
-            "update_interval",
-            "cpu",
-            "memory",
-            "smaps",
-            "state",
-            "restart_count",
-            "disk",
-            "disk_rate",
-        },
-        "processes": {
-            "auto",
-            "filter",
-            "exclude",
-            "device",
-            "update_interval",
-            "cpu",
-            "memory",
-            "smaps",
-            "disk",
-            "disk_rate",
-            "fds",
-            "threads",
-            "aggregate",
         },
         "disks": {"auto", "filter", "exclude", "device", "update_interval"},
         "disk": {
@@ -486,24 +440,50 @@ class ConfigLoader:
 
         # Validate auto-discovery device_refs
         validate_device_ref(
-            config.auto_temperatures.device_ref, "temperatures auto-discovery", "temperatures"
+            config.auto_temperatures.device_ref,
+            "auto_discovery.temperatures",
+            "temperatures",
         )
         validate_device_ref(
-            config.auto_batteries.device_ref, "batteries auto-discovery", "batteries"
+            config.auto_batteries.device_ref,
+            "auto_discovery.batteries",
+            "batteries",
         )
         validate_device_ref(
-            config.auto_containers.device_ref, "containers auto-discovery", "containers"
+            config.auto_containers.device_ref,
+            "auto_discovery.containers",
+            "containers",
         )
-        validate_device_ref(config.auto_services.device_ref, "services auto-discovery", "services")
         validate_device_ref(
-            config.auto_processes.device_ref, "processes auto-discovery", "processes"
+            config.auto_services.device_ref,
+            "auto_discovery.services",
+            "services",
         )
-        validate_device_ref(config.auto_disks.device_ref, "disks auto-discovery", "disks")
         validate_device_ref(
-            config.auto_ac_powers.device_ref, "ac_powers auto-discovery", "ac_powers"
+            config.auto_processes.device_ref,
+            "auto_discovery.processes",
+            "processes",
         )
-        validate_device_ref(config.auto_networks.device_ref, "networks auto-discovery", "networks")
-        validate_device_ref(config.auto_fans.device_ref, "fans auto-discovery", "fans")
+        validate_device_ref(
+            config.auto_disks.device_ref,
+            "auto_discovery.disks",
+            "disks",
+        )
+        validate_device_ref(
+            config.auto_ac_powers.device_ref,
+            "auto_discovery.ac_powers",
+            "ac_powers",
+        )
+        validate_device_ref(
+            config.auto_networks.device_ref,
+            "auto_discovery.networks",
+            "networks",
+        )
+        validate_device_ref(
+            config.auto_fans.device_ref,
+            "auto_discovery.fans",
+            "fans",
+        )
 
         return warnings
 
@@ -517,24 +497,18 @@ class ConfigLoader:
             # Special handling for blocks that allow extra fields:
             # - homeassistant (nested): allow any directives (they go to extra_fields)
             # - device: allow any directives (they go to extra_fields)
+            known: set[str] | None
             if block.type == "homeassistant" and parent_path:
                 # Nested homeassistant block inside collector - allow any directives
                 known = None  # None means allow all
             elif block.type == "device":
                 # Device blocks allow any directives (extra_fields for HA device)
                 known = None
-            elif block.type in {
-                "temperatures",
-                "batteries",
-                "containers",
-                "services",
-                "processes",
-                "disks",
-                "ac_powers",
-                "networks",
-                "fans",
-            }:
-                # Auto-discovery blocks allow arbitrary boolean overrides and update_interval
+            elif block.type == "auto_discovery":
+                # Container block for auto-discovery — no directives, only sub-blocks
+                known = set()
+            elif block.type in self._AUTO_DISCOVERY_SUB_BLOCKS:
+                # Auto-discovery sub-blocks allow arbitrary boolean overrides and update_interval
                 known = None
             else:
                 known = self.KNOWN_DIRECTIVES.get(block.type, set())
