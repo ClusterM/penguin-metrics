@@ -1442,8 +1442,9 @@ class DiskConfig:
     """Disk space monitoring configuration."""
 
     name: str
-    path: str | None = None  # Device name: sda1, nvme0n1p1
+    device_name: str | None = None  # Device name: sda1, nvme0n1p1
     mountpoint: str | None = None  # Mount point: /, /home
+    uuid: str | None = None  # Disk UUID (from /dev/disk/by-uuid/)
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
@@ -1455,6 +1456,24 @@ class DiskConfig:
 
     # Settings
     update_interval: float | None = None
+
+    def __post_init__(self) -> None:
+        """Validate that exactly one of name, mountpoint, uuid is set."""
+        identifiers = {
+            "name": self.device_name,
+            "mountpoint": self.mountpoint,
+            "uuid": self.uuid,
+        }
+        set_ids = [k for k, v in identifiers.items() if v]
+        if len(set_ids) == 0:
+            raise ValueError(
+                f"Disk '{self.name}': one of 'name', 'mountpoint', or 'uuid' must be specified"
+            )
+        if len(set_ids) > 1:
+            raise ValueError(
+                f"Disk '{self.name}': only one of 'name', 'mountpoint', or 'uuid' "
+                f"can be specified, got: {', '.join(set_ids)}"
+            )
 
     @classmethod
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "DiskConfig":
@@ -1479,8 +1498,9 @@ class DiskConfig:
 
         return cls(
             name=name,
-            path=block.get_value("path"),
+            device_name=block.get_value("name"),
             mountpoint=block.get_value("mountpoint"),
+            uuid=block.get_value("uuid"),
             device_ref=device_ref,
             ha_config=ha_config,
             total=get_bool("total", dd.total),
@@ -1491,12 +1511,12 @@ class DiskConfig:
         )
 
     @classmethod
-    def from_defaults(cls, name: str, path: str, defaults: DefaultsConfig) -> "DiskConfig":
+    def from_defaults(cls, name: str, device_name: str, defaults: DefaultsConfig) -> "DiskConfig":
         """Create DiskConfig from defaults (for auto-discovery)."""
         dd = defaults.disk
         return cls(
             name=name,
-            path=path,
+            device_name=device_name,
             total=dd.total,
             used=dd.used,
             free=dd.free,

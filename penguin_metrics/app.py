@@ -518,7 +518,7 @@ class Application:
 
             config = DiskConfig.from_defaults(
                 name=name,
-                path=name,
+                device_name=name,
                 defaults=self.config.defaults,
             )
             # Apply auto-discovery device_ref

@@ -427,13 +427,15 @@ class ACPowerConfig:
 @dataclass
 class DiskConfig:
     name: str
-    device: str | None = None  # Device name: sda1, nvme0n1p1
+    device_name: str | None = None  # Device name: sda1, nvme0n1p1
     mountpoint: str | None = None  # Mount point: /, /home
+    uuid: str | None = None  # Disk UUID (from /dev/disk/by-uuid/)
     total: bool = True
     used: bool = True
     free: bool = True
     percent: bool = True
     update_interval: float | None = None
+    # Exactly one of device_name, mountpoint, uuid must be set
 
 @dataclass
 class CustomSensorConfig:
@@ -783,6 +785,7 @@ Reads disk space from mounted partitions via psutil.
 - `discover_disks()` - Find mounted block device partitions
 - `get_disk_by_name(name)` - Find disk by device name (sda1, nvme0n1p1)
 - `get_disk_by_mountpoint(mountpoint)` - Find disk by mountpoint
+- `get_disk_by_uuid(uuid)` - Find disk by UUID (resolves /dev/disk/by-uuid/ symlink)
 
 **Class: `DiskCollector`**
 

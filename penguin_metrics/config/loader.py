@@ -313,8 +313,9 @@ class ConfigLoader:
         },
         "disks": {"auto", "filter", "exclude", "device", "update_interval"},
         "disk": {
-            "path",
+            "name",
             "mountpoint",
+            "uuid",
             "device",
             "total",
             "used",

@@ -81,6 +81,22 @@ def get_disk_by_mountpoint(mountpoint: str) -> DiskInfo | None:
     return None
 
 
+def get_disk_by_uuid(uuid: str) -> DiskInfo | None:
+    """Find disk by UUID (resolves /dev/disk/by-uuid/<uuid> symlink)."""
+    uuid_path = Path(f"/dev/disk/by-uuid/{uuid}")
+    try:
+        resolved = uuid_path.resolve(strict=True)
+    except (OSError, ValueError):
+        return None
+    for disk in discover_disks():
+        try:
+            if Path(disk.device).resolve() == resolved:
+                return disk
+        except (OSError, ValueError):
+            continue
+    return None
+
+
 class DiskCollector(Collector):
     """
     Collector for disk space metrics.
@@ -125,17 +141,18 @@ class DiskCollector(Collector):
 
     async def initialize(self) -> None:
         """Find the disk device."""
-        if self.config.mountpoint:
-            # Find by mountpoint
-            self._disk = get_disk_by_mountpoint(self.config.mountpoint)
-        elif self.config.path:
-            # Find by device name (sda1, nvme0n1p1)
-            self._disk = get_disk_by_name(self.config.path)
-        else:
-            # Try to find by config name
-            self._disk = get_disk_by_name(self.config.name)
-
+        self._disk = self._resolve_disk()
         await super().initialize()
+
+    def _resolve_disk(self) -> DiskInfo | None:
+        """Resolve disk from config (by name, mountpoint, or uuid)."""
+        if self.config.mountpoint:
+            return get_disk_by_mountpoint(self.config.mountpoint)
+        elif self.config.uuid:
+            return get_disk_by_uuid(self.config.uuid)
+        elif self.config.device_name:
+            return get_disk_by_name(self.config.device_name)
+        return None
 
     def create_device(self) -> Device | None:
         """Create device for disk metrics (uses system device by default)."""
@@ -210,13 +227,8 @@ class DiskCollector(Collector):
         """Collect disk metrics."""
         result = CollectorResult()
 
-        # Re-resolve disk in case partition was unmounted
-        if self.config.mountpoint:
-            disk = get_disk_by_mountpoint(self.config.mountpoint)
-        elif self.config.path:
-            disk = get_disk_by_name(self.config.path)
-        else:
-            disk = get_disk_by_name(self.config.name)
+        # Re-resolve disk in case partition was unmounted/remounted
+        disk = self._resolve_disk()
 
         if not disk:
             result.set_unavailable("not_found")
