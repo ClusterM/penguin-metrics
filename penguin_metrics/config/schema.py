@@ -11,6 +11,39 @@ from typing import Any
 from .parser import Block, ConfigDocument, Directive
 
 
+def _parse_match_directive[T](
+    directive: Directive | None,
+    type_map: dict[str, T],
+    block_type: str,
+    block_name: str,
+) -> tuple[T, str] | None:
+    """Parse a 'match' directive into (match_type, value) or None if no directive.
+
+    Raises ValueError on malformed or unknown match types.
+    """
+    if directive is None:
+        return None
+
+    valid = ", ".join(type_map.keys())
+
+    if len(directive.values) < 2:
+        raise ValueError(
+            f"{block_type} '{block_name}': match requires type and value, "
+            f'e.g. match {next(iter(type_map))} "..."; (valid types: {valid})'
+        )
+
+    match_type_str = str(directive.values[0]).lower()
+    match_type = type_map.get(match_type_str)
+
+    if match_type is None:
+        raise ValueError(
+            f"{block_type} '{block_name}': unknown match type '{match_type_str}', "
+            f"valid types: {valid}"
+        )
+
+    return match_type, str(directive.values[1])
+
+
 class ProcessMatchType(Enum):
     """How to match/find a process."""
 
@@ -775,32 +808,24 @@ class ProcessMatchConfig:
     type: ProcessMatchType
     value: str | int
 
+    _TYPE_MAP = {
+        "name": ProcessMatchType.NAME,
+        "pattern": ProcessMatchType.PATTERN,
+        "pid": ProcessMatchType.PID,
+        "pidfile": ProcessMatchType.PIDFILE,
+        "cmdline": ProcessMatchType.CMDLINE,
+        "cmdline_contains": ProcessMatchType.CMDLINE,
+    }
+
     @classmethod
-    def from_directive(cls, directive: Directive | None) -> "ProcessMatchConfig | None":
+    def from_directive(
+        cls, directive: Directive | None, block_name: str = ""
+    ) -> "ProcessMatchConfig | None":
         """Create ProcessMatchConfig from a 'match' directive."""
-        if directive is None:
+        result = _parse_match_directive(directive, cls._TYPE_MAP, "Process", block_name)
+        if result is None:
             return None
-
-        if len(directive.values) < 2:
-            return None
-
-        match_type_str = str(directive.values[0]).lower()
-        match_value = directive.values[1]
-
-        type_map = {
-            "name": ProcessMatchType.NAME,
-            "pattern": ProcessMatchType.PATTERN,
-            "pid": ProcessMatchType.PID,
-            "pidfile": ProcessMatchType.PIDFILE,
-            "cmdline": ProcessMatchType.CMDLINE,
-            "cmdline_contains": ProcessMatchType.CMDLINE,
-        }
-
-        match_type = type_map.get(match_type_str)
-        if match_type is None:
-            return None
-
-        return cls(type=match_type, value=match_value)
+        return cls(type=result[0], value=result[1])
 
 
 @dataclass
@@ -859,7 +884,7 @@ class ProcessConfig:
 
         return cls(
             name=name,
-            match=ProcessMatchConfig.from_directive(block.get_directive("match")),
+            match=ProcessMatchConfig.from_directive(block.get_directive("match"), block_name=name),
             device_ref=device_ref,
             sensor_prefix=block.get_value("sensor_prefix"),
             ha_config=ha_config,
@@ -908,28 +933,20 @@ class ServiceMatchConfig:
     type: ServiceMatchType
     value: str
 
+    _TYPE_MAP = {
+        "unit": ServiceMatchType.UNIT,
+        "pattern": ServiceMatchType.PATTERN,
+    }
+
     @classmethod
-    def from_directive(cls, directive: Directive | None) -> "ServiceMatchConfig | None":
+    def from_directive(
+        cls, directive: Directive | None, block_name: str = ""
+    ) -> "ServiceMatchConfig | None":
         """Create ServiceMatchConfig from a 'match' directive."""
-        if directive is None:
+        result = _parse_match_directive(directive, cls._TYPE_MAP, "Service", block_name)
+        if result is None:
             return None
-
-        if len(directive.values) < 2:
-            return None
-
-        match_type_str = str(directive.values[0]).lower()
-        match_value = str(directive.values[1])
-
-        type_map = {
-            "unit": ServiceMatchType.UNIT,
-            "pattern": ServiceMatchType.PATTERN,
-        }
-
-        match_type = type_map.get(match_type_str)
-        if match_type is None:
-            return None
-
-        return cls(type=match_type, value=match_value)
+        return cls(type=result[0], value=result[1])
 
 
 @dataclass
@@ -985,7 +1002,7 @@ class ServiceConfig:
 
         return cls(
             name=name,
-            match=ServiceMatchConfig.from_directive(block.get_directive("match")),
+            match=ServiceMatchConfig.from_directive(block.get_directive("match"), block_name=name),
             device_ref=device_ref,
             ha_config=ha_config,
             cpu=get_bool("cpu", svd.cpu),
@@ -1031,30 +1048,22 @@ class ContainerMatchConfig:
     type: ContainerMatchType
     value: str
 
+    _TYPE_MAP = {
+        "name": ContainerMatchType.NAME,
+        "pattern": ContainerMatchType.PATTERN,
+        "image": ContainerMatchType.IMAGE,
+        "label": ContainerMatchType.LABEL,
+    }
+
     @classmethod
-    def from_directive(cls, directive: Directive | None) -> "ContainerMatchConfig | None":
+    def from_directive(
+        cls, directive: Directive | None, block_name: str = ""
+    ) -> "ContainerMatchConfig | None":
         """Create ContainerMatchConfig from a 'match' directive."""
-        if directive is None:
+        result = _parse_match_directive(directive, cls._TYPE_MAP, "Container", block_name)
+        if result is None:
             return None
-
-        if len(directive.values) < 2:
-            return None
-
-        match_type_str = str(directive.values[0]).lower()
-        match_value = str(directive.values[1])
-
-        type_map = {
-            "name": ContainerMatchType.NAME,
-            "pattern": ContainerMatchType.PATTERN,
-            "image": ContainerMatchType.IMAGE,
-            "label": ContainerMatchType.LABEL,
-        }
-
-        match_type = type_map.get(match_type_str)
-        if match_type is None:
-            return None
-
-        return cls(type=match_type, value=match_value)
+        return cls(type=result[0], value=result[1])
 
 
 @dataclass
@@ -1104,7 +1113,7 @@ class ContainerConfig:
 
         return cls(
             name=name,
-            match=ContainerMatchConfig.from_directive(block.get_directive("match")),
+            match=ContainerMatchConfig.from_directive(block.get_directive("match"), block_name=name),
             device_ref=device_ref,
             ha_config=ha_config,
             auto_discover=bool(block.get_value("auto_discover", False)),
@@ -1149,23 +1158,21 @@ class TemperatureMatchConfig:
     type: TemperatureMatchType
     value: str
 
+    _TYPE_MAP = {
+        "zone": TemperatureMatchType.ZONE,
+        "hwmon": TemperatureMatchType.HWMON,
+        "path": TemperatureMatchType.PATH,
+    }
+
     @classmethod
-    def from_directive(cls, directive: Directive | None) -> "TemperatureMatchConfig | None":
+    def from_directive(
+        cls, directive: Directive | None, block_name: str = ""
+    ) -> "TemperatureMatchConfig | None":
         """Create TemperatureMatchConfig from a 'match' directive."""
-        if directive is None:
+        result = _parse_match_directive(directive, cls._TYPE_MAP, "Temperature", block_name)
+        if result is None:
             return None
-        if len(directive.values) < 2:
-            return None
-        match_type_str = str(directive.values[0]).lower()
-        type_map = {
-            "zone": TemperatureMatchType.ZONE,
-            "hwmon": TemperatureMatchType.HWMON,
-            "path": TemperatureMatchType.PATH,
-        }
-        match_type = type_map.get(match_type_str)
-        if match_type is None:
-            return None
-        return cls(type=match_type, value=str(directive.values[1]))
+        return cls(type=result[0], value=result[1])
 
 
 @dataclass
@@ -1199,7 +1206,7 @@ class TemperatureConfig:
             interval = defaults.update_interval
 
         # Parse match directive
-        match = TemperatureMatchConfig.from_directive(block.get_directive("match"))
+        match = TemperatureMatchConfig.from_directive(block.get_directive("match"), block_name=name)
 
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
@@ -1224,22 +1231,20 @@ class BatteryMatchConfig:
     type: BatteryMatchType
     value: str
 
+    _TYPE_MAP = {
+        "name": BatteryMatchType.NAME,
+        "path": BatteryMatchType.PATH,
+    }
+
     @classmethod
-    def from_directive(cls, directive: Directive | None) -> "BatteryMatchConfig | None":
+    def from_directive(
+        cls, directive: Directive | None, block_name: str = ""
+    ) -> "BatteryMatchConfig | None":
         """Create BatteryMatchConfig from a 'match' directive."""
-        if directive is None:
+        result = _parse_match_directive(directive, cls._TYPE_MAP, "Battery", block_name)
+        if result is None:
             return None
-        if len(directive.values) < 2:
-            return None
-        match_type_str = str(directive.values[0]).lower()
-        type_map = {
-            "name": BatteryMatchType.NAME,
-            "path": BatteryMatchType.PATH,
-        }
-        match_type = type_map.get(match_type_str)
-        if match_type is None:
-            return None
-        return cls(type=match_type, value=str(directive.values[1]))
+        return cls(type=result[0], value=result[1])
 
 
 @dataclass
@@ -1292,7 +1297,7 @@ class BatteryConfig:
             return bool(val) if val is not None else bd_val
 
         # Parse match directive
-        match = BatteryMatchConfig.from_directive(block.get_directive("match"))
+        match = BatteryMatchConfig.from_directive(block.get_directive("match"), block_name=name)
 
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
@@ -1373,22 +1378,20 @@ class ACPowerMatchConfig:
     type: ACPowerMatchType
     value: str
 
+    _TYPE_MAP = {
+        "name": ACPowerMatchType.NAME,
+        "path": ACPowerMatchType.PATH,
+    }
+
     @classmethod
-    def from_directive(cls, directive: Directive | None) -> "ACPowerMatchConfig | None":
+    def from_directive(
+        cls, directive: Directive | None, block_name: str = ""
+    ) -> "ACPowerMatchConfig | None":
         """Create ACPowerMatchConfig from a 'match' directive."""
-        if directive is None:
+        result = _parse_match_directive(directive, cls._TYPE_MAP, "AC power", block_name)
+        if result is None:
             return None
-        if len(directive.values) < 2:
-            return None
-        match_type_str = str(directive.values[0]).lower()
-        type_map = {
-            "name": ACPowerMatchType.NAME,
-            "path": ACPowerMatchType.PATH,
-        }
-        match_type = type_map.get(match_type_str)
-        if match_type is None:
-            return None
-        return cls(type=match_type, value=str(directive.values[1]))
+        return cls(type=result[0], value=result[1])
 
 
 @dataclass
@@ -1414,7 +1417,7 @@ class ACPowerConfig:
             interval = defaults.update_interval
 
         # Parse match directive
-        match = ACPowerMatchConfig.from_directive(block.get_directive("match"))
+        match = ACPowerMatchConfig.from_directive(block.get_directive("match"), block_name=name)
 
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
@@ -1570,23 +1573,21 @@ class DiskMatchConfig:
     type: DiskMatchType
     value: str
 
+    _TYPE_MAP = {
+        "name": DiskMatchType.NAME,
+        "mountpoint": DiskMatchType.MOUNTPOINT,
+        "uuid": DiskMatchType.UUID,
+    }
+
     @classmethod
-    def from_directive(cls, directive: Directive | None) -> "DiskMatchConfig | None":
+    def from_directive(
+        cls, directive: Directive | None, block_name: str = ""
+    ) -> "DiskMatchConfig | None":
         """Create DiskMatchConfig from a 'match' directive."""
-        if directive is None:
+        result = _parse_match_directive(directive, cls._TYPE_MAP, "Disk", block_name)
+        if result is None:
             return None
-        if len(directive.values) < 2:
-            return None
-        match_type_str = str(directive.values[0]).lower()
-        type_map = {
-            "name": DiskMatchType.NAME,
-            "mountpoint": DiskMatchType.MOUNTPOINT,
-            "uuid": DiskMatchType.UUID,
-        }
-        match_type = type_map.get(match_type_str)
-        if match_type is None:
-            return None
-        return cls(type=match_type, value=str(directive.values[1]))
+        return cls(type=result[0], value=result[1])
 
 
 @dataclass
@@ -1622,7 +1623,7 @@ class DiskConfig:
             return bool(val) if val is not None else dd_val
 
         # Parse match directive
-        match = DiskMatchConfig.from_directive(block.get_directive("match"))
+        match = DiskMatchConfig.from_directive(block.get_directive("match"), block_name=name)
 
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
@@ -1667,21 +1668,19 @@ class NetworkMatchConfig:
     type: NetworkMatchType
     value: str
 
+    _TYPE_MAP = {
+        "name": NetworkMatchType.NAME,
+    }
+
     @classmethod
-    def from_directive(cls, directive: Directive | None) -> "NetworkMatchConfig | None":
+    def from_directive(
+        cls, directive: Directive | None, block_name: str = ""
+    ) -> "NetworkMatchConfig | None":
         """Create NetworkMatchConfig from a 'match' directive."""
-        if directive is None:
+        result = _parse_match_directive(directive, cls._TYPE_MAP, "Network", block_name)
+        if result is None:
             return None
-        if len(directive.values) < 2:
-            return None
-        match_type_str = str(directive.values[0]).lower()
-        type_map = {
-            "name": NetworkMatchType.NAME,
-        }
-        match_type = type_map.get(match_type_str)
-        if match_type is None:
-            return None
-        return cls(type=match_type, value=str(directive.values[1]))
+        return cls(type=result[0], value=result[1])
 
 
 @dataclass
@@ -1719,7 +1718,7 @@ class NetworkConfig:
             return bool(val) if val is not None else d
 
         # Parse match directive
-        match = NetworkMatchConfig.from_directive(block.get_directive("match"))
+        match = NetworkMatchConfig.from_directive(block.get_directive("match"), block_name=name)
 
         interval = block.get_value("update_interval") or defaults.update_interval
         ha_block = block.get_block("homeassistant")
@@ -1775,21 +1774,19 @@ class FanMatchConfig:
     type: FanMatchType
     value: str
 
+    _TYPE_MAP = {
+        "hwmon": FanMatchType.HWMON,
+    }
+
     @classmethod
-    def from_directive(cls, directive: Directive | None) -> "FanMatchConfig | None":
+    def from_directive(
+        cls, directive: Directive | None, block_name: str = ""
+    ) -> "FanMatchConfig | None":
         """Create FanMatchConfig from a 'match' directive."""
-        if directive is None:
+        result = _parse_match_directive(directive, cls._TYPE_MAP, "Fan", block_name)
+        if result is None:
             return None
-        if len(directive.values) < 2:
-            return None
-        match_type_str = str(directive.values[0]).lower()
-        type_map = {
-            "hwmon": FanMatchType.HWMON,
-        }
-        match_type = type_map.get(match_type_str)
-        if match_type is None:
-            return None
-        return cls(type=match_type, value=str(directive.values[1]))
+        return cls(type=result[0], value=result[1])
 
 
 @dataclass
@@ -1805,7 +1802,7 @@ class FanConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "FanConfig":
         """Create FanConfig from a parsed 'fan' block."""
         name = block.name or "fan"
-        match = FanMatchConfig.from_directive(block.get_directive("match"))
+        match = FanMatchConfig.from_directive(block.get_directive("match"), block_name=name)
         interval = block.get_value("update_interval") or defaults.update_interval
         return cls(
             name=name,

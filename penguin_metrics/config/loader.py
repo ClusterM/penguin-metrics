@@ -166,6 +166,7 @@ class ConfigLoader:
         "process": {
             "device",
             "match",
+            "sensor_prefix",
             "cpu",
             "memory",
             "smaps",
@@ -191,6 +192,7 @@ class ConfigLoader:
         "container": {
             "device",
             "match",
+            "auto_discover",
             "cpu",
             "memory",
             "network",

@@ -400,25 +400,15 @@ defaults {
     # All batteries will have these settings by default
     battery {
         capacity on;
-        status on;
         voltage on;
         power on;
+        health on;
     }
     
     # All custom sensors will have these settings by default
     custom {
         type number;
         timeout 10s;
-    }
-    
-    # All system collectors will have these settings by default
-    system {
-        cpu on;
-        cpu_per_core on;
-        memory on;
-        swap on;
-        load on;
-        temperature on;
     }
 }
 ```
@@ -550,7 +540,7 @@ When enabled:
 ```nginx
 # This overrides the auto-discovered "soc-thermal"
 temperature "soc-thermal" {
-    zone "soc-thermal";
+    match zone "soc-thermal";
     update_interval 5s;
 }
 ```
@@ -842,9 +832,9 @@ container "monitored" {
 
 ```nginx
 battery "main" {
-    # Auto-detect first battery, or specify:
-    # path "/sys/class/power_supply/BAT0";
-    # name "BAT0";
+    # Match criteria (exactly one):
+    match name "BAT0";             # Battery name
+    # match path "/sys/class/power_supply/BAT0";  # Or by sysfs path
     
     capacity on;               # Charge percentage
     voltage on;                # Current voltage
@@ -875,8 +865,8 @@ battery "main" {
 **Default values:**
 | Directive | Default | Description |
 |-----------|---------|-------------|
-| `path` | *(auto-detect)* | Path to battery in sysfs |
-| `name` | *(auto-detect)* | Battery name (BAT0, etc.) |
+| `match name` | *(required)* | Battery name (BAT0, etc.) |
+| `match path` | *(alternative)* | Full path to battery in sysfs |
 | `capacity` | `on` | Charge percentage |
 | `voltage` | `on` | Current voltage |
 | `current` | `on` | Current amperage (sign preserved) |
@@ -911,28 +901,22 @@ Monitors external power supply (mains) presence from `/sys/class/power_supply/<d
 - `online` - boolean: `true` if external power is present, `false` otherwise
 
 ```nginx
-ac_power "axp22x-ac" {
-    # Block name = collector ID (MQTT topic). Use "name" for sysfs device.
-    # name "axp22x-ac";           # Sysfs device name (default: same as block name)
-    # path "/sys/class/power_supply/axp22x-ac";  # Optional: full path (overrides name)
+ac_power "main" {
+    # Match criteria (exactly one):
+    match name "axp22x-ac";       # Sysfs device name
+    # match path "/sys/class/power_supply/axp22x-ac";  # Or by full path
     
     device system;                # Group with system device (default)
     # update_interval 30s;
     # homeassistant { name "AC Power"; icon "mdi:power-plug"; }
-}
-
-# Friendly block name with explicit device name:
-ac_power "main" {
-    name "axp22x-ac";             # Read from /sys/class/power_supply/axp22x-ac
-    device system;
 }
 ```
 
 **Default values:**
 | Directive | Default | Description |
 |-----------|---------|-------------|
-| `name` | *(block name)* | Sysfs device name (e.g. axp22x-ac) |
-| `path` | *(none)* | Optional full path to power_supply directory |
+| `match name` | *(required)* | Sysfs device name (e.g. axp22x-ac) |
+| `match path` | *(alternative)* | Full path to power_supply directory |
 | `device` | `system` | Group with system device (via parent device) |
 | `update_interval` | *(from defaults)* | Override default interval |
 
@@ -957,6 +941,7 @@ Monitors network interfaces via `psutil.net_io_counters(pernic=True)` and `psuti
 
 ```nginx
 network "eth0" {
+    match name "eth0";           # Interface name (required)
     device system;               # Group with system device (default)
     bytes on;                    # bytes_sent, bytes_recv (bytes)
     packets off;                 # packets_sent, packets_recv
@@ -983,7 +968,7 @@ Fan speed from hwmon sysfs (`/sys/class/hwmon/hwmon*/fan*_input`). Manual config
 
 ```nginx
 fan "cpu_fan" {
-    hwmon "hwmon0";            # Hwmon directory name (required)
+    match hwmon "hwmon0";      # Hwmon directory name (required)
     device system;
 }
 ```
@@ -1137,9 +1122,10 @@ Manually configure specific temperature sensors (overrides auto-discovered with 
 
 ```nginx
 temperature "cpu" {
-    zone "cpu-thermal";        # Thermal zone name
-    # Or: path "/sys/class/thermal/thermal_zone0/temp";
-    # Or: hwmon "soc_thermal_sensor0";
+    # Match criteria (exactly one):
+    match zone "cpu-thermal";  # Thermal zone name
+    # match path "/sys/class/thermal/thermal_zone0/temp";  # Or by sysfs path
+    # match hwmon "soc_thermal_sensor0";  # Or by hwmon sensor name
     
     update_interval 5s;
 }

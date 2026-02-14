@@ -301,19 +301,20 @@ class MQTTConfig:
 class HomeAssistantConfig:
     discovery: bool = True
     discovery_prefix: str = "homeassistant"
-    state_file: str | None = None  # Path to registered sensors state file
+    state_file: str = "/var/lib/penguin-metrics/registered_sensors.json"
 
 @dataclass
 class DefaultsConfig:
     update_interval: float = 10.0
     smaps: bool = False
     # Per-source-type defaults
-    # Note: system defaults removed - system block appears only once
     process: ProcessDefaultsConfig
     service: ServiceDefaultsConfig
     container: ContainerDefaultsConfig
     battery: BatteryDefaultsConfig
     custom: CustomDefaultsConfig
+    disk: DiskDefaultsConfig
+    network: NetworkDefaultsConfig
 
 @dataclass
 class Config:
@@ -332,6 +333,7 @@ class Config:
     auto_disks: AutoDiscoveryConfig
     auto_ac_powers: AutoDiscoveryConfig
     auto_networks: AutoDiscoveryConfig
+    auto_fans: AutoDiscoveryConfig
 
 @dataclass
 class SystemConfig:
@@ -344,6 +346,11 @@ class SystemConfig:
     load: bool = True
     uptime: bool = True
     gpu: bool = False
+    disk_io: bool = True
+    disk_io_rate: bool = False
+    cpu_freq: bool = True
+    process_count: bool = True
+    boot_time: bool = True
     update_interval: float | None = None
 
 @dataclass
@@ -368,21 +375,29 @@ class ProcessConfig:
 class ServiceConfig:
     name: str
     match: ServiceMatchConfig | None = None
+    device_ref: str | None = None
+    ha_config: HomeAssistantSensorConfig | None = None
     cpu: bool = True
     memory: bool = True
     smaps: bool | None = None
     state: bool = True
     restart_count: bool = False
+    disk: bool = False
+    disk_rate: bool = False
     ...
 
 @dataclass
 class ContainerConfig:
     name: str
     match: ContainerMatchConfig | None = None
+    device_ref: str | None = None
+    ha_config: HomeAssistantSensorConfig | None = None
     cpu: bool = True
     memory: bool = True
     network: bool = False
+    network_rate: bool = False
     disk: bool = False
+    disk_rate: bool = False
     state: bool = True
     health: bool = False
     uptime: bool = False
@@ -392,6 +407,8 @@ class ContainerConfig:
 class BatteryConfig:
     name: str
     match: BatteryMatchConfig | None = None  # match name/path
+    device_ref: str | None = None
+    ha_config: HomeAssistantSensorConfig | None = None
     capacity: bool = True
     voltage: bool = True
     current: bool = True
@@ -473,8 +490,13 @@ class AutoDiscoveryConfig:
     enabled: bool = False
     filters: list[str] = []  # Multiple glob patterns
     excludes: list[str] = [] # Multiple glob patterns
+    source: str | None = None  # Source type (e.g. "thermal"/"hwmon" for temperatures)
+    device_ref: str | None = None  # Device template for auto-discovered items
+    update_interval: float | None = None  # Override default interval
+    options: dict[str, Any] = {}  # Per-metric overrides (e.g. rate on)
     
     def matches(name: str) -> bool  # Check if name matches filters/excludes
+    def bool_override(name: str) -> bool | None  # Get boolean override for a metric
 
 @dataclass
 class Config:
@@ -493,6 +515,7 @@ class Config:
     auto_disks: AutoDiscoveryConfig
     auto_ac_powers: AutoDiscoveryConfig
     auto_networks: AutoDiscoveryConfig
+    auto_fans: AutoDiscoveryConfig
     
     # Manual collectors
     system: list[SystemConfig]
@@ -504,6 +527,7 @@ class Config:
     disks: list[DiskConfig]
     networks: list[NetworkConfig]
     ac_power: list[ACPowerConfig]
+    fans: list[FanConfig]
     custom: list[CustomSensorConfig]
     binary_sensors: list[CustomBinarySensorConfig]
     
@@ -654,6 +678,7 @@ Reads temperatures from thermal zones and hwmon.
 
 **Functions:**
 - `discover_thermal_zones()` - Find thermal zones in sysfs
+- `discover_hwmon_sensors()` - Find hwmon temperature sensors via psutil
 - `read_thermal_zone_temp(zone)` - Read temperature
 
 **Class: `TemperatureCollector`**
