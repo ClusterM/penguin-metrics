@@ -70,17 +70,12 @@ class CustomBinarySensorCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for custom binary sensor."""
-        display_name = (
-            self.config.ha_config.name
-            if self.config.ha_config and self.config.ha_config.name
-            else self.config.name
-        )
         return create_device_from_ref(
             device_ref=self.config.device_ref,
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Sensor: {display_name}",
+            default_name=f"Sensor: {self.config.label}",
             manufacturer="Penguin Metrics",
             model="Custom Sensor",
             parent_device=self.parent_device,
@@ -91,16 +86,11 @@ class CustomBinarySensorCollector(Collector):
         """Create custom binary sensor."""
         device = self.device
 
-        # Display name: use ha_config.name if specified, otherwise use name (ID)
-        display_name = self.config.name
-        if self.config.ha_config and self.config.ha_config.name:
-            display_name = self.config.ha_config.name
-
         sensor = build_sensor(
             source_type=self.SOURCE_TYPE,
             source_name=self.collector_id,
             metric_name="value",
-            display_name=display_name,
+            display_name=self.config.label,
             device=device,
             topic_prefix=self.topic_prefix,
             entity_type="binary_sensor",

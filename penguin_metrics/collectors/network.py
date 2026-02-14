@@ -146,7 +146,7 @@ class NetworkCollector(Collector):
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Network: {self._interface_name}",
+            default_name=f"Network: {self.config.label}",
             manufacturer="Penguin Metrics",
             model="Network Interface",
             parent_device=self.parent_device,
@@ -159,8 +159,9 @@ class NetworkCollector(Collector):
         sensors: list[Sensor] = []
         device = self.device
         ha_cfg = self.config.ha_config
-        name = self._interface_name
-        prefix = f"Network {name}"
+        # source_name must match collector_id for correct state_topic
+        source_name = self.config.name
+        prefix = f"Network {self.config.label}"
 
         def add(
             metric: str,
@@ -176,7 +177,7 @@ class NetworkCollector(Collector):
             sensors.append(
                 build_sensor(
                     source_type=self.SOURCE_TYPE,
-                    source_name=name,
+                    source_name=source_name,
                     metric_name=metric,
                     display_name=display,
                     device=device,
@@ -251,7 +252,7 @@ class NetworkCollector(Collector):
             sensors.append(
                 build_sensor(
                     source_type=self.SOURCE_TYPE,
-                    source_name=name,
+                    source_name=source_name,
                     metric_name="isup",
                     display_name=f"{prefix} Up",
                     device=device,

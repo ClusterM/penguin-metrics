@@ -219,6 +219,27 @@ block_type "optional_name" {
 include "/etc/penguin-metrics/conf.d/*.conf";
 ```
 
+### Common Directives
+
+All collector blocks support these directives:
+
+| Directive | Default | Description |
+|-----------|---------|-------------|
+| `display_name` | *(block name)* | Human-readable name for Home Assistant sensors. Does not affect topics or IDs |
+| `device` | *(varies)* | Device grouping: `system`, `auto`, `none`, or a template name |
+| `update_interval` | *(from defaults)* | Override the collection interval for this block |
+
+**Example** — `display_name` overrides only the display name in HA:
+
+```nginx
+disk "nvme" {
+    match name "nvme0n1p1";
+    display_name "NVME";        # → HA sensors: "Disk NVME Total", "Disk NVME Free", etc.
+}
+```
+
+Without `display_name`, sensor names use the block name: "Disk nvme Total", "Disk nvme Free", etc.
+
 ### MQTT Configuration
 
 ```nginx

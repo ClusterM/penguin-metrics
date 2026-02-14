@@ -220,13 +220,12 @@ class ServiceCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for service metrics."""
-        unit = self._unit_name or self.config.name
         return create_device_from_ref(
             device_ref=self.config.device_ref,
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Service: {unit}",
+            default_name=f"Service: {self.config.label}",
             manufacturer="Penguin Metrics",
             model="Systemd Service",
             parent_device=self.parent_device,

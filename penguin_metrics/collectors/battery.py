@@ -162,13 +162,12 @@ class BatteryCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for battery metrics (uses system device by default)."""
-        battery_name = self._battery.name if self._battery else "Unknown"
         return create_device_from_ref(
             device_ref=self.config.device_ref,
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Battery: {battery_name}",
+            default_name=f"Battery: {self.config.label}",
             manufacturer="Unknown",
             model="Battery",
             parent_device=self.parent_device,

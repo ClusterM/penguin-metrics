@@ -149,6 +149,7 @@ class ConfigLoader:
         },
         "system": {
             "device",
+            "display_name",
             "cpu",
             "cpu_per_core",
             "memory",
@@ -165,6 +166,7 @@ class ConfigLoader:
         },
         "process": {
             "device",
+            "display_name",
             "match",
             "sensor_prefix",
             "cpu",
@@ -179,6 +181,7 @@ class ConfigLoader:
         },
         "service": {
             "device",
+            "display_name",
             "match",
             "cpu",
             "memory",
@@ -191,6 +194,7 @@ class ConfigLoader:
         },
         "container": {
             "device",
+            "display_name",
             "match",
             "auto_discover",
             "cpu",
@@ -204,10 +208,11 @@ class ConfigLoader:
             "uptime",
             "update_interval",
         },
-        "temperature": {"match", "device", "update_interval"},
-        "ac_power": {"match", "device", "update_interval"},
+        "temperature": {"match", "device", "display_name", "update_interval"},
+        "ac_power": {"match", "device", "display_name", "update_interval"},
         "battery": {
             "device",
+            "display_name",
             "match",
             "capacity",
             "voltage",
@@ -234,6 +239,7 @@ class ConfigLoader:
         },
         "custom": {
             "device",
+            "display_name",
             "command",
             "script",
             "type",
@@ -246,6 +252,7 @@ class ConfigLoader:
         },
         "custom_binary": {
             "device",
+            "display_name",
             "command",
             "script",
             "value_source",
@@ -316,6 +323,7 @@ class ConfigLoader:
         "disk": {
             "match",
             "device",
+            "display_name",
             "total",
             "used",
             "free",
@@ -325,6 +333,7 @@ class ConfigLoader:
         "network": {
             "match",
             "device",
+            "display_name",
             "bytes",
             "packets",
             "errors",
@@ -338,7 +347,7 @@ class ConfigLoader:
             "rssi",
             "update_interval",
         },
-        "fan": {"match", "device", "update_interval"},
+        "fan": {"match", "device", "display_name", "update_interval"},
         "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
         "match": {
             # process

@@ -748,7 +748,13 @@ class SystemConfig:
     """System-wide metrics configuration."""
 
     name: str = "system"  # Optional, used for device name only
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
 
     # Metrics flags
     cpu: bool = True
@@ -786,6 +792,7 @@ class SystemConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             device_ref=device_ref,
             cpu=get_bool("cpu", True),
             cpu_per_core=get_bool("cpu_per_core", False),
@@ -835,8 +842,15 @@ class ProcessConfig:
     """Process monitoring configuration."""
 
     name: str
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     match: ProcessMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
+
     sensor_prefix: str | None = None
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
@@ -886,6 +900,7 @@ class ProcessConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             match=ProcessMatchConfig.from_directive(block.get_directive("match"), block_name=name),
             device_ref=device_ref,
             sensor_prefix=block.get_value("sensor_prefix"),
@@ -956,8 +971,15 @@ class ServiceConfig:
     """Systemd service monitoring configuration."""
 
     name: str
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     match: ServiceMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
+
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
     # Metrics flags
@@ -1004,6 +1026,7 @@ class ServiceConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             match=ServiceMatchConfig.from_directive(block.get_directive("match"), block_name=name),
             device_ref=device_ref,
             ha_config=ha_config,
@@ -1073,8 +1096,15 @@ class ContainerConfig:
     """Docker container monitoring configuration."""
 
     name: str
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     match: ContainerMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
+
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
     auto_discover: bool = False
 
@@ -1115,6 +1145,7 @@ class ContainerConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             match=ContainerMatchConfig.from_directive(
                 block.get_directive("match"), block_name=name
             ),
@@ -1184,10 +1215,16 @@ class TemperatureConfig:
     """Temperature sensor configuration."""
 
     name: str
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     match: TemperatureMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
     update_interval: float | None = None
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
 
     @classmethod
     def from_defaults(
@@ -1221,6 +1258,7 @@ class TemperatureConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             match=match,
             device_ref=device_ref,
             ha_config=ha_config,
@@ -1256,8 +1294,15 @@ class BatteryConfig:
     """Battery monitoring configuration."""
 
     name: str
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     match: BatteryMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
+
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
     # Metrics flags
@@ -1312,6 +1357,7 @@ class BatteryConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             match=match,
             device_ref=device_ref,
             ha_config=ha_config,
@@ -1406,10 +1452,16 @@ class ACPowerConfig:
     """
 
     name: str  # Block name: collector ID and MQTT topic
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     match: ACPowerMatchConfig | None = None
     device_ref: str | None = None  # Device template or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None
     update_interval: float | None = None
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
 
     @classmethod
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "ACPowerConfig":
@@ -1432,6 +1484,7 @@ class ACPowerConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             match=match,
             device_ref=device_ref,
             ha_config=ha_config,
@@ -1455,7 +1508,14 @@ class CustomSensorConfig:
     """Custom command/script sensor configuration."""
 
     name: str  # Sensor ID, used for MQTT topics
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     command: str | None = None
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
+
     script: str | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
@@ -1500,6 +1560,7 @@ class CustomSensorConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             command=block.get_value("command"),
             script=block.get_value("script"),
             device_ref=device_ref,
@@ -1519,7 +1580,14 @@ class CustomBinarySensorConfig:
     """Custom binary sensor configuration (on/off states)."""
 
     name: str  # Sensor ID, used for MQTT topics
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     command: str | None = None
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
+
     script: str | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
@@ -1559,6 +1627,7 @@ class CustomBinarySensorConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             command=block.get_value("command"),
             script=block.get_value("script"),
             device_ref=device_ref,
@@ -1599,8 +1668,15 @@ class DiskConfig:
     """Disk space monitoring configuration."""
 
     name: str
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     match: DiskMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
+
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
     # Metrics flags
@@ -1638,6 +1714,7 @@ class DiskConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             match=match,
             device_ref=device_ref,
             ha_config=ha_config,
@@ -1692,9 +1769,15 @@ class NetworkConfig:
     """Network interface monitoring configuration."""
 
     name: str  # Block name (collector ID)
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     match: NetworkMatchConfig | None = None
     device_ref: str | None = None  # Device template or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
 
     # Metrics flags (net_io_counters + net_if_stats)
     bytes: bool = True
@@ -1730,6 +1813,7 @@ class NetworkConfig:
 
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             match=match,
             device_ref=block.get_value("device"),
             ha_config=ha_config,
@@ -1798,9 +1882,15 @@ class FanConfig:
     """Fan (RPM) monitoring configuration from hwmon sysfs."""
 
     name: str  # Collector/source name (e.g. hwmon0, or display name)
+    display_name: str | None = None  # Human-readable name for HA (falls back to name)
     match: FanMatchConfig | None = None
     device_ref: str | None = None  # Device template or "system"/"auto"/"none"
     update_interval: float | None = None
+
+    @property
+    def label(self) -> str:
+        """Display label: display_name if set, otherwise name."""
+        return self.display_name or self.name
 
     @classmethod
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "FanConfig":
@@ -1810,6 +1900,7 @@ class FanConfig:
         interval = block.get_value("update_interval") or defaults.update_interval
         return cls(
             name=name,
+            display_name=block.get_value("display_name"),
             match=match,
             device_ref=block.get_value("device"),
             update_interval=float(interval) if interval else None,

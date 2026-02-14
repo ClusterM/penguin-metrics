@@ -152,7 +152,7 @@ class ProcessCollector(MultiSourceCollector):
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Process: {self.config.name}",
+            default_name=f"Process: {self.config.label}",
             manufacturer="Penguin Metrics",
             model="Process Monitor",
             parent_device=self.parent_device,

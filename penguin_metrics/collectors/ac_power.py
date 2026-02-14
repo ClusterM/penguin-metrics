@@ -117,17 +117,12 @@ class ACPowerCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for AC power sensor."""
-        display_name = (
-            self.config.ha_config.name
-            if self.config.ha_config and self.config.ha_config.name
-            else self.config.name
-        )
         return create_device_from_ref(
             device_ref=self.config.device_ref,
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"AC Power: {display_name}",
+            default_name=f"AC Power: {self.config.label}",
             manufacturer="Penguin Metrics",
             model="AC Power",
             parent_device=self.parent_device,
@@ -138,15 +133,11 @@ class ACPowerCollector(Collector):
 
     def create_sensors(self) -> list[Sensor]:
         """Create binary sensor for AC online state."""
-        display_name = self.config.name
-        if self.config.ha_config and self.config.ha_config.name:
-            display_name = self.config.ha_config.name
-
         sensor = build_sensor(
             source_type=self.SOURCE_TYPE,
             source_name=self.collector_id,
             metric_name="online",
-            display_name=display_name,
+            display_name=f"AC Power {self.config.label}",
             device=self.device,
             topic_prefix=self.topic_prefix,
             entity_type="binary_sensor",

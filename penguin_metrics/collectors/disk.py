@@ -159,13 +159,12 @@ class DiskCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for disk metrics (uses system device by default)."""
-        disk_name = self._disk.name if self._disk else self.config.name
         return create_device_from_ref(
             device_ref=self.config.device_ref,
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Disk: {disk_name}",
+            default_name=f"Disk: {self.config.label}",
             manufacturer="Penguin Metrics",
             model="Disk Monitor",
             parent_device=self.parent_device,
@@ -177,16 +176,17 @@ class DiskCollector(Collector):
         """Create sensors for disk metrics."""
         sensors: list[Sensor] = []
         device = self.device
-        disk_name = self._disk.name if self._disk else self.config.name
+        # source_name must match collector_id for correct state_topic
+        source_name = self.config.name
         ha_cfg = getattr(self.config, "ha_config", None)
 
-        name_prefix = f"Disk {disk_name}"
+        name_prefix = f"Disk {self.config.label}"
 
         def add(metric: str, display: str, unit: str, *, icon: str = "mdi:harddisk") -> None:
             sensors.append(
                 build_sensor(
                     source_type="disk",
-                    source_name=disk_name,
+                    source_name=source_name,
                     metric_name=metric,
                     display_name=display,
                     device=device,
@@ -212,7 +212,7 @@ class DiskCollector(Collector):
             sensors.append(
                 build_sensor(
                     source_type="disk",
-                    source_name=disk_name,
+                    source_name=source_name,
                     metric_name="percent",
                     display_name=f"{name_prefix} Usage",
                     device=device,

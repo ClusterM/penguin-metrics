@@ -136,13 +136,12 @@ class ContainerCollector(Collector):
 
     def create_device(self) -> Device | None:
         """Create device for container metrics."""
-        container_name = self._container.name if self._container else self.config.name
         return create_device_from_ref(
             device_ref=self.config.device_ref,
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Container: {container_name}",
+            default_name=f"Container: {self.config.label}",
             manufacturer="Docker",
             model="Container",
             parent_device=self.parent_device,

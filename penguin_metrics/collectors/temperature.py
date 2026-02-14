@@ -234,7 +234,7 @@ class TemperatureCollector(Collector):
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Temperature: {self.name}",
+            default_name=f"Temperature: {self.config.label}",
             manufacturer="Penguin Metrics",
             model="Temperature Sensor",
             parent_device=self.parent_device,
@@ -271,51 +271,31 @@ class TemperatureCollector(Collector):
         """Create sensors for discovered thermal zones."""
         sensors: list[Sensor] = []
         device = self.device
+        # source_name must match collector_id for correct state_topic
+        source_name = self.collector_id
 
         ha_cfg = self.config.ha_config if isinstance(self.config, TemperatureConfig) else None
 
         # Add specific hwmon sensor if configured (manual configuration)
         if self._hwmon_sensors:
-            for chip, label, _ in self._hwmon_sensors:
-                # Manual config: use self.name as the sensor name
-                self._add_temp_sensor(
-                    sensors,
-                    sensor_name=self.name,
-                    display_name=f"Temperature {chip} {label}",
-                    device=device,
-                    ha_config=ha_cfg,
-                )
-            return sensors
-
-        # Add thermal zones (auto-discovered)
-        for zone in self._zones:
-            zone_label = zone.type if zone.type != zone.name else zone.name
             self._add_temp_sensor(
                 sensors,
-                sensor_name=zone_label,
-                display_name=f"Temperature {zone.type}",
+                sensor_name=source_name,
+                display_name=f"Temperature {self.config.label}",
                 device=device,
                 ha_config=ha_cfg,
             )
+            return sensors
 
-        # Add all hwmon sensors only if no specific zone/hwmon configured
-        if not self.specific_zone and not self.specific_path and not self.specific_hwmon:
-            try:
-                temps = psutil.sensors_temperatures()
-                for name, entries in temps.items():
-                    for i, entry in enumerate(entries):
-                        label = entry.label or f"sensor{i}"
-                        sensor_name = f"{name}_{label}".lower().replace(" ", "_")
-
-                        self._add_temp_sensor(
-                            sensors,
-                            sensor_name=sensor_name,
-                            display_name=f"Temperature {name} {label}",
-                            device=device,
-                            ha_config=ha_cfg,
-                        )
-            except Exception:
-                pass
+        # Add thermal zones (first zone — each collector handles one sensor)
+        if self._zones:
+            self._add_temp_sensor(
+                sensors,
+                sensor_name=source_name,
+                display_name=f"Temperature {self.config.label}",
+                device=device,
+                ha_config=ha_cfg,
+            )
 
         return sensors
 
