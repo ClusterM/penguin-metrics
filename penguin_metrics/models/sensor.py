@@ -376,7 +376,7 @@ def create_sensor(
         penguin_metrics/temperature/soc    -> {"temp": 42.0, "state": "online"}
         penguin_metrics/docker/nginx       -> {"cpu_percent": 5.0, "state": "running"}
     """
-    # Sanitize source_name for use in topics and IDs
+    # Sanitize source_name for unique_id only (must be valid HA entity ID)
     sanitized_name = _sanitize_id(source_name) if source_name else ""
 
     # Build unique_id with prefix for uniqueness across systems
@@ -385,9 +385,10 @@ def create_sensor(
     else:
         unique_id = f"penguin_metrics_{topic_prefix}_{source_type}_{metric_name}"
 
-    # Build state_topic (JSON topic for the source)
-    if sanitized_name:
-        state_topic = f"{topic_prefix}/{source_type}/{sanitized_name}"
+    # Build state_topic (must match the actual publish topic from source_topic())
+    # Use source_name as-is — no sanitization — to match collector_id in the topic
+    if source_name:
+        state_topic = f"{topic_prefix}/{source_type}/{source_name}"
     else:
         state_topic = f"{topic_prefix}/{source_type}"
 
