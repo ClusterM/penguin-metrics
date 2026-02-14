@@ -823,6 +823,8 @@ process "python-script" {
 | `pidfile` | `match pidfile "/var/run/app.pid";` | Read PID from file |
 | `cmdline` | `match cmdline "/usr/bin/app";` | Substring in command line |
 
+**State field** (when `state on`): `running` (process(es) found and metrics collected), `not_found` (no matching processes), `error` (e.g. access denied).
+
 ### Systemd Service Monitoring
 
 ```nginx
@@ -858,6 +860,8 @@ service "nginx" {
 
 **Note:** Metrics are only collected when service state is `active`. States like `activating` or `reloading` don't collect cgroup metrics.
 
+**State field** (when `state on`): systemd ActiveState — `active`, `inactive`, `failed`, `activating`, `deactivating`, `reloading`; or `not_found` (unit missing), `unknown` (property unreadable).
+
 **Match types:**
 | Type | Example | Description |
 |------|---------|-------------|
@@ -874,7 +878,7 @@ container "homeassistant" {
     memory on;                 # Memory usage
     network on;                # Network RX/TX
     disk on;                   # Block I/O
-    state on;                  # running/exited/etc
+    state on;                  # running/exited/paused/etc
     health on;                 # Healthcheck status
     uptime on;                 # Container uptime
 }
@@ -916,6 +920,8 @@ container "monitored" {
 | `pattern` | `match pattern "web-.*";` | Regex on name |
 | `image` | `match image "postgres:";` | Image name (substring) |
 | `label` | `match label "app=web";` | Container label |
+
+**State field** (when `state on`): Docker container state — `running`, `exited`, `paused`, `restarting`, `dead`, `created`, `removing`; or `not_found` (container missing), `unknown` (API did not return state).
 
 ### Battery Monitoring
 

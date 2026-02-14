@@ -705,7 +705,7 @@ Monitors processes with various matching strategies.
 **Class: `ProcessCollector` (extends MultiSourceCollector)**
 
 Metrics:
-- `state` - running/not_found
+- `state` - Source state: `running` (process(es) found and metrics collected), `not_found` (no matching processes), `error` (e.g. access denied)
 - `count` - Number of matched processes (if aggregate)
 - `cpu_percent` - CPU usage (%, normalized to 0-100%)
 - `memory_rss` - RSS memory (MB)
@@ -733,7 +733,7 @@ Monitors systemd services using systemctl and cgroups.
 **Class: `ServiceCollector`**
 
 Metrics:
-- `state` - active/inactive/failed/not_found
+- `state` - systemd ActiveState: `active`, `inactive`, `failed`, `activating`, `deactivating`, `reloading`; or `not_found` (unit missing), `unknown` (property unreadable)
 - `restarts` - Restart count
 - `cpu_percent` - CPU usage (%, normalized to 0-100%, delta-based from cgroup)
 - `memory` - Memory Cgroup (MiB, includes cache - use PSS/USS for accurate RAM usage)
@@ -751,7 +751,7 @@ Monitors Docker containers via API.
 **Class: `ContainerCollector`**
 
 Metrics:
-- `state` - running/exited/paused/not_found
+- `state` - Docker container state: `running`, `exited`, `paused`, `restarting`, `dead`, `created`, `removing`; or `not_found` (container missing), `unknown` (API did not return state)
 - `health` - healthy/unhealthy/starting (if available)
 - `cpu_percent` - CPU usage (%, normalized to 0-100%)
 - `memory_usage` - Memory (MB)
