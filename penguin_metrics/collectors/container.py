@@ -102,30 +102,50 @@ class ContainerCollector(Collector):
         except DockerError:
             return None
 
+        matched: ContainerInfo | None = None
         for container in containers:
             if match_type == ContainerMatchType.NAME:
                 if container.name == match_value:
-                    return container
+                    matched = container
+                    break
 
             elif match_type == ContainerMatchType.PATTERN:
                 if fnmatch.fnmatch(container.name, match_value) or re.search(
                     match_value, container.name
                 ):
-                    return container
+                    matched = container
+                    break
 
             elif match_type == ContainerMatchType.IMAGE:
                 if match_value in container.image:
-                    return container
+                    matched = container
+                    break
 
             elif match_type == ContainerMatchType.LABEL:
                 # Format: "key=value" or just "key"
                 if "=" in match_value:
                     key, value = match_value.split("=", 1)
                     if container.labels.get(key) == value:
-                        return container
+                        matched = container
+                        break
                 else:
                     if match_value in container.labels:
-                        return container
+                        matched = container
+                        break
+
+        if matched is None:
+            return None
+
+        # list_containers does not return started_at (only available via inspect).
+        # Fetch full container details so uptime and other inspect-only fields work.
+        try:
+            full_info = await self.docker.get_container(matched.id)
+            if full_info is not None:
+                return full_info
+        except DockerError:
+            pass
+
+        return matched
 
         return None
 
