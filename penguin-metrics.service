@@ -9,14 +9,10 @@ Type=simple
 User=root
 Group=root
 
-# Working directory
-WorkingDirectory=/opt/penguin-metrics
-
-# Python virtual environment
-Environment="PATH=/opt/penguin-metrics/.venv/bin:/usr/local/bin:/usr/bin:/bin"
-
 # Main command
-ExecStart=/opt/penguin-metrics/.venv/bin/python -m penguin_metrics -v /etc/penguin-metrics/config.conf
+# Adjust the path if you installed into a virtualenv:
+#   ExecStart=/opt/penguin-metrics/.venv/bin/penguin-metrics -v /etc/penguin-metrics/config.conf
+ExecStart=/usr/local/bin/penguin-metrics -v /etc/penguin-metrics/config.conf
 
 # Restart policy
 Restart=always

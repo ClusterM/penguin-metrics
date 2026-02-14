@@ -2,8 +2,8 @@
 Entry point for Penguin Metrics.
 
 Usage:
-    python -m penguin_metrics /path/to/config.conf
-    python -m penguin_metrics --help
+    penguin-metrics /path/to/config.conf
+    penguin-metrics --help
 """
 
 import argparse

@@ -68,61 +68,76 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 
 ## Installation
 
-### From source (development)
+### Quick install via pip
 
 ```bash
-# Clone repository
-cd /opt
-git clone https://github.com/clusterm/penguin-metrics.git
-cd penguin-metrics
+pip install penguin-metrics
+```
 
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+This installs the `penguin-metrics` command and the `penguin_metrics` Python package.
 
-# Install in development mode (editable)
-pip install -e .
+After installation, create a configuration file:
 
-# Or install with dev dependencies
-pip install -e ".[dev]"
-
-# Copy and edit configuration
+```bash
 sudo mkdir -p /etc/penguin-metrics
-sudo cp config.example.conf /etc/penguin-metrics/config.conf
+
+# Download the example configuration
+curl -o /etc/penguin-metrics/config.conf \
+  https://raw.githubusercontent.com/clusterm/penguin-metrics/master/config.example.conf
+
+# Edit to match your setup
 sudo nano /etc/penguin-metrics/config.conf
 ```
 
-### Install as package
-
-```bash
-# Build wheel
-pip install build
-python -m build
-
-# Install built package
-pip install dist/penguin_metrics-0.0.1-py3-none-any.whl
-
-# Or install directly from source
-pip install .
-```
-
-### Using pip from git
+### Install from GitHub (latest)
 
 ```bash
 pip install git+https://github.com/clusterm/penguin-metrics.git
 ```
 
+### Install from source (development)
+
+```bash
+git clone https://github.com/clusterm/penguin-metrics.git
+cd penguin-metrics
+
+# Create virtual environment (recommended)
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install in editable mode
+pip install -e .
+
+# Or with dev dependencies (ruff, mypy, pytest)
+pip install -e ".[dev]"
+```
+
+### Running
+
+After installation (any method above), the `penguin-metrics` command becomes available:
+
+```bash
+# Run directly
+penguin-metrics /etc/penguin-metrics/config.conf
+
+# Or via Python module
+python -m penguin_metrics /etc/penguin-metrics/config.conf
+```
+
 ### As systemd service
 
 ```bash
-# Copy service file
+# Copy the provided service file
 sudo cp penguin-metrics.service /etc/systemd/system/
 
-# Create config directory
+# If you installed via pip globally, adjust ExecStart in the service file:
+#   ExecStart=/usr/local/bin/penguin-metrics -v /etc/penguin-metrics/config.conf
+# If you used a virtualenv:
+#   ExecStart=/opt/penguin-metrics/.venv/bin/penguin-metrics -v /etc/penguin-metrics/config.conf
+
+# Create config directory and copy example
 sudo mkdir -p /etc/penguin-metrics
 sudo cp config.example.conf /etc/penguin-metrics/config.conf
-
-# Edit configuration
 sudo nano /etc/penguin-metrics/config.conf
 
 # Enable and start
@@ -163,25 +178,27 @@ docker run -d \
 
 ```bash
 # Validate configuration
-python -m penguin_metrics --validate /path/to/config.conf
+penguin-metrics --validate /path/to/config.conf
 
 # Run with verbose logging
-python -m penguin_metrics -v /path/to/config.conf
+penguin-metrics -v /path/to/config.conf
 
 # Run with debug logging
-python -m penguin_metrics -d /path/to/config.conf
+penguin-metrics -d /path/to/config.conf
 
 # Show version
-python -m penguin_metrics --version
+penguin-metrics --version
 
 # Show help
-python -m penguin_metrics --help
+penguin-metrics --help
 ```
+
+> **Note:** `penguin-metrics` and `python -m penguin_metrics` are equivalent.
 
 ### Configuration Validation
 
 ```bash
-$ python -m penguin_metrics --validate config.conf
+$ penguin-metrics --validate config.conf
 
 Configuration summary:
   MQTT: 10.13.1.100:1833
@@ -683,19 +700,19 @@ logging {
 **Command-line overrides:**
 ```bash
 # Verbose (INFO level)
-python -m penguin_metrics -v config.conf
+penguin-metrics -v config.conf
 
 # Debug (DEBUG level)  
-python -m penguin_metrics -d config.conf
+penguin-metrics -d config.conf
 
 # Quiet (ERROR only)
-python -m penguin_metrics -q config.conf
+penguin-metrics -q config.conf
 
 # Custom log file
-python -m penguin_metrics --log-file /tmp/pm.log config.conf
+penguin-metrics --log-file /tmp/pm.log config.conf
 
 # Disable colors
-python -m penguin_metrics --no-color config.conf
+penguin-metrics --no-color config.conf
 ```
 
 ### System Metrics
@@ -1454,7 +1471,7 @@ ERROR: Docker socket not available
 ### Test configuration
 
 ```bash
-python -m penguin_metrics --validate config.conf
+penguin-metrics --validate config.conf
 ```
 
 ### Test MQTT connection
@@ -1466,7 +1483,7 @@ mosquitto_sub -h 10.13.1.100 -p 1833 \
   -t "penguin_metrics/#" -v
 
 # In another terminal, run the service
-python -m penguin_metrics -v config.conf
+penguin-metrics -v config.conf
 
 # Example output:
 # penguin_metrics/system {"cpu_percent": 45.2, "memory_percent": 67.8, ...}
