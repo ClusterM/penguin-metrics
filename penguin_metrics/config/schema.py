@@ -37,6 +37,48 @@ class ContainerMatchType(Enum):
     LABEL = "label"  # Container label
 
 
+class DiskMatchType(Enum):
+    """How to identify a disk partition."""
+
+    NAME = "name"  # Device name: sda1, nvme0n1p1
+    MOUNTPOINT = "mountpoint"  # Mount point: /, /home
+    UUID = "uuid"  # Disk UUID (from /dev/disk/by-uuid/)
+
+
+class TemperatureMatchType(Enum):
+    """How to identify a temperature sensor."""
+
+    ZONE = "zone"  # Thermal zone name: soc-thermal, cpu-thermal
+    HWMON = "hwmon"  # Hwmon sensor name: soc_thermal_sensor0
+    PATH = "path"  # Direct sysfs path
+
+
+class BatteryMatchType(Enum):
+    """How to identify a battery."""
+
+    NAME = "name"  # Battery name: BAT0, BAT1
+    PATH = "path"  # Sysfs path: /sys/class/power_supply/BAT0
+
+
+class ACPowerMatchType(Enum):
+    """How to identify an AC power supply."""
+
+    NAME = "name"  # Sysfs device name: axp22x-ac
+    PATH = "path"  # Full sysfs path
+
+
+class FanMatchType(Enum):
+    """How to identify a fan sensor."""
+
+    HWMON = "hwmon"  # Hwmon directory name: hwmon0
+
+
+class NetworkMatchType(Enum):
+    """How to identify a network interface."""
+
+    NAME = "name"  # Interface name: eth0, wlan0
+
+
 class RetainMode(Enum):
     """MQTT retain message modes."""
 
@@ -1101,22 +1143,49 @@ class ContainerConfig:
 
 
 @dataclass
+class TemperatureMatchConfig:
+    """Temperature sensor matching configuration."""
+
+    type: TemperatureMatchType
+    value: str
+
+    @classmethod
+    def from_directive(cls, directive: Directive | None) -> "TemperatureMatchConfig | None":
+        """Create TemperatureMatchConfig from a 'match' directive."""
+        if directive is None:
+            return None
+        if len(directive.values) < 2:
+            return None
+        match_type_str = str(directive.values[0]).lower()
+        type_map = {
+            "zone": TemperatureMatchType.ZONE,
+            "hwmon": TemperatureMatchType.HWMON,
+            "path": TemperatureMatchType.PATH,
+        }
+        match_type = type_map.get(match_type_str)
+        if match_type is None:
+            return None
+        return cls(type=match_type, value=str(directive.values[1]))
+
+
+@dataclass
 class TemperatureConfig:
     """Temperature sensor configuration."""
 
     name: str
-    zone: str | None = None  # Thermal zone name (e.g., "soc-thermal", "thermal_zone0")
-    hwmon: str | None = None  # Hwmon sensor name (e.g., "soc_thermal_sensor0")
-    path: str | None = None  # Direct path to temp file
+    match: TemperatureMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
     update_interval: float | None = None
 
     @classmethod
-    def from_defaults(cls, name: str, defaults: DefaultsConfig) -> "TemperatureConfig":
+    def from_defaults(
+        cls, name: str, match: "TemperatureMatchConfig", defaults: DefaultsConfig
+    ) -> "TemperatureConfig":
         """Create TemperatureConfig from defaults (for auto-discovery)."""
         return cls(
             name=name,
+            match=match,
             update_interval=defaults.update_interval,
         )
 
@@ -1129,6 +1198,9 @@ class TemperatureConfig:
         if interval is None:
             interval = defaults.update_interval
 
+        # Parse match directive
+        match = TemperatureMatchConfig.from_directive(block.get_directive("match"))
+
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
@@ -1138,9 +1210,7 @@ class TemperatureConfig:
 
         return cls(
             name=name,
-            zone=block.get_value("zone"),
-            hwmon=block.get_value("hwmon"),
-            path=block.get_value("path"),
+            match=match,
             device_ref=device_ref,
             ha_config=ha_config,
             update_interval=float(interval) if interval else None,
@@ -1148,12 +1218,36 @@ class TemperatureConfig:
 
 
 @dataclass
+class BatteryMatchConfig:
+    """Battery matching configuration."""
+
+    type: BatteryMatchType
+    value: str
+
+    @classmethod
+    def from_directive(cls, directive: Directive | None) -> "BatteryMatchConfig | None":
+        """Create BatteryMatchConfig from a 'match' directive."""
+        if directive is None:
+            return None
+        if len(directive.values) < 2:
+            return None
+        match_type_str = str(directive.values[0]).lower()
+        type_map = {
+            "name": BatteryMatchType.NAME,
+            "path": BatteryMatchType.PATH,
+        }
+        match_type = type_map.get(match_type_str)
+        if match_type is None:
+            return None
+        return cls(type=match_type, value=str(directive.values[1]))
+
+
+@dataclass
 class BatteryConfig:
     """Battery monitoring configuration."""
 
     name: str
-    path: str | None = None
-    battery_name: str | None = None  # BAT0, BAT1, etc.
+    match: BatteryMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
@@ -1197,6 +1291,9 @@ class BatteryConfig:
             val = block.get_value(name)
             return bool(val) if val is not None else bd_val
 
+        # Parse match directive
+        match = BatteryMatchConfig.from_directive(block.get_directive("match"))
+
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
@@ -1206,8 +1303,7 @@ class BatteryConfig:
 
         return cls(
             name=name,
-            path=block.get_value("path"),
-            battery_name=block.get_value("name"),  # the battery name like BAT0
+            match=match,
             device_ref=device_ref,
             ha_config=ha_config,
             capacity=get_bool("capacity", bd.capacity),
@@ -1237,12 +1333,14 @@ class BatteryConfig:
         )
 
     @classmethod
-    def from_defaults(cls, name: str, defaults: DefaultsConfig) -> "BatteryConfig":
+    def from_defaults(
+        cls, name: str, match: "BatteryMatchConfig", defaults: DefaultsConfig
+    ) -> "BatteryConfig":
         """Create BatteryConfig from defaults (for auto-discovery)."""
         bd = defaults.battery
         return cls(
             name=name,
-            battery_name=name,
+            match=match,
             capacity=bd.capacity,
             voltage=bd.voltage,
             current=bd.current,
@@ -1269,15 +1367,39 @@ class BatteryConfig:
 
 
 @dataclass
+class ACPowerMatchConfig:
+    """AC power supply matching configuration."""
+
+    type: ACPowerMatchType
+    value: str
+
+    @classmethod
+    def from_directive(cls, directive: Directive | None) -> "ACPowerMatchConfig | None":
+        """Create ACPowerMatchConfig from a 'match' directive."""
+        if directive is None:
+            return None
+        if len(directive.values) < 2:
+            return None
+        match_type_str = str(directive.values[0]).lower()
+        type_map = {
+            "name": ACPowerMatchType.NAME,
+            "path": ACPowerMatchType.PATH,
+        }
+        match_type = type_map.get(match_type_str)
+        if match_type is None:
+            return None
+        return cls(type=match_type, value=str(directive.values[1]))
+
+
+@dataclass
 class ACPowerConfig:
     """External AC power supply (mains) monitoring configuration.
 
-    Reads the 'online' attribute from /sys/class/power_supply/<device_name>/online.
+    Reads the 'online' attribute from /sys/class/power_supply/<name>/online.
     """
 
-    name: str  # Block name: collector ID and MQTT topic (e.g. "main", "axp22x-ac")
-    device_name: str | None = None  # Sysfs device name (e.g. axp22x-ac). If not set, name is used
-    path: str | None = None  # Optional full path; overrides device_name when set
+    name: str  # Block name: collector ID and MQTT topic
+    match: ACPowerMatchConfig | None = None
     device_ref: str | None = None  # Device template or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None
     update_interval: float | None = None
@@ -1286,11 +1408,13 @@ class ACPowerConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "ACPowerConfig":
         """Create ACPowerConfig from a parsed 'ac_power' block."""
         name = block.name or "ac"
-        device_name = block.get_value("name")  # Optional: sysfs device name (like battery "name")
 
         interval = block.get_value("update_interval")
         if interval is None:
             interval = defaults.update_interval
+
+        # Parse match directive
+        match = ACPowerMatchConfig.from_directive(block.get_directive("match"))
 
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
@@ -1301,18 +1425,20 @@ class ACPowerConfig:
 
         return cls(
             name=name,
-            device_name=device_name,
-            path=block.get_value("path"),
+            match=match,
             device_ref=device_ref,
             ha_config=ha_config,
             update_interval=float(interval) if interval else None,
         )
 
     @classmethod
-    def from_defaults(cls, name: str, defaults: DefaultsConfig) -> "ACPowerConfig":
+    def from_defaults(
+        cls, name: str, match: "ACPowerMatchConfig", defaults: DefaultsConfig
+    ) -> "ACPowerConfig":
         """Create ACPowerConfig from defaults (for auto-discovery)."""
         return cls(
             name=name,
+            match=match,
             update_interval=defaults.update_interval,
         )
 
@@ -1438,13 +1564,37 @@ class CustomBinarySensorConfig:
 
 
 @dataclass
+class DiskMatchConfig:
+    """Disk matching configuration."""
+
+    type: DiskMatchType
+    value: str
+
+    @classmethod
+    def from_directive(cls, directive: Directive | None) -> "DiskMatchConfig | None":
+        """Create DiskMatchConfig from a 'match' directive."""
+        if directive is None:
+            return None
+        if len(directive.values) < 2:
+            return None
+        match_type_str = str(directive.values[0]).lower()
+        type_map = {
+            "name": DiskMatchType.NAME,
+            "mountpoint": DiskMatchType.MOUNTPOINT,
+            "uuid": DiskMatchType.UUID,
+        }
+        match_type = type_map.get(match_type_str)
+        if match_type is None:
+            return None
+        return cls(type=match_type, value=str(directive.values[1]))
+
+
+@dataclass
 class DiskConfig:
     """Disk space monitoring configuration."""
 
     name: str
-    device_name: str | None = None  # Device name: sda1, nvme0n1p1
-    mountpoint: str | None = None  # Mount point: /, /home
-    uuid: str | None = None  # Disk UUID (from /dev/disk/by-uuid/)
+    match: DiskMatchConfig | None = None
     device_ref: str | None = None  # Device template name or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
@@ -1456,24 +1606,6 @@ class DiskConfig:
 
     # Settings
     update_interval: float | None = None
-
-    def __post_init__(self) -> None:
-        """Validate that exactly one of name, mountpoint, uuid is set."""
-        identifiers = {
-            "name": self.device_name,
-            "mountpoint": self.mountpoint,
-            "uuid": self.uuid,
-        }
-        set_ids = [k for k, v in identifiers.items() if v]
-        if len(set_ids) == 0:
-            raise ValueError(
-                f"Disk '{self.name}': one of 'name', 'mountpoint', or 'uuid' must be specified"
-            )
-        if len(set_ids) > 1:
-            raise ValueError(
-                f"Disk '{self.name}': only one of 'name', 'mountpoint', or 'uuid' "
-                f"can be specified, got: {', '.join(set_ids)}"
-            )
 
     @classmethod
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "DiskConfig":
@@ -1489,6 +1621,9 @@ class DiskConfig:
             val = block.get_value(name)
             return bool(val) if val is not None else dd_val
 
+        # Parse match directive
+        match = DiskMatchConfig.from_directive(block.get_directive("match"))
+
         # Parse device reference (string: template name or "system"/"auto"/"none")
         device_ref = block.get_value("device")
 
@@ -1498,9 +1633,7 @@ class DiskConfig:
 
         return cls(
             name=name,
-            device_name=block.get_value("name"),
-            mountpoint=block.get_value("mountpoint"),
-            uuid=block.get_value("uuid"),
+            match=match,
             device_ref=device_ref,
             ha_config=ha_config,
             total=get_bool("total", dd.total),
@@ -1511,12 +1644,14 @@ class DiskConfig:
         )
 
     @classmethod
-    def from_defaults(cls, name: str, device_name: str, defaults: DefaultsConfig) -> "DiskConfig":
+    def from_defaults(
+        cls, name: str, match: "DiskMatchConfig", defaults: DefaultsConfig
+    ) -> "DiskConfig":
         """Create DiskConfig from defaults (for auto-discovery)."""
         dd = defaults.disk
         return cls(
             name=name,
-            device_name=device_name,
+            match=match,
             total=dd.total,
             used=dd.used,
             free=dd.free,
@@ -1526,10 +1661,35 @@ class DiskConfig:
 
 
 @dataclass
+class NetworkMatchConfig:
+    """Network interface matching configuration."""
+
+    type: NetworkMatchType
+    value: str
+
+    @classmethod
+    def from_directive(cls, directive: Directive | None) -> "NetworkMatchConfig | None":
+        """Create NetworkMatchConfig from a 'match' directive."""
+        if directive is None:
+            return None
+        if len(directive.values) < 2:
+            return None
+        match_type_str = str(directive.values[0]).lower()
+        type_map = {
+            "name": NetworkMatchType.NAME,
+        }
+        match_type = type_map.get(match_type_str)
+        if match_type is None:
+            return None
+        return cls(type=match_type, value=str(directive.values[1]))
+
+
+@dataclass
 class NetworkConfig:
     """Network interface monitoring configuration."""
 
-    name: str  # Interface name: eth0, wlan0, etc.
+    name: str  # Block name (collector ID)
+    match: NetworkMatchConfig | None = None
     device_ref: str | None = None  # Device template or "system"/"auto"/"none"
     ha_config: HomeAssistantSensorConfig | None = None
 
@@ -1558,12 +1718,16 @@ class NetworkConfig:
             val = block.get_value(n)
             return bool(val) if val is not None else d
 
+        # Parse match directive
+        match = NetworkMatchConfig.from_directive(block.get_directive("match"))
+
         interval = block.get_value("update_interval") or defaults.update_interval
         ha_block = block.get_block("homeassistant")
         ha_config = HomeAssistantSensorConfig.from_block(ha_block)
 
         return cls(
             name=name,
+            match=match,
             device_ref=block.get_value("device"),
             ha_config=ha_config,
             bytes=get_bool("bytes", nd.bytes),
@@ -1581,11 +1745,14 @@ class NetworkConfig:
         )
 
     @classmethod
-    def from_defaults(cls, name: str, defaults: DefaultsConfig) -> "NetworkConfig":
+    def from_defaults(
+        cls, name: str, match: "NetworkMatchConfig", defaults: DefaultsConfig
+    ) -> "NetworkConfig":
         """Create NetworkConfig from defaults (for auto-discovery)."""
         nd = defaults.network
         return cls(
             name=name,
+            match=match,
             bytes=nd.bytes,
             packets=nd.packets,
             errors=nd.errors,
@@ -1602,11 +1769,35 @@ class NetworkConfig:
 
 
 @dataclass
+class FanMatchConfig:
+    """Fan matching configuration."""
+
+    type: FanMatchType
+    value: str
+
+    @classmethod
+    def from_directive(cls, directive: Directive | None) -> "FanMatchConfig | None":
+        """Create FanMatchConfig from a 'match' directive."""
+        if directive is None:
+            return None
+        if len(directive.values) < 2:
+            return None
+        match_type_str = str(directive.values[0]).lower()
+        type_map = {
+            "hwmon": FanMatchType.HWMON,
+        }
+        match_type = type_map.get(match_type_str)
+        if match_type is None:
+            return None
+        return cls(type=match_type, value=str(directive.values[1]))
+
+
+@dataclass
 class FanConfig:
     """Fan (RPM) monitoring configuration from hwmon sysfs."""
 
     name: str  # Collector/source name (e.g. hwmon0, or display name)
-    hwmon: str | None = None  # Hwmon directory name (e.g. hwmon0) for manual config
+    match: FanMatchConfig | None = None
     device_ref: str | None = None  # Device template or "system"/"auto"/"none"
     update_interval: float | None = None
 
@@ -1614,20 +1805,23 @@ class FanConfig:
     def from_block(cls, block: Block, defaults: DefaultsConfig) -> "FanConfig":
         """Create FanConfig from a parsed 'fan' block."""
         name = block.name or "fan"
+        match = FanMatchConfig.from_directive(block.get_directive("match"))
         interval = block.get_value("update_interval") or defaults.update_interval
         return cls(
             name=name,
-            hwmon=block.get_value("hwmon"),
+            match=match,
             device_ref=block.get_value("device"),
             update_interval=float(interval) if interval else None,
         )
 
     @classmethod
-    def from_defaults(cls, name: str, hwmon: str, defaults: DefaultsConfig) -> "FanConfig":
+    def from_defaults(
+        cls, name: str, match: "FanMatchConfig", defaults: DefaultsConfig
+    ) -> "FanConfig":
         """Create FanConfig from defaults (for auto-discovery)."""
         return cls(
             name=name,
-            hwmon=hwmon,
+            match=match,
             update_interval=defaults.update_interval,
         )
 

@@ -202,12 +202,11 @@ class ConfigLoader:
             "uptime",
             "update_interval",
         },
-        "temperature": {"zone", "hwmon", "path", "device", "update_interval"},
-        "ac_power": {"name", "path", "device", "update_interval"},
+        "temperature": {"match", "device", "update_interval"},
+        "ac_power": {"match", "device", "update_interval"},
         "battery": {
             "device",
-            "name",
-            "path",
+            "match",
             "capacity",
             "voltage",
             "current",
@@ -313,9 +312,7 @@ class ConfigLoader:
         },
         "disks": {"auto", "filter", "exclude", "device", "update_interval"},
         "disk": {
-            "name",
-            "mountpoint",
-            "uuid",
+            "match",
             "device",
             "total",
             "used",
@@ -324,6 +321,7 @@ class ConfigLoader:
             "update_interval",
         },
         "network": {
+            "match",
             "device",
             "bytes",
             "packets",
@@ -338,9 +336,22 @@ class ConfigLoader:
             "rssi",
             "update_interval",
         },
-        "fan": {"device", "hwmon", "update_interval"},
+        "fan": {"match", "device", "update_interval"},
         "device": {"name", "manufacturer", "model", "hw_version", "sw_version", "identifiers"},
-        "match": {"name", "pattern", "pid", "pidfile", "cmdline", "unit", "image", "label"},
+        "match": {
+            # process
+            "name", "pattern", "pid", "pidfile", "cmdline",
+            # service
+            "unit",
+            # container
+            "image", "label",
+            # disk
+            "mountpoint", "uuid",
+            # temperature
+            "zone", "hwmon",
+            # battery, ac_power, temperature
+            "path",
+        },
     }
 
     # Home Assistant sensor override block (nested inside collectors)
@@ -405,11 +416,12 @@ class ConfigLoader:
         warn_missing_match(config.processes, "Process")
         warn_missing_match(config.services, "Service")
         warn_missing_match(config.containers, "Container")
-
-        # Check fan collectors (manual config requires hwmon)
-        for fan in config.fans:
-            if not fan.hwmon:
-                warnings.append(f"Fan '{fan.name}' has no hwmon (required for manual config)")
+        warn_missing_match(config.disks, "Disk")
+        warn_missing_match(config.temperatures, "Temperature")
+        warn_missing_match(config.batteries, "Battery")
+        warn_missing_match(config.ac_power, "AC power")
+        warn_missing_match(config.fans, "Fan")
+        warn_missing_match(config.networks, "Network")
 
         # Check custom sensors
         for custom in config.custom:

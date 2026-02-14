@@ -9,7 +9,7 @@ Also provides auto-discovery helpers for power supplies under /sys/class/power_s
 from pathlib import Path
 from typing import NamedTuple
 
-from ..config.schema import ACPowerConfig, DefaultsConfig, DeviceConfig
+from ..config.schema import ACPowerConfig, ACPowerMatchType, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
 from ..models.sensor import Sensor
 from .base import Collector, CollectorResult, build_sensor
@@ -105,12 +105,15 @@ class ACPowerCollector(Collector):
         self.device_templates = device_templates or {}
         self.parent_device = parent_device
 
-        if config.path:
-            self._sysfs_path = Path(config.path)
+        if config.match:
+            match config.match.type:
+                case ACPowerMatchType.PATH:
+                    self._sysfs_path = Path(config.match.value)
+                case ACPowerMatchType.NAME:
+                    self._sysfs_path = Path("/sys/class/power_supply") / config.match.value
         else:
-            # Use device_name (name directive) or block name for sysfs device
-            sysfs_name = config.device_name or config.name
-            self._sysfs_path = Path("/sys/class/power_supply") / sysfs_name
+            # Fallback to block name
+            self._sysfs_path = Path("/sys/class/power_supply") / config.name
 
     def create_device(self) -> Device | None:
         """Create device for AC power sensor."""

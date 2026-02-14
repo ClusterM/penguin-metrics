@@ -16,7 +16,7 @@ from typing import NamedTuple
 
 import psutil
 
-from ..config.schema import DefaultsConfig, DeviceConfig, DiskConfig
+from ..config.schema import DefaultsConfig, DeviceConfig, DiskConfig, DiskMatchType
 from ..models.device import Device, create_device_from_ref
 from ..models.sensor import DeviceClass, Sensor, StateClass
 from .base import Collector, CollectorResult, build_sensor
@@ -145,13 +145,16 @@ class DiskCollector(Collector):
         await super().initialize()
 
     def _resolve_disk(self) -> DiskInfo | None:
-        """Resolve disk from config (by name, mountpoint, or uuid)."""
-        if self.config.mountpoint:
-            return get_disk_by_mountpoint(self.config.mountpoint)
-        elif self.config.uuid:
-            return get_disk_by_uuid(self.config.uuid)
-        elif self.config.device_name:
-            return get_disk_by_name(self.config.device_name)
+        """Resolve disk from config match."""
+        if not self.config.match:
+            return None
+        match self.config.match.type:
+            case DiskMatchType.NAME:
+                return get_disk_by_name(self.config.match.value)
+            case DiskMatchType.MOUNTPOINT:
+                return get_disk_by_mountpoint(self.config.match.value)
+            case DiskMatchType.UUID:
+                return get_disk_by_uuid(self.config.match.value)
         return None
 
     def create_device(self) -> Device | None:

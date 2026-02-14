@@ -19,7 +19,7 @@ Collects:
 from pathlib import Path
 from typing import NamedTuple
 
-from ..config.schema import BatteryConfig, DefaultsConfig, DeviceConfig
+from ..config.schema import BatteryConfig, BatteryMatchType, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
 from ..models.sensor import DeviceClass, Sensor, StateClass, create_sensor
 from .base import Collector, CollectorResult, apply_overrides_to_sensors, build_sensor
@@ -137,23 +137,23 @@ class BatteryCollector(Collector):
 
     async def initialize(self) -> None:
         """Find the battery device."""
-        if self.config.path:
-            # Specific path provided
-            path = Path(self.config.path)
-            if path.exists():
-                self._battery = BatteryInfo(
-                    name=path.name,
-                    path=path,
-                    type="battery",
-                )
-        elif self.config.battery_name:
-            # Find by name
-            for battery in discover_batteries():
-                if battery.name == self.config.battery_name:
-                    self._battery = battery
-                    break
+        if self.config.match:
+            match self.config.match.type:
+                case BatteryMatchType.PATH:
+                    path = Path(self.config.match.value)
+                    if path.exists():
+                        self._battery = BatteryInfo(
+                            name=path.name,
+                            path=path,
+                            type="battery",
+                        )
+                case BatteryMatchType.NAME:
+                    for battery in discover_batteries():
+                        if battery.name == self.config.match.value:
+                            self._battery = battery
+                            break
         else:
-            # Use first available battery
+            # No match: use first available battery
             batteries = discover_batteries()
             if batteries:
                 self._battery = batteries[0]

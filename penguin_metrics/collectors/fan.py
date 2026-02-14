@@ -8,7 +8,7 @@ Supports manual config by hwmon name and auto-discovery.
 from pathlib import Path
 from typing import NamedTuple
 
-from ..config.schema import DefaultsConfig, DeviceConfig, FanConfig
+from ..config.schema import DefaultsConfig, DeviceConfig, FanConfig, FanMatchType
 from ..models.device import Device, create_device_from_ref
 from ..models.sensor import Sensor, StateClass
 from .base import Collector, CollectorResult, build_sensor
@@ -99,10 +99,10 @@ class FanCollector(Collector):
         self._fan_inputs = self._resolve_fan_inputs()
 
     def _resolve_fan_inputs(self) -> list[FanInput]:
-        """Resolve fan*_input paths from config.hwmon (so create_sensors can run before initialize)."""
-        if not self.config.hwmon:
+        """Resolve fan*_input paths from match hwmon (so create_sensors can run before initialize)."""
+        if not self.config.match or self.config.match.type != FanMatchType.HWMON:
             return []
-        hwmon_path = Path("/sys/class/hwmon") / self.config.hwmon
+        hwmon_path = Path("/sys/class/hwmon") / self.config.match.value
         if not hwmon_path.exists():
             return []
         inputs: list[FanInput] = []

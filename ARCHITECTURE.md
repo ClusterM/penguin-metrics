@@ -391,8 +391,7 @@ class ContainerConfig:
 @dataclass
 class BatteryConfig:
     name: str
-    path: str | None = None
-    battery_name: str | None = None
+    match: BatteryMatchConfig | None = None  # match name/path
     capacity: bool = True
     voltage: bool = True
     current: bool = True
@@ -418,8 +417,8 @@ class BatteryConfig:
 
 @dataclass
 class ACPowerConfig:
-    name: str                   # Sysfs device name (e.g. axp22x-ac)
-    path: str | None = None     # Optional full path to power_supply directory
+    name: str
+    match: ACPowerMatchConfig | None = None  # match name/path
     device_ref: str | None = None  # "system"/"auto"/"none"/template name
     ha_config: HomeAssistantSensorConfig | None = None
     update_interval: float | None = None
@@ -427,15 +426,12 @@ class ACPowerConfig:
 @dataclass
 class DiskConfig:
     name: str
-    device_name: str | None = None  # Device name: sda1, nvme0n1p1
-    mountpoint: str | None = None  # Mount point: /, /home
-    uuid: str | None = None  # Disk UUID (from /dev/disk/by-uuid/)
+    match: DiskMatchConfig | None = None  # match name/mountpoint/uuid
     total: bool = True
     used: bool = True
     free: bool = True
     percent: bool = True
     update_interval: float | None = None
-    # Exactly one of device_name, mountpoint, uuid must be set
 
 @dataclass
 class CustomSensorConfig:

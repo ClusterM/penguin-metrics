@@ -354,10 +354,13 @@ class Application:
                 if not auto_cfg.matches(name):
                     continue
 
-                from .config.schema import TemperatureConfig
+                from .config.schema import TemperatureConfig, TemperatureMatchConfig, TemperatureMatchType
 
-                config = TemperatureConfig.from_defaults(name=name, defaults=self.config.defaults)
-                config.zone = zone.name
+                config = TemperatureConfig.from_defaults(
+                    name=name,
+                    match=TemperatureMatchConfig(type=TemperatureMatchType.ZONE, value=zone.name),
+                    defaults=self.config.defaults,
+                )
                 config.device_ref = auto_cfg.device_ref  # Use auto-discovery device_ref
                 apply_overrides(config)
                 collectors.append(
@@ -380,10 +383,13 @@ class Application:
                 if not auto_cfg.matches(name):
                     continue
 
-                from .config.schema import TemperatureConfig
+                from .config.schema import TemperatureConfig, TemperatureMatchConfig, TemperatureMatchType
 
-                config = TemperatureConfig.from_defaults(name=name, defaults=self.config.defaults)
-                config.hwmon = name
+                config = TemperatureConfig.from_defaults(
+                    name=name,
+                    match=TemperatureMatchConfig(type=TemperatureMatchType.HWMON, value=name),
+                    defaults=self.config.defaults,
+                )
                 config.device_ref = auto_cfg.device_ref  # Use auto-discovery device_ref
                 apply_overrides(config)
                 collectors.append(
@@ -422,9 +428,13 @@ class Application:
             if not auto_cfg.matches(name):
                 continue
 
-            from .config.schema import BatteryConfig
+            from .config.schema import BatteryConfig, BatteryMatchConfig, BatteryMatchType
 
-            config = BatteryConfig.from_defaults(name=name, defaults=self.config.defaults)
+            config = BatteryConfig.from_defaults(
+                name=name,
+                match=BatteryMatchConfig(type=BatteryMatchType.NAME, value=name),
+                defaults=self.config.defaults,
+            )
             config.device_ref = auto_cfg.device_ref  # Use auto-discovery device_ref
             # Apply per-metric overrides from auto-discovery block
             for key, val in auto_cfg.options.items():
@@ -468,11 +478,13 @@ class Application:
             if not auto_cfg.matches(name) and not auto_cfg.matches(ps.type):
                 continue
 
-            from .config.schema import ACPowerConfig
+            from .config.schema import ACPowerConfig, ACPowerMatchConfig, ACPowerMatchType
 
-            config = ACPowerConfig.from_defaults(name=name, defaults=self.config.defaults)
-            # For auto-discovery, always point to the concrete path we found
-            config.path = str(ps.path)
+            config = ACPowerConfig.from_defaults(
+                name=name,
+                match=ACPowerMatchConfig(type=ACPowerMatchType.PATH, value=str(ps.path)),
+                defaults=self.config.defaults,
+            )
             # Apply auto-discovery device_ref and overrides (if any)
             config.device_ref = auto_cfg.device_ref
             if auto_cfg.update_interval is not None:
@@ -514,11 +526,11 @@ class Application:
             if not auto_cfg.matches(name):
                 continue
 
-            from .config.schema import DiskConfig
+            from .config.schema import DiskConfig, DiskMatchConfig, DiskMatchType
 
             config = DiskConfig.from_defaults(
                 name=name,
-                device_name=name,
+                match=DiskMatchConfig(type=DiskMatchType.NAME, value=name),
                 defaults=self.config.defaults,
             )
             # Apply auto-discovery device_ref
@@ -550,7 +562,7 @@ class Application:
     ) -> list[Collector]:
         """Auto-discover network interfaces."""
         from .collectors.network import discover_network_interfaces
-        from .config.schema import NetworkConfig
+        from .config.schema import NetworkConfig, NetworkMatchConfig, NetworkMatchType
 
         auto_cfg = self.config.auto_networks
         if not auto_cfg.enabled:
@@ -565,7 +577,11 @@ class Application:
             if not auto_cfg.matches(iface):
                 continue
 
-            config = NetworkConfig.from_defaults(name=iface, defaults=self.config.defaults)
+            config = NetworkConfig.from_defaults(
+                name=iface,
+                match=NetworkMatchConfig(type=NetworkMatchType.NAME, value=iface),
+                defaults=self.config.defaults,
+            )
             config.device_ref = auto_cfg.device_ref
             for key, val in auto_cfg.options.items():
                 if hasattr(config, key):
@@ -594,7 +610,7 @@ class Application:
     ) -> list[Collector]:
         """Auto-discover fan (hwmon) collectors."""
         from .collectors.fan import discover_fan_hwmons
-        from .config.schema import FanConfig
+        from .config.schema import FanConfig, FanMatchConfig, FanMatchType
 
         auto_cfg = self.config.auto_fans
         if not auto_cfg.enabled:
@@ -611,7 +627,9 @@ class Application:
                 continue
 
             config = FanConfig.from_defaults(
-                name=name, hwmon=hwmon_basename, defaults=self.config.defaults
+                name=name,
+                match=FanMatchConfig(type=FanMatchType.HWMON, value=hwmon_basename),
+                defaults=self.config.defaults,
             )
             config.device_ref = auto_cfg.device_ref
             for key, val in auto_cfg.options.items():

@@ -10,7 +10,13 @@ from typing import Any, NamedTuple
 
 import psutil
 
-from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig, TemperatureConfig
+from ..config.schema import (
+    DefaultsConfig,
+    DeviceConfig,
+    SystemConfig,
+    TemperatureConfig,
+    TemperatureMatchType,
+)
 from ..models.device import Device, create_device_from_ref
 from ..models.sensor import DeviceClass, Sensor, StateClass
 from .base import Collector, CollectorResult, build_sensor
@@ -146,10 +152,19 @@ class TemperatureCollector(Collector):
             name = config.name
             collector_id = config.name
             update_interval = config.update_interval
-            self.specific_zone = config.zone
-            self.specific_hwmon = config.hwmon
-            self.specific_path = config.path
             self._device_ref = config.device_ref
+            # Extract match target
+            self.specific_zone: str | None = None
+            self.specific_hwmon: str | None = None
+            self.specific_path: str | None = None
+            if config.match:
+                match config.match.type:
+                    case TemperatureMatchType.ZONE:
+                        self.specific_zone = config.match.value
+                    case TemperatureMatchType.HWMON:
+                        self.specific_hwmon = config.match.value
+                    case TemperatureMatchType.PATH:
+                        self.specific_path = config.match.value
         else:
             # Legacy: SystemConfig passed (should not happen anymore)
             name = f"{config.name}_temperature"

@@ -12,7 +12,7 @@ from datetime import datetime
 
 import psutil
 
-from ..config.schema import DefaultsConfig, DeviceConfig, NetworkConfig
+from ..config.schema import DefaultsConfig, DeviceConfig, NetworkConfig, NetworkMatchType
 from ..models.device import Device, create_device_from_ref
 from ..models.sensor import DeviceClass, Sensor, StateClass
 from .base import Collector, CollectorResult, build_sensor
@@ -119,6 +119,13 @@ class NetworkCollector(Collector):
         self.parent_device = parent_device
         self.device_templates = device_templates or {}
 
+        # Interface name from match config
+        self._interface_name: str = (
+            config.match.value
+            if config.match and config.match.type == NetworkMatchType.NAME
+            else config.name
+        )
+
         self._prev_bytes_sent: float | None = None
         self._prev_bytes_recv: float | None = None
         self._prev_packets_sent: float | None = None
@@ -128,7 +135,7 @@ class NetworkCollector(Collector):
     async def initialize(self) -> None:
         """Verify interface exists."""
         interfaces = discover_network_interfaces()
-        if self.config.name not in interfaces:
+        if self._interface_name not in interfaces:
             pass  # Will report not_found in collect
         await super().initialize()
 
@@ -139,7 +146,7 @@ class NetworkCollector(Collector):
             source_type=self.SOURCE_TYPE,
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
-            default_name=f"Network: {self.config.name}",
+            default_name=f"Network: {self._interface_name}",
             manufacturer="Penguin Metrics",
             model="Network Interface",
             parent_device=self.parent_device,
@@ -152,7 +159,7 @@ class NetworkCollector(Collector):
         sensors: list[Sensor] = []
         device = self.device
         ha_cfg = self.config.ha_config
-        name = self.config.name
+        name = self._interface_name
         prefix = f"Network {name}"
 
         def add(
@@ -276,7 +283,7 @@ class NetworkCollector(Collector):
     async def collect(self) -> CollectorResult:
         """Collect network interface metrics."""
         result = CollectorResult()
-        name = self.config.name
+        name = self._interface_name
 
         try:
             counters_per_nic = psutil.net_io_counters(pernic=True)
