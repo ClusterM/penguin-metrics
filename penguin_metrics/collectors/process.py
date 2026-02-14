@@ -16,6 +16,7 @@ Collects:
 - Thread count
 """
 
+import logging
 import re
 import time
 from pathlib import Path
@@ -96,6 +97,9 @@ def find_processes_by_cmdline(substring: str) -> list[psutil.Process]:
     return result
 
 
+logger = logging.getLogger(__name__)
+
+
 class ProcessCollector(MultiSourceCollector):
     """
     Collector for process metrics.
@@ -144,6 +148,10 @@ class ProcessCollector(MultiSourceCollector):
         self._prev_pid_io: dict[int, tuple[int, int, float]] = {}
         self._prev_agg_io: tuple[int, int] | None = None
         self._prev_agg_time: float | None = None
+
+        # One-time warnings for permission issues
+        self._warned_io_denied = False
+        self._warned_fds_denied = False
 
     def create_device(self) -> Device | None:
         """Create device for process metrics."""
@@ -450,13 +458,29 @@ class ProcessCollector(MultiSourceCollector):
                                 result.set("disk_read_rate", round(read_rate, 2))
                                 result.set("disk_write_rate", round(write_rate, 2))
                         self._prev_pid_io[proc.pid] = (read_bytes, write_bytes, now)
-                except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
+                except psutil.AccessDenied:
+                    if not self._warned_io_denied:
+                        logger.warning(
+                            "Process '%s': cannot read disk I/O (access denied). "
+                            "Requires root or CAP_DAC_READ_SEARCH capability.",
+                            self.name,
+                        )
+                        self._warned_io_denied = True
+                except (psutil.NoSuchProcess, AttributeError):
                     pass
 
             if self.config.fds:
                 try:
                     result.set("num_fds", proc.num_fds())
-                except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
+                except psutil.AccessDenied:
+                    if not self._warned_fds_denied:
+                        logger.warning(
+                            "Process '%s': cannot read file descriptors (access denied). "
+                            "Requires root or CAP_DAC_READ_SEARCH capability.",
+                            self.name,
+                        )
+                        self._warned_fds_denied = True
+                except (psutil.NoSuchProcess, AttributeError):
                     pass
 
             if self.config.threads:
@@ -525,13 +549,29 @@ class ProcessCollector(MultiSourceCollector):
                             io = proc.io_counters()
                             total_disk_read_bytes += io.read_bytes
                             total_disk_write_bytes += io.write_bytes
-                        except (psutil.AccessDenied, AttributeError):
+                        except psutil.AccessDenied:
+                            if not self._warned_io_denied:
+                                logger.warning(
+                                    "Process '%s': cannot read disk I/O (access denied). "
+                                    "Requires root or CAP_DAC_READ_SEARCH capability.",
+                                    self.name,
+                                )
+                                self._warned_io_denied = True
+                        except AttributeError:
                             pass
 
                     if self.config.fds:
                         try:
                             total_fds += proc.num_fds()
-                        except (psutil.AccessDenied, AttributeError):
+                        except psutil.AccessDenied:
+                            if not self._warned_fds_denied:
+                                logger.warning(
+                                    "Process '%s': cannot read file descriptors (access denied). "
+                                    "Requires root or CAP_DAC_READ_SEARCH capability.",
+                                    self.name,
+                                )
+                                self._warned_fds_denied = True
+                        except AttributeError:
                             pass
 
                     if self.config.threads:

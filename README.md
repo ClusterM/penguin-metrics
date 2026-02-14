@@ -64,7 +64,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
 - Linux with `/proc` and `/sys` filesystems
 - MQTT broker (Mosquitto, EMQX, etc.)
 - Home Assistant with MQTT integration (optional)
-- Root or `CAP_SYS_PTRACE` capability (for smaps memory metrics)
+- Elevated privileges for some metrics (see [Permissions](#permissions) below)
 
 ## Installation
 
@@ -195,6 +195,67 @@ Configuration summary:
   Custom sensors: 1
 
 Configuration is valid!
+```
+
+## Permissions
+
+Some metrics require elevated privileges to read `/proc/PID/io`, `/proc/PID/smaps`, and `/proc/PID/fd/` of other processes. Without sufficient permissions these metrics will silently remain empty (a one-time warning is logged at startup).
+
+| Metric | File | Required capability |
+|---|---|---|
+| Disk I/O (`disk`, `disk_rate`) for processes/services | `/proc/PID/io` | `CAP_DAC_READ_SEARCH` |
+| PSS/USS memory (`smaps`) | `/proc/PID/smaps` | `CAP_SYS_PTRACE` |
+| File descriptors (`fds`) | `/proc/PID/fd/` | `CAP_DAC_READ_SEARCH` |
+
+### Option 1: Run as root
+
+The simplest approach. If running in Docker with `privileged: true` — no extra steps needed.
+
+### Option 2: Grant capabilities to the Python binary
+
+This avoids running the entire process as root:
+
+```bash
+# Find the Python binary
+PYTHON=$(readlink -f $(which python3))
+
+# Grant required capabilities
+sudo setcap 'cap_dac_read_search,cap_sys_ptrace=ep' "$PYTHON"
+```
+
+To verify:
+
+```bash
+getcap "$PYTHON"
+# /usr/bin/python3.13 cap_dac_read_search,cap_sys_ptrace=ep
+```
+
+To remove:
+
+```bash
+sudo setcap -r "$PYTHON"
+```
+
+> **Note:** `setcap` is applied to the actual binary, not a symlink. Use `readlink -f` to resolve symlinks. After a Python upgrade the capability must be re-applied.
+
+### Option 3: Grant capabilities to the systemd service
+
+If running as a systemd service under a dedicated user:
+
+```ini
+[Service]
+User=penguin-metrics
+AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_SYS_PTRACE
+```
+
+### Option 4: Docker with specific capabilities
+
+Instead of `privileged: true`, grant only what is needed:
+
+```yaml
+cap_add:
+  - DAC_READ_SEARCH
+  - SYS_PTRACE
 ```
 
 ## Configuration

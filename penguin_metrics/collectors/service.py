@@ -14,6 +14,7 @@ Collects:
 
 import asyncio
 import fnmatch
+import logging
 import time
 
 import psutil
@@ -148,6 +149,9 @@ async def list_units(pattern: str = "*.service") -> list[str]:
     return units
 
 
+logger = logging.getLogger(__name__)
+
+
 class ServiceCollector(Collector):
     SOURCE_TYPE = "service"
     """
@@ -198,6 +202,9 @@ class ServiceCollector(Collector):
         self._last_cpu_time: float = 0.0
         self._last_disk_bytes: tuple[int, int] | None = None
         self._last_disk_time: float | None = None
+
+        # One-time warnings for permission issues
+        self._warned_io_denied = False
 
     async def initialize(self) -> None:
         """Resolve the service unit name."""
@@ -525,7 +532,15 @@ class ServiceCollector(Collector):
                     io_counters = proc.io_counters()
                     total_read += io_counters.read_bytes
                     total_write += io_counters.write_bytes
-                except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
+                except psutil.AccessDenied:
+                    if not self._warned_io_denied:
+                        logger.warning(
+                            "Service '%s': cannot read disk I/O (access denied). "
+                            "Requires root or CAP_DAC_READ_SEARCH capability.",
+                            self.name,
+                        )
+                        self._warned_io_denied = True
+                except (psutil.NoSuchProcess, AttributeError):
                     continue
 
             if self.config.disk:

@@ -11,10 +11,16 @@ Provides:
 Note: Reading smaps of other processes requires root or CAP_SYS_PTRACE.
 """
 
+import logging
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+# Track whether we've already warned about permission issues (once per process lifetime)
+_warned_smaps_denied = False
 
 
 @dataclass
@@ -239,7 +245,14 @@ def parse_smaps(pid: int) -> SmapsInfo | None:
         # Process doesn't exist
         return None
     except PermissionError:
-        # Need elevated privileges
+        global _warned_smaps_denied  # noqa: PLW0603
+        if not _warned_smaps_denied:
+            logger.warning(
+                "Cannot read /proc/%d/smaps (permission denied). "
+                "PSS/USS metrics require root or CAP_SYS_PTRACE capability.",
+                pid,
+            )
+            _warned_smaps_denied = True
         return None
     except Exception:
         # Other errors (process died, etc.)
@@ -268,6 +281,14 @@ def parse_smaps_rollup(pid: int) -> SmapsInfo | None:
         # Try full smaps as fallback
         return parse_smaps(pid)
     except PermissionError:
+        global _warned_smaps_denied  # noqa: PLW0603
+        if not _warned_smaps_denied:
+            logger.warning(
+                "Cannot read /proc/%d/smaps_rollup (permission denied). "
+                "PSS/USS metrics require root or CAP_SYS_PTRACE capability.",
+                pid,
+            )
+            _warned_smaps_denied = True
         return None
     except Exception:
         return None
