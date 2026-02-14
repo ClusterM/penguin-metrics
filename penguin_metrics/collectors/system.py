@@ -33,7 +33,10 @@ def _calc_rate_kib(
     """Calculate KiB/s rate from bytes and time delta."""
     if previous is None or time_delta is None or time_delta <= 0:
         return None
-    return max(0.0, (current - previous) / 1024 / time_delta)
+    delta = current - previous
+    if delta < 0:
+        return None  # Counter reset
+    return delta / 1024 / time_delta
 
 
 def _get_system_info() -> dict[str, str | None]:

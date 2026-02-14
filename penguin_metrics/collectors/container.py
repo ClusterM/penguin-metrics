@@ -31,7 +31,10 @@ def _calc_rate_kib(
     """Calculate KiB/s rate based on previous value and time delta."""
     if previous is None or time_delta is None or time_delta <= 0:
         return None
-    return max(0.0, (current - previous) / 1024 / time_delta)
+    delta = current - previous
+    if delta < 0:
+        return None  # Counter reset (e.g. container restart)
+    return delta / 1024 / time_delta
 
 
 class ContainerCollector(Collector):

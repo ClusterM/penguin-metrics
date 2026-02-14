@@ -39,6 +39,10 @@ class CgroupStats:
     memory_cache: int = 0  # Page cache
     memory_rss: int = 0  # RSS (anon + file mapped)
 
+    # I/O stats (in bytes, summed across all devices)
+    io_read_bytes: int = 0  # Total bytes read
+    io_write_bytes: int = 0  # Total bytes written
+
     # Process count
     pids_current: int = 0
 
@@ -197,6 +201,23 @@ def get_cgroup_stats_v2(cgroup_path: str) -> CgroupStats:
 
     # PIDs
     stats.pids_current = _read_int(cg_dir / "pids.current")
+
+    # I/O stats (sum across all devices)
+    io_stat = _read_file(cg_dir / "io.stat")
+    if io_stat:
+        for line in io_stat.splitlines():
+            # Format: "253:0 rbytes=1234 wbytes=5678 rios=... wios=... dbytes=... dios=..."
+            for part in line.split():
+                if part.startswith("rbytes="):
+                    try:
+                        stats.io_read_bytes += int(part[7:])
+                    except ValueError:
+                        pass
+                elif part.startswith("wbytes="):
+                    try:
+                        stats.io_write_bytes += int(part[7:])
+                    except ValueError:
+                        pass
 
     return stats
 

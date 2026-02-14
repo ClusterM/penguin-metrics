@@ -291,10 +291,11 @@ class ProcessCollector(MultiSourceCollector):
                         display_name="Disk Read",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="MiB",
+                        unit="B",
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.TOTAL_INCREASING,
                         icon="mdi:harddisk",
+                        suggested_display_precision=0,
                         ha_config=self.config.ha_config,
                     ),
                     build_sensor(
@@ -304,10 +305,11 @@ class ProcessCollector(MultiSourceCollector):
                         display_name="Disk Write",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="MiB",
+                        unit="B",
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.TOTAL_INCREASING,
                         icon="mdi:harddisk",
+                        suggested_display_precision=0,
                         ha_config=self.config.ha_config,
                     ),
                 ]
@@ -323,10 +325,11 @@ class ProcessCollector(MultiSourceCollector):
                         display_name="Disk Read Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="MiB/s",
+                        unit="KiB/s",
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
+                        suggested_display_precision=2,
                         ha_config=self.config.ha_config,
                     ),
                     build_sensor(
@@ -336,10 +339,11 @@ class ProcessCollector(MultiSourceCollector):
                         display_name="Disk Write Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="MiB/s",
+                        unit="KiB/s",
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
+                        suggested_display_precision=2,
                         ha_config=self.config.ha_config,
                     ),
                 ]
@@ -444,8 +448,8 @@ class ProcessCollector(MultiSourceCollector):
                     write_bytes = io_counters.write_bytes
 
                     if self.config.disk:
-                        result.set("disk_read", round(read_bytes / (1024 * 1024), 2))
-                        result.set("disk_write", round(write_bytes / (1024 * 1024), 2))
+                        result.set("disk_read", read_bytes)
+                        result.set("disk_write", write_bytes)
 
                     if self.config.disk_rate:
                         prev = self._prev_pid_io.get(proc.pid)
@@ -453,10 +457,11 @@ class ProcessCollector(MultiSourceCollector):
                             prev_read, prev_write, prev_ts = prev
                             dt = now - prev_ts
                             if dt > 0:
-                                read_rate = (read_bytes - prev_read) / dt / (1024 * 1024)
-                                write_rate = (write_bytes - prev_write) / dt / (1024 * 1024)
-                                result.set("disk_read_rate", round(read_rate, 2))
-                                result.set("disk_write_rate", round(write_rate, 2))
+                                dr = read_bytes - prev_read
+                                dw = write_bytes - prev_write
+                                if dr >= 0 and dw >= 0:
+                                    result.set("disk_read_rate", round(dr / dt / 1024, 2))
+                                    result.set("disk_write_rate", round(dw / dt / 1024, 2))
                         self._prev_pid_io[proc.pid] = (read_bytes, write_bytes, now)
                 except psutil.AccessDenied:
                     if not self._warned_io_denied:
@@ -605,18 +610,19 @@ class ProcessCollector(MultiSourceCollector):
                 result.set("memory_uss", round(total_anonymous / (1024 * 1024), 2))
 
             if self.config.disk:
-                result.set("disk_read", round(total_disk_read_bytes / (1024 * 1024), 2))
-                result.set("disk_write", round(total_disk_write_bytes / (1024 * 1024), 2))
+                result.set("disk_read", total_disk_read_bytes)
+                result.set("disk_write", total_disk_write_bytes)
 
             if self.config.disk_rate:
                 if self._prev_agg_io and self._prev_agg_time:
                     prev_read, prev_write = self._prev_agg_io
                     dt = current_time - self._prev_agg_time
                     if dt > 0:
-                        read_rate = (total_disk_read_bytes - prev_read) / dt / (1024 * 1024)
-                        write_rate = (total_disk_write_bytes - prev_write) / dt / (1024 * 1024)
-                        result.set("disk_read_rate", round(read_rate, 2))
-                        result.set("disk_write_rate", round(write_rate, 2))
+                        dr = total_disk_read_bytes - prev_read
+                        dw = total_disk_write_bytes - prev_write
+                        if dr >= 0 and dw >= 0:
+                            result.set("disk_read_rate", round(dr / dt / 1024, 2))
+                            result.set("disk_write_rate", round(dw / dt / 1024, 2))
                 self._prev_agg_io = (total_disk_read_bytes, total_disk_write_bytes)
                 self._prev_agg_time = current_time
 

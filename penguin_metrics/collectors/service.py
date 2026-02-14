@@ -364,10 +364,11 @@ class ServiceCollector(Collector):
                         display_name="Disk Read",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="MiB",
+                        unit="B",
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.TOTAL_INCREASING,
                         icon="mdi:harddisk",
+                        suggested_display_precision=0,
                         ha_config=self.config.ha_config,
                     ),
                     build_sensor(
@@ -377,10 +378,11 @@ class ServiceCollector(Collector):
                         display_name="Disk Write",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="MiB",
+                        unit="B",
                         device_class=DeviceClass.DATA_SIZE,
                         state_class=StateClass.TOTAL_INCREASING,
                         icon="mdi:harddisk",
+                        suggested_display_precision=0,
                         ha_config=self.config.ha_config,
                     ),
                 ]
@@ -396,10 +398,11 @@ class ServiceCollector(Collector):
                         display_name="Disk Read Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="MiB/s",
+                        unit="KiB/s",
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
+                        suggested_display_precision=2,
                         ha_config=self.config.ha_config,
                     ),
                     build_sensor(
@@ -409,10 +412,11 @@ class ServiceCollector(Collector):
                         display_name="Disk Write Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
-                        unit="MiB/s",
+                        unit="KiB/s",
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
+                        suggested_display_precision=2,
                         ha_config=self.config.ha_config,
                     ),
                 ]
@@ -523,29 +527,35 @@ class ServiceCollector(Collector):
             if cg_stats.memory_cache > 0:
                 result.set("memory_cache", round(cg_stats.memory_cache / (1024 * 1024), 1))
 
-        if (self.config.disk or self.config.disk_rate) and pids:
-            total_read = 0
-            total_write = 0
-            for pid in pids:
-                try:
-                    proc = psutil.Process(pid)
-                    io_counters = proc.io_counters()
-                    total_read += io_counters.read_bytes
-                    total_write += io_counters.write_bytes
-                except psutil.AccessDenied:
-                    if not self._warned_io_denied:
-                        logger.warning(
-                            "Service '%s': cannot read disk I/O (access denied). "
-                            "Requires root or CAP_DAC_READ_SEARCH capability.",
-                            self.name,
-                        )
-                        self._warned_io_denied = True
-                except (psutil.NoSuchProcess, AttributeError):
-                    continue
+        if self.config.disk or self.config.disk_rate:
+            # Use cgroup io.stat (stable, cumulative, no per-PID access needed).
+            # Falls back to per-PID io_counters if cgroup I/O is zero (cgroup v1 or no io controller).
+            total_read = cg_stats.io_read_bytes
+            total_write = cg_stats.io_write_bytes
+
+            if total_read == 0 and total_write == 0 and pids:
+                # Fallback: sum per-PID io_counters (requires root/CAP_DAC_READ_SEARCH)
+                for pid in pids:
+                    try:
+                        proc = psutil.Process(pid)
+                        io_counters = proc.io_counters()
+                        total_read += io_counters.read_bytes
+                        total_write += io_counters.write_bytes
+                    except psutil.AccessDenied:
+                        if not self._warned_io_denied:
+                            logger.warning(
+                                "Service '%s': cannot read disk I/O — cgroup io.stat "
+                                "unavailable and /proc/PID/io access denied. "
+                                "Requires root or CAP_DAC_READ_SEARCH capability.",
+                                self.name,
+                            )
+                            self._warned_io_denied = True
+                    except (psutil.NoSuchProcess, AttributeError):
+                        continue
 
             if self.config.disk:
-                result.set("disk_read", round(total_read / (1024 * 1024), 2))
-                result.set("disk_write", round(total_write / (1024 * 1024), 2))
+                result.set("disk_read", total_read)
+                result.set("disk_write", total_write)
 
             if self.config.disk_rate:
                 now = time.time()
@@ -553,10 +563,11 @@ class ServiceCollector(Collector):
                     prev_read, prev_write = self._last_disk_bytes
                     dt = now - self._last_disk_time
                     if dt > 0:
-                        read_rate = (total_read - prev_read) / dt / (1024 * 1024)
-                        write_rate = (total_write - prev_write) / dt / (1024 * 1024)
-                        result.set("disk_read_rate", round(read_rate, 2))
-                        result.set("disk_write_rate", round(write_rate, 2))
+                        dr = total_read - prev_read
+                        dw = total_write - prev_write
+                        if dr >= 0 and dw >= 0:
+                            result.set("disk_read_rate", round(dr / dt / 1024, 2))
+                            result.set("disk_write_rate", round(dw / dt / 1024, 2))
                 self._last_disk_bytes = (total_read, total_write)
                 self._last_disk_time = now
 

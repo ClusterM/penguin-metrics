@@ -39,10 +39,13 @@ def _calc_rate(
     prev: float | None,
     time_delta: float | None,
 ) -> float | None:
-    """Compute rate (difference per second). Returns None if not enough data."""
+    """Compute rate (difference per second). Returns None if not enough data or counter reset."""
     if prev is None or time_delta is None or time_delta <= 0:
         return None
-    return (current - prev) / time_delta
+    delta = current - prev
+    if delta < 0:
+        return None  # Counter reset (e.g. interface restart)
+    return delta / time_delta
 
 
 async def _get_wifi_rssi(interface: str) -> int | None:
