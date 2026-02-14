@@ -270,7 +270,6 @@ class GPUCollector(Collector):
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
             default_name=f"GPU: {self.name}",
-            manufacturer="Penguin Metrics",
             model="GPU Monitor",
             parent_device=self.parent_device,
             device_templates=self.device_templates,

@@ -165,7 +165,6 @@ class ContainerCollector(Collector):
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
             default_name=f"Container: {self.config.label}",
-            manufacturer="Docker",
             model="Container",
             parent_device=self.parent_device,
             device_templates=self.device_templates,

@@ -165,7 +165,6 @@ class DiskCollector(Collector):
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
             default_name=f"Disk: {self.config.label}",
-            manufacturer="Penguin Metrics",
             model="Disk Monitor",
             parent_device=self.parent_device,
             device_templates=self.device_templates,

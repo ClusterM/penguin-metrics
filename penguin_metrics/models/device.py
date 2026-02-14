@@ -161,7 +161,6 @@ def create_device(
     source_name: str,
     source_id: str | None = None,
     topic_prefix: str = "penguin_metrics",
-    manufacturer: str = "Penguin Metrics",
     model: str = "Linux Monitor",
     **kwargs: Any,
 ) -> Device:
@@ -173,7 +172,6 @@ def create_device(
         source_name: Human-readable name
         source_id: Unique identifier (generated from name if not provided)
         topic_prefix: MQTT topic prefix (for unique identifier generation)
-        manufacturer: Device manufacturer
         model: Device model
         **kwargs: Additional device attributes
 
@@ -186,7 +184,6 @@ def create_device(
     return Device(
         identifiers=[identifier],
         name=source_name,
-        manufacturer=manufacturer,
         model=model,
         **kwargs,
     )
@@ -199,7 +196,6 @@ def create_device_from_ref(
     collector_id: str,
     topic_prefix: str,
     default_name: str,
-    manufacturer: str,
     model: str,
     parent_device: Device | None = None,
     device_templates: dict[str, DeviceConfig] | None = None,
@@ -214,7 +210,6 @@ def create_device_from_ref(
         collector_id: Collector identifier
         topic_prefix: MQTT topic prefix
         default_name: Default device name
-        manufacturer: Manufacturer string
         model: Model string
         parent_device: Parent (system) device if available
         device_templates: Templates map
@@ -244,7 +239,6 @@ def create_device_from_ref(
     device = Device(
         identifiers=[f"penguin_metrics_{topic_prefix}_{source_type}_{collector_id}"],
         name=default_name,
-        manufacturer=manufacturer,
         model=model,
     )
     _add_via_device_if_needed(device, parent_device, source_type)

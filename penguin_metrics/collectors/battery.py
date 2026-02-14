@@ -168,7 +168,6 @@ class BatteryCollector(Collector):
             collector_id=self.collector_id,
             topic_prefix=self.topic_prefix,
             default_name=f"Battery: {self.config.label}",
-            manufacturer="Unknown",
             model="Battery",
             parent_device=self.parent_device,
             device_templates=self.device_templates,
