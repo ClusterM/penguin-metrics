@@ -331,7 +331,6 @@ class ContainerCollector(Collector):
                 unit="s",
                 device_class=DeviceClass.DURATION,
                 state_class=StateClass.TOTAL_INCREASING,
-                icon="mdi:clock-outline",
             )
 
         add("pids", "Processes", state_class=StateClass.MEASUREMENT, icon="mdi:application-outline")

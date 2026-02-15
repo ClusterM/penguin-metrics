@@ -261,7 +261,6 @@ class TemperatureCollector(Collector):
                 unit="°C",
                 device_class=DeviceClass.TEMPERATURE,
                 state_class=StateClass.MEASUREMENT,
-                icon="mdi:thermometer",
                 ha_config=ha_config,
             )
         )

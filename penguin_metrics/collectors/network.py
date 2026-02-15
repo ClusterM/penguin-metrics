@@ -14,7 +14,7 @@ import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, NetworkConfig, NetworkMatchType
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass
+from ..models.sensor import BinarySensorDeviceClass, DeviceClass, Sensor, StateClass
 from .base import Collector, CollectorResult, build_sensor
 
 
@@ -201,6 +201,7 @@ class NetworkCollector(Collector):
                 unit="B",
                 device_class=DeviceClass.DATA_SIZE,
                 state_class=StateClass.TOTAL_INCREASING,
+                icon=None,
                 suggested_display_precision=0,
             )
             add(
@@ -209,6 +210,7 @@ class NetworkCollector(Collector):
                 unit="B",
                 device_class=DeviceClass.DATA_SIZE,
                 state_class=StateClass.TOTAL_INCREASING,
+                icon=None,
                 suggested_display_precision=0,
             )
         if self.config.packets:
@@ -227,6 +229,7 @@ class NetworkCollector(Collector):
                 unit="KiB/s",
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
+                icon=None,
                 suggested_display_precision=2,
             )
             add(
@@ -235,6 +238,7 @@ class NetworkCollector(Collector):
                 unit="KiB/s",
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
+                icon=None,
                 suggested_display_precision=2,
             )
         if self.config.packets_rate:
@@ -260,13 +264,13 @@ class NetworkCollector(Collector):
                     device=device,
                     topic_prefix=self.topic_prefix,
                     entity_type="binary_sensor",
-                    icon="mdi:ethernet",
+                    device_class=BinarySensorDeviceClass.CONNECTIVITY,
                     ha_config=ha_cfg,
                     value_template="{{ 'ON' if value_json.isup else 'OFF' }}",
                 )
             )
         if self.config.speed:
-            add("speed", f"{prefix} Speed", unit="Mbps")
+            add("speed", f"{prefix} Speed", unit="Mbps", device_class=DeviceClass.DATA_RATE, icon=None)
         if self.config.mtu:
             add("mtu", f"{prefix} MTU")
         if self.config.duplex:
@@ -276,8 +280,8 @@ class NetworkCollector(Collector):
                 "rssi",
                 f"{prefix} Signal",
                 unit="dBm",
+                device_class=DeviceClass.SIGNAL_STRENGTH,
                 state_class=StateClass.MEASUREMENT,
-                icon="mdi:wifi",
                 suggested_display_precision=0,
             )
 

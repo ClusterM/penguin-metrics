@@ -11,7 +11,7 @@ from typing import NamedTuple
 
 from ..config.schema import ACPowerConfig, ACPowerMatchType, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import Sensor
+from ..models.sensor import BinarySensorDeviceClass, Sensor
 from .base import Collector, CollectorResult, build_sensor
 
 
@@ -140,7 +140,7 @@ class ACPowerCollector(Collector):
             device=self.device,
             topic_prefix=self.topic_prefix,
             entity_type="binary_sensor",
-            icon="mdi:power-plug",
+            device_class=BinarySensorDeviceClass.PLUG,
             ha_config=self.config.ha_config,
             value_template="{{ 'ON' if value_json.online else 'OFF' }}",
         )

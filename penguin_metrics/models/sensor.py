@@ -65,6 +65,19 @@ class DeviceClass(Enum):
     SIGNAL_STRENGTH = "signal_strength"
 
 
+class BinarySensorDeviceClass(Enum):
+    """Home Assistant binary_sensor device classes."""
+
+    BATTERY = "battery"
+    BATTERY_CHARGING = "battery_charging"
+    CONNECTIVITY = "connectivity"
+    PLUG = "plug"
+    POWER = "power"
+    RUNNING = "running"
+    PROBLEM = "problem"
+    PRESENCE = "presence"
+
+
 class StateClass(Enum):
     """Home Assistant sensor state classes."""
 
@@ -99,7 +112,7 @@ class Sensor:
     suggested_display_precision: int | None = None
 
     # Home Assistant configuration
-    device_class: DeviceClass | str | None = None
+    device_class: DeviceClass | BinarySensorDeviceClass | str | None = None
     state_class: StateClass | str | None = None
     icon: str | None = None
 
@@ -229,7 +242,7 @@ class Sensor:
 
         # Device class
         if self.device_class:
-            if isinstance(self.device_class, DeviceClass):
+            if isinstance(self.device_class, (DeviceClass, BinarySensorDeviceClass)):
                 if self.device_class.value:
                     result["device_class"] = self.device_class.value
             else:
@@ -333,7 +346,7 @@ def create_sensor(
     device: Device | None = None,
     topic_prefix: str = "penguin_metrics",
     unit: str | None = None,
-    device_class: DeviceClass | str | None = None,
+    device_class: DeviceClass | BinarySensorDeviceClass | str | None = None,
     state_class: StateClass | str | None = None,
     icon: str | None = None,
     availability_topic: str | None = None,

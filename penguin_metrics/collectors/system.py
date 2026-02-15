@@ -441,24 +441,24 @@ class SystemCollector(Collector):
                 "cpu_freq_current",
                 "CPU Frequency",
                 unit="MHz",
+                device_class=DeviceClass.FREQUENCY,
                 state_class=StateClass.MEASUREMENT,
-                icon="mdi:chip",
                 suggested_display_precision=0,
             )
             add_sensor(
                 "cpu_freq_min",
                 "CPU Frequency Min",
                 unit="MHz",
+                device_class=DeviceClass.FREQUENCY,
                 state_class=StateClass.MEASUREMENT,
-                icon="mdi:chip",
                 suggested_display_precision=0,
             )
             add_sensor(
                 "cpu_freq_max",
                 "CPU Frequency Max",
                 unit="MHz",
+                device_class=DeviceClass.FREQUENCY,
                 state_class=StateClass.MEASUREMENT,
-                icon="mdi:chip",
                 suggested_display_precision=0,
             )
 
@@ -487,7 +487,6 @@ class SystemCollector(Collector):
                     display_name="Boot Time",
                     device=device,
                     topic_prefix=self.topic_prefix,
-                    icon="mdi:clock-outline",
                     ha_config=ha_cfg,
                     device_class=DeviceClass.TIMESTAMP,
                 )
@@ -539,7 +538,6 @@ class SystemCollector(Collector):
                 unit="s",
                 device_class=DeviceClass.DURATION,
                 state_class=StateClass.TOTAL_INCREASING,
-                icon="mdi:clock-outline",
             )
 
         return sensors
