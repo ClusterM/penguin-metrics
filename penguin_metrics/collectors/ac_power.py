@@ -136,7 +136,7 @@ class ACPowerCollector(Collector):
             source_type=self.SOURCE_TYPE,
             source_name=self.collector_id,
             metric_name="online",
-            display_name=f"AC Power {self.config.label}",
+            display_name=f"{self.config.label} Connected",
             device=self.device,
             topic_prefix=self.topic_prefix,
             entity_type="binary_sensor",

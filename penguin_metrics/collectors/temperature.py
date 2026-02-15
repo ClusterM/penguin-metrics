@@ -280,7 +280,7 @@ class TemperatureCollector(Collector):
             self._add_temp_sensor(
                 sensors,
                 sensor_name=source_name,
-                display_name=f"Temperature {self.config.label}",
+                display_name=f"{self.config.label} Temperature",
                 device=device,
                 ha_config=ha_cfg,
             )
@@ -291,7 +291,7 @@ class TemperatureCollector(Collector):
             self._add_temp_sensor(
                 sensors,
                 sensor_name=source_name,
-                display_name=f"Temperature {self.config.label}",
+                display_name=f"{self.config.label} Temperature",
                 device=device,
                 ha_config=ha_cfg,
             )

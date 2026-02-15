@@ -163,7 +163,7 @@ class NetworkCollector(Collector):
         ha_cfg = self.config.ha_config
         # source_name must match collector_id for correct state_topic
         source_name = self.config.name
-        prefix = f"Network {self.config.label}"
+        prefix = self.config.label
 
         def add(
             metric: str,

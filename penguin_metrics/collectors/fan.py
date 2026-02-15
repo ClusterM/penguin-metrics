@@ -140,7 +140,7 @@ class FanCollector(Collector):
         ha_cfg = getattr(self.config, "ha_config", None)
 
         for fin in self._fan_inputs:
-            display = f"Fan {self.config.label} {fin.metric_name.replace('_', ' ').title()}"
+            display = f"{self.config.label} {fin.metric_name.replace('_', ' ').title()}"
             sensors.append(
                 build_sensor(
                     source_type=self.SOURCE_TYPE,

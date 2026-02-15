@@ -179,6 +179,7 @@ class BatteryCollector(Collector):
         sensors: list[Sensor] = []
         device = self.device
         ha_cfg = self.config.ha_config
+        prefix = self.config.label
 
         def add(
             metric: str,
@@ -194,7 +195,7 @@ class BatteryCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name=metric,
-                    display_name=display,
+                    display_name=f"{prefix} {display}",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit=unit,
@@ -360,7 +361,7 @@ class BatteryCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name="energy_now",
-                    display_name="Energy Now",
+                    display_name=f"{prefix} Energy Now",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="Wh",
@@ -377,7 +378,7 @@ class BatteryCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name="energy_full",
-                    display_name="Energy Full",
+                    display_name=f"{prefix} Energy Full",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="Wh",
@@ -394,7 +395,7 @@ class BatteryCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name="energy_full_design",
-                    display_name="Energy Full (Design)",
+                    display_name=f"{prefix} Energy Full (Design)",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="Wh",
@@ -411,7 +412,7 @@ class BatteryCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name="charge_full_design",
-                    display_name="Charge Full (Design)",
+                    display_name=f"{prefix} Charge Full (Design)",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="mAh",
@@ -428,7 +429,7 @@ class BatteryCollector(Collector):
                 source_type=self.SOURCE_TYPE,
                 source_name=self.collector_id,
                 metric_name="is_charging",
-                display_name="Is Charging",
+                display_name=f"{prefix} Is Charging",
                 device=device,
                 topic_prefix=self.topic_prefix,
                 entity_type="binary_sensor",
@@ -442,7 +443,7 @@ class BatteryCollector(Collector):
                 source_type=self.SOURCE_TYPE,
                 source_name=self.collector_id,
                 metric_name="is_discharging",
-                display_name="Is Discharging",
+                display_name=f"{prefix} Is Discharging",
                 device=device,
                 topic_prefix=self.topic_prefix,
                 entity_type="binary_sensor",

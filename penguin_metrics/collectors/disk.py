@@ -179,7 +179,7 @@ class DiskCollector(Collector):
         source_name = self.config.name
         ha_cfg = getattr(self.config, "ha_config", None)
 
-        name_prefix = f"Disk {self.config.label}"
+        name_prefix = self.config.label
 
         def add(metric: str, display: str, unit: str, *, icon: str = "mdi:harddisk") -> None:
             sensors.append(

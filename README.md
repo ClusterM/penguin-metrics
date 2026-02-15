@@ -369,6 +369,7 @@ homeassistant {
 |-----------|---------|-------------|
 | `discovery` | `on` | Enable MQTT Discovery |
 | `discovery_prefix` | `"homeassistant"` | Discovery topic prefix |
+| `state_file` | `"/var/lib/penguin-metrics/registered_sensors.json"` | State file for stale sensor cleanup |
 
 ### Device Templates
 
@@ -440,7 +441,6 @@ process "nginx" {
 | *Any other field* | Additional fields are passed directly to HA discovery payload |
 
 **Note:** The `homeassistant {}` block applies to all sensors created by the collector. For collectors that create multiple sensors (e.g., process, container), the overrides are applied to all of them.
-| `device "name";` | Use a device template defined with `device "name" { ... }` |
 
 ### Default Settings
 
@@ -694,6 +694,7 @@ logging {
 | `file_level` | `"debug"` | File log level |
 | `file_max_size` | `10` | Max file size (MB) |
 | `file_keep` | `5` | Backup files to keep |
+| `format` | `"%(asctime)s [%(levelname)s] %(name)s: %(message)s"` | Python logging format string |
 
 **Log levels:** `debug`, `info`, `warning`, `error`
 
@@ -823,7 +824,7 @@ process "python-script" {
 | `pidfile` | `match pidfile "/var/run/app.pid";` | Read PID from file |
 | `cmdline` | `match cmdline "/usr/bin/app";` | Substring in command line |
 
-**State field** (when `state on`): `running` (process(es) found and metrics collected), `not_found` (no matching processes), `error` (e.g. access denied).
+**State field** (always included): `running` (process(es) found and metrics collected), `not_found` (no matching processes), `error` (e.g. access denied).
 
 ### Systemd Service Monitoring
 
@@ -856,6 +857,8 @@ service "nginx" {
 | `smaps` | *(from defaults)* | PSS/USS + Real PSS/USS aggregated |
 | `state` | `on` | Service state (only 'active' collects metrics) |
 | `restart_count` | `off` | Number of restarts |
+| `disk` | `off` | Read/write totals (bytes) |
+| `disk_rate` | `off` | Read/write rate (KiB/s) |
 | `update_interval` | *(from defaults)* | Override default interval |
 
 **Note:** Metrics are only collected when service state is `active`. States like `activating` or `reloading` don't collect cgroup metrics.
@@ -907,7 +910,9 @@ container "monitored" {
 | `cpu` | `on` | CPU usage % (normalized to 0-100%) |
 | `memory` | `on` | Memory usage |
 | `network` | `off` | Network RX/TX bytes |
+| `network_rate` | `off` | Network RX/TX rate (KiB/s) |
 | `disk` | `off` | Block I/O |
+| `disk_rate` | `off` | Block I/O rate (KiB/s) |
 | `state` | `on` | Container state |
 | `health` | `off` | Healthcheck status |
 | `uptime` | `off` | Container uptime |
@@ -1036,6 +1041,57 @@ ac_power "main" {
 
 **Note:** AC power sensors publish JSON with `online` (boolean) and `state` fields. Exposed to Home Assistant as a `binary_sensor` with `ON`/`OFF` derived from `online`.
 
+### Disk Space
+
+Monitors disk space usage from mounted partitions via `psutil.disk_usage()`.
+
+**Metrics (published as JSON fields):**
+- `total` - Total size (GiB)
+- `used` - Used space (GiB)
+- `free` - Free space (GiB)
+- `percent` - Usage percentage (%)
+- `state` - online/not_found (source availability)
+
+```nginx
+disk "root" {
+    # Match criteria (exactly one):
+    match name "sda1";             # Device name (from /dev/)
+    # match mountpoint "/";        # Or by mountpoint
+    # match uuid "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";  # Or by UUID
+
+    # Display name for Home Assistant (optional, defaults to block name)
+    # display_name "Root Disk";
+
+    device system;                 # Group with system device (default)
+
+    total on;                      # Total size (GiB)
+    used on;                       # Used space (GiB)
+    free on;                       # Free space (GiB)
+    percent on;                    # Usage percentage
+    # update_interval 60s;
+}
+```
+
+**Default values:**
+| Directive | Default | Description |
+|-----------|---------|-------------|
+| `match name` | *(required)* | Device name (e.g. sda1, nvme0n1p1) |
+| `match mountpoint` | *(alternative)* | Mountpoint (e.g. /, /home) |
+| `match uuid` | *(alternative)* | UUID from `/dev/disk/by-uuid/` |
+| `total` | `on` | Total size (GiB) |
+| `used` | `on` | Used space (GiB) |
+| `free` | `on` | Free space (GiB) |
+| `percent` | `on` | Usage percentage |
+| `device` | `system` | Group with system device |
+| `update_interval` | *(from defaults)* | Override default interval |
+
+**Match types:**
+| Type | Example | Description |
+|------|---------|-------------|
+| `name` | `match name "nvme0n1p1";` | Device name (from `/dev/`) |
+| `mountpoint` | `match mountpoint "/home";` | Mountpoint path |
+| `uuid` | `match uuid "a1b2c3d4-...";` | UUID (stable across reboots) |
+
 ### Network Interfaces
 
 Monitors network interfaces via `psutil.net_io_counters(pernic=True)` and `psutil.net_if_stats()`.
@@ -1142,6 +1198,7 @@ custom "wan_ip" {
 | `script` | *(none)* | Script path (alternative to command) |
 | `type` | `"number"` | Output type: `number`, `string`, `json` |
 | `scale` | `1.0` | Multiply numeric result by this |
+| `unit` | *(none)* | Unit of measurement (shorthand for `homeassistant { unit_of_measurement "..."; }`) |
 | `timeout` | `5s` | Command timeout |
 | `update_interval` | *(from defaults)* | Override default interval |
 

@@ -176,7 +176,7 @@ class MQTTConfig:
             return cls()
 
         # Parse retain mode
-        retain_val = block.get_value("retain", "full")
+        retain_val = block.get_value("retain", "on")
         if isinstance(retain_val, bool):
             retain_mode = RetainMode.ON if retain_val else RetainMode.OFF
         else:

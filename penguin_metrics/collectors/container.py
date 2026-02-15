@@ -175,6 +175,7 @@ class ContainerCollector(Collector):
         sensors: list[Sensor] = []
         device = self.device
         ha_cfg = self.config.ha_config
+        prefix = self.config.label
 
         def add(
             metric: str,
@@ -191,7 +192,7 @@ class ContainerCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.name,
                     metric_name=metric,
-                    display_name=display,
+                    display_name=f"{prefix} {display}",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit=unit,
