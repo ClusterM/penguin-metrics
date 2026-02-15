@@ -230,31 +230,85 @@ class BatteryCollector(Collector):
         )
 
         if self.config.voltage:
-            add("voltage", "Voltage", unit="V", device_class=DeviceClass.VOLTAGE, state_class=StateClass.MEASUREMENT)
+            add(
+                "voltage",
+                "Voltage",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.voltage_max:
-            add("voltage_max", "Voltage Max", unit="V", device_class=DeviceClass.VOLTAGE, state_class=StateClass.MEASUREMENT)
+            add(
+                "voltage_max",
+                "Voltage Max",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.voltage_min:
-            add("voltage_min", "Voltage Min", unit="V", device_class=DeviceClass.VOLTAGE, state_class=StateClass.MEASUREMENT)
+            add(
+                "voltage_min",
+                "Voltage Min",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.voltage_max_design:
-            add("voltage_max_design", "Voltage Max (Design)", unit="V", device_class=DeviceClass.VOLTAGE, state_class=StateClass.MEASUREMENT)
+            add(
+                "voltage_max_design",
+                "Voltage Max (Design)",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.voltage_min_design:
-            add("voltage_min_design", "Voltage Min (Design)", unit="V", device_class=DeviceClass.VOLTAGE, state_class=StateClass.MEASUREMENT)
+            add(
+                "voltage_min_design",
+                "Voltage Min (Design)",
+                unit="V",
+                device_class=DeviceClass.VOLTAGE,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.current:
-            add("current", "Current", unit="A", device_class=DeviceClass.CURRENT, state_class=StateClass.MEASUREMENT)
+            add(
+                "current",
+                "Current",
+                unit="A",
+                device_class=DeviceClass.CURRENT,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.power:
-            add("power", "Power", unit="W", device_class=DeviceClass.POWER, state_class=StateClass.MEASUREMENT)
+            add(
+                "power",
+                "Power",
+                unit="W",
+                device_class=DeviceClass.POWER,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.constant_charge_current:
-            add("constant_charge_current", "Const Charge Current", unit="A", device_class=DeviceClass.CURRENT, state_class=StateClass.MEASUREMENT)
+            add(
+                "constant_charge_current",
+                "Const Charge Current",
+                unit="A",
+                device_class=DeviceClass.CURRENT,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.constant_charge_current_max:
-            add("constant_charge_current_max", "Const Charge Current Max", unit="A", device_class=DeviceClass.CURRENT, state_class=StateClass.MEASUREMENT)
+            add(
+                "constant_charge_current_max",
+                "Const Charge Current Max",
+                unit="A",
+                device_class=DeviceClass.CURRENT,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.health:
             add("health", "Health", icon="mdi:battery-heart-variant")
@@ -279,28 +333,75 @@ class BatteryCollector(Collector):
             add("technology", "Technology", icon="mdi:battery")
 
         if self.config.cycles:
-            add("cycles", "Cycle Count", state_class=StateClass.TOTAL_INCREASING, icon="mdi:battery-sync")
+            add(
+                "cycles",
+                "Cycle Count",
+                state_class=StateClass.TOTAL_INCREASING,
+                icon="mdi:battery-sync",
+            )
 
         if self.config.temperature:
-            add("temperature", "Temperature", unit="°C", device_class=DeviceClass.TEMPERATURE, state_class=StateClass.MEASUREMENT)
+            add(
+                "temperature",
+                "Temperature",
+                unit="°C",
+                device_class=DeviceClass.TEMPERATURE,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.time_to_empty:
-            add("time_to_empty", "Time to Empty", unit="min", device_class=DeviceClass.DURATION, state_class=StateClass.MEASUREMENT)
+            add(
+                "time_to_empty",
+                "Time to Empty",
+                unit="min",
+                device_class=DeviceClass.DURATION,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.time_to_full:
-            add("time_to_full", "Time to Full", unit="min", device_class=DeviceClass.DURATION, state_class=StateClass.MEASUREMENT)
+            add(
+                "time_to_full",
+                "Time to Full",
+                unit="min",
+                device_class=DeviceClass.DURATION,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.energy_now:
-            add("energy_now", "Energy Now", unit="Wh", device_class=DeviceClass.ENERGY, state_class=StateClass.MEASUREMENT)
+            add(
+                "energy_now",
+                "Energy Now",
+                unit="Wh",
+                device_class=DeviceClass.ENERGY,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.energy_full:
-            add("energy_full", "Energy Full", unit="Wh", device_class=DeviceClass.ENERGY, state_class=StateClass.MEASUREMENT)
+            add(
+                "energy_full",
+                "Energy Full",
+                unit="Wh",
+                device_class=DeviceClass.ENERGY,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.energy_full_design:
-            add("energy_full_design", "Energy Full (Design)", unit="Wh", device_class=DeviceClass.ENERGY, state_class=StateClass.MEASUREMENT)
+            add(
+                "energy_full_design",
+                "Energy Full (Design)",
+                unit="Wh",
+                device_class=DeviceClass.ENERGY,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         if self.config.charge_full_design:
-            add("charge_full_design", "Charge Full (Design)", unit="mAh", device_class=DeviceClass.ENERGY, state_class=StateClass.MEASUREMENT)
+            add(
+                "charge_full_design",
+                "Charge Full (Design)",
+                unit="mAh",
+                device_class=DeviceClass.ENERGY,
+                state_class=StateClass.MEASUREMENT,
+            )
 
         # HA binary sensors derived from status (no extra MQTT fields)
         binary_sensors = [

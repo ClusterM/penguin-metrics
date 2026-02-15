@@ -270,7 +270,13 @@ class NetworkCollector(Collector):
                 )
             )
         if self.config.speed:
-            add("speed", f"{prefix} Speed", unit="Mbps", device_class=DeviceClass.DATA_RATE, icon=None)
+            add(
+                "speed",
+                f"{prefix} Speed",
+                unit="Mbps",
+                device_class=DeviceClass.DATA_RATE,
+                icon=None,
+            )
         if self.config.mtu:
             add("mtu", f"{prefix} MTU")
         if self.config.duplex:
