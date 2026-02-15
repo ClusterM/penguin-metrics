@@ -196,11 +196,17 @@ class HomeAssistantDiscovery:
         """
         Register a sensor with Home Assistant.
 
+        Clears the other entity type (sensor vs binary_sensor) for the same
+        unique_id first, so a renamed/migrated entity does not leave a duplicate.
+
         Args:
             sensor: Sensor to register
         """
         if not self.config.discovery:
             return
+
+        other_type = "binary_sensor" if sensor.entity_type == "sensor" else "sensor"
+        await self._clear_discovery(sensor.unique_id, other_type)
 
         topic = self._get_discovery_topic(sensor)
         payload = self._build_discovery_payload(sensor)
@@ -290,6 +296,7 @@ class HomeAssistantDiscovery:
         """
         for sensor_id in list(self._registered_sensors):
             await self._clear_discovery(sensor_id, "sensor")
+            await self._clear_discovery(sensor_id, "binary_sensor")
 
         self._registered_sensors.clear()
         self._registered_devices.clear()

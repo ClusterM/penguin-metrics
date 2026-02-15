@@ -215,7 +215,19 @@ class BatteryCollector(Collector):
                 state_class=StateClass.MEASUREMENT,
             )
 
-        add("status", "Status", icon="mdi:battery-charging")
+        sensors.append(
+            build_sensor(
+                source_type=self.SOURCE_TYPE,
+                source_name=self.collector_id,
+                metric_name="status",
+                display_name=f"{prefix} Status",
+                device=device,
+                topic_prefix=self.topic_prefix,
+                icon="mdi:battery-charging",
+                value_template="{{ value_json.state }}",
+                ha_config=ha_cfg,
+            )
+        )
 
         if self.config.voltage:
             add("voltage", "Voltage", unit="V", device_class=DeviceClass.VOLTAGE, state_class=StateClass.MEASUREMENT)
@@ -248,7 +260,20 @@ class BatteryCollector(Collector):
             add("health", "Health", icon="mdi:battery-heart-variant")
 
         if self.config.present:
-            add("present", "Present", icon="mdi:battery-check")
+            sensors.append(
+                build_sensor(
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.collector_id,
+                    metric_name="present",
+                    display_name=f"{prefix} Present",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    entity_type="binary_sensor",
+                    icon="mdi:battery-check",
+                    value_template="{{ 'ON' if value_json.present else 'OFF' }}",
+                    ha_config=ha_cfg,
+                )
+            )
 
         if self.config.technology:
             add("technology", "Technology", icon="mdi:battery")
@@ -396,7 +421,7 @@ class BatteryCollector(Collector):
         if self.config.present:
             present = read_sysfs_int(path / "present")
             if present is not None:
-                result.set("present", present)
+                result.set("present", bool(present))
 
         if self.config.technology:
             tech = read_sysfs_value(path / "technology")
