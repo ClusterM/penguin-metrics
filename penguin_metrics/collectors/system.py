@@ -287,19 +287,19 @@ class SystemCollector(Collector):
                 )
             )
 
-        # Kernel version is always exposed (cannot be disabled)
-        sensors.append(
-            build_sensor(
-                source_type="system",
-                source_name="",
-                metric_name="kernel_version",
-                display_name="Kernel Version",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                icon="mdi:linux",
-                ha_config=ha_cfg,
+        if self.config.kernel_version:
+            sensors.append(
+                build_sensor(
+                    source_type="system",
+                    source_name="",
+                    metric_name="kernel_version",
+                    display_name="Kernel Version",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    icon="mdi:linux",
+                    ha_config=ha_cfg,
+                )
             )
-        )
 
         if self.config.cpu:
             add_sensor(
@@ -562,11 +562,12 @@ class SystemCollector(Collector):
         """Collect system metrics."""
         result = CollectorResult()
 
-        # Kernel version is always collected (cannot be disabled)
-        try:
-            result.set("kernel_version", platform.release())
-        except Exception:
-            result.set("kernel_version", "unknown")
+        # Kernel version
+        if self.config.kernel_version:
+            try:
+                result.set("kernel_version", platform.release())
+            except Exception:
+                result.set("kernel_version", "unknown")
 
         # CPU usage
         if self.config.cpu:

@@ -772,6 +772,7 @@ class SystemConfig:
     cpu_freq: bool = True
     process_count: bool = True
     boot_time: bool = True
+    kernel_version: bool = True
 
     # Settings
     update_interval: float | None = None  # None = use defaults
@@ -809,6 +810,7 @@ class SystemConfig:
             cpu_freq=get_bool("cpu_freq", True),
             process_count=get_bool("process_count", True),
             boot_time=get_bool("boot_time", True),
+            kernel_version=get_bool("kernel_version", True),
             update_interval=float(interval) if interval else None,
         )
 

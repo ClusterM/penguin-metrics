@@ -655,7 +655,7 @@ Collects system-wide metrics using psutil.
 Topic: `{prefix}/system` → JSON with all metrics
 
 Metrics (configurable via system block):
-- `kernel_version` - Kernel release (always collected)
+- `kernel_version` - Kernel release (default: on, can be disabled)
 - `cpu_percent` - Overall CPU usage (%)
 - `cpu{N}_percent` - Per-core CPU usage (%)
 - `memory_percent`, `memory_used`, `memory_total` - RAM (MiB)

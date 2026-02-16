@@ -269,7 +269,9 @@ class Sensor:
             result["entity_category"] = self.entity_category
 
         # Binary sensor: custom payload_on/payload_off when state_topic uses non-ON/OFF values
-        if self.entity_type == "binary_sensor" and (self.payload_on is not None or self.payload_off is not None):
+        if self.entity_type == "binary_sensor" and (
+            self.payload_on is not None or self.payload_off is not None
+        ):
             if self.payload_on is not None:
                 result["payload_on"] = self.payload_on
             if self.payload_off is not None:

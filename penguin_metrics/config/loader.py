@@ -175,6 +175,7 @@ class ConfigLoader:
             "cpu_freq",
             "process_count",
             "boot_time",
+            "kernel_version",
             "update_interval",
         },
         "process": {
