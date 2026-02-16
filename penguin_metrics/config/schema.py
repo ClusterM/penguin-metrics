@@ -168,6 +168,13 @@ class MQTTConfig:
     qos: int = 1
     retain: RetainMode = RetainMode.ON
     keepalive: int = 60
+    # TLS/SSL
+    tls: bool = False
+    tls_insecure: bool = False  # Skip server certificate verification (dev only)
+    cafile: str | None = None  # CA certificate file
+    capath: str | None = None  # CA certificates directory
+    certfile: str | None = None  # Client certificate file
+    keyfile: str | None = None  # Client private key file
 
     @classmethod
     def from_block(cls, block: Block | None) -> "MQTTConfig":
@@ -189,9 +196,12 @@ class MQTTConfig:
             }
             retain_mode = retain_map.get(retain_str, RetainMode.ON)
 
+        tls_enabled = bool(block.get_value("tls", False))
+        default_port = 8883 if tls_enabled else 1883
+
         return cls(
             host=block.get_value("host", "localhost"),
-            port=int(block.get_value("port", 1883)),
+            port=int(block.get_value("port", default_port)),
             username=block.get_value("username"),
             password=block.get_value("password"),
             client_id=block.get_value("client_id"),
@@ -199,6 +209,12 @@ class MQTTConfig:
             qos=int(block.get_value("qos", 1)),
             retain=retain_mode,
             keepalive=int(block.get_value("keepalive", 60)),
+            tls=tls_enabled,
+            tls_insecure=bool(block.get_value("tls_insecure", False)),
+            cafile=block.get_value("cafile"),
+            capath=block.get_value("capath"),
+            certfile=block.get_value("certfile"),
+            keyfile=block.get_value("keyfile"),
         )
 
     def should_retain(self) -> bool:

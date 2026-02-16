@@ -10,6 +10,7 @@ Features:
 
 import asyncio
 import json
+import ssl
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -74,6 +75,29 @@ class MQTTClient:
         """Get configured topic prefix."""
         return self.config.topic_prefix
 
+    def _create_tls_context(self) -> ssl.SSLContext | None:
+        """Build SSL context for TLS connections, or None if TLS disabled."""
+        if not self.config.tls:
+            return None
+
+        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+
+        if self.config.cafile or self.config.capath:
+            context.load_verify_locations(
+                cafile=self.config.cafile,
+                capath=self.config.capath,
+            )
+        if self.config.certfile:
+            context.load_cert_chain(
+                certfile=self.config.certfile,
+                keyfile=self.config.keyfile,
+            )
+        if self.config.tls_insecure:
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+
+        return context
+
     def _create_client(self) -> aiomqtt.Client:
         """Create a new aiomqtt client instance."""
         # Build will message for availability (LWT)
@@ -84,15 +108,20 @@ class MQTTClient:
             retain=self.config.should_retain(),
         )
 
-        return aiomqtt.Client(
-            hostname=self.config.host,
-            port=self.config.port,
-            username=self.config.username,
-            password=self.config.password,
-            identifier=self._client_id,
-            keepalive=self.config.keepalive,
-            will=will,
-        )
+        tls_context = self._create_tls_context()
+        kwargs: dict[str, Any] = {
+            "hostname": self.config.host,
+            "port": self.config.port,
+            "username": self.config.username,
+            "password": self.config.password,
+            "identifier": self._client_id,
+            "keepalive": self.config.keepalive,
+            "will": will,
+        }
+        if tls_context is not None:
+            kwargs["tls_context"] = tls_context
+
+        return aiomqtt.Client(**kwargs)
 
     async def connect(self) -> None:
         """
@@ -101,7 +130,8 @@ class MQTTClient:
         Raises:
             aiomqtt.MqttError: If connection fails
         """
-        logger.debug(f"Connecting to MQTT broker {self.config.host}:{self.config.port}")
+        scheme = "mqtts" if self.config.tls else "mqtt"
+        logger.debug(f"Connecting to MQTT broker {scheme}://{self.config.host}:{self.config.port}")
         logger.debug(f"Client ID: {self._client_id}")
 
         self._client = self._create_client()
@@ -116,7 +146,8 @@ class MQTTClient:
             retain=self.config.should_retain(),
         )
 
-        logger.info(f"Connected to MQTT broker at {self.config.host}:{self.config.port}")
+        scheme = "mqtts" if self.config.tls else "mqtt"
+        logger.info(f"Connected to MQTT broker at {scheme}://{self.config.host}:{self.config.port}")
         logger.debug(f"Availability topic: {self.availability_topic}")
 
     async def disconnect(self) -> None:

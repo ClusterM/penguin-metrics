@@ -338,7 +338,7 @@ mqtt {
 | Directive | Default | Description |
 |-----------|---------|-------------|
 | `host` | `"localhost"` | MQTT broker address |
-| `port` | `1883` | MQTT broker port |
+| `port` | `1883` (or `8883` if TLS on) | MQTT broker port |
 | `username` | *(none)* | Authentication username |
 | `password` | *(none)* | Authentication password |
 | `client_id` | *(auto-generated)* | MQTT client identifier |
@@ -346,6 +346,30 @@ mqtt {
 | `qos` | `1` | Quality of Service (0, 1, 2) |
 | `retain` | `on` | Retain mode: `on` (retain all) or `off` (no retention) |
 | `keepalive` | `60` | Keepalive interval (seconds) |
+| `tls` | `off` | Enable TLS/SSL (use port 8883) |
+| `tls_insecure` | `off` | Skip server certificate verification (dev only) |
+| `cafile` | *(none)* | Path to CA certificate file |
+| `capath` | *(none)* | Path to CA certificates directory |
+| `certfile` | *(none)* | Path to client certificate file |
+| `keyfile` | *(none)* | Path to client private key file |
+
+**TLS/SSL:** When `tls on;` is set, the connection uses TLS. Specify `cafile` (or `capath`) to verify the broker certificate. For client certificate authentication, set `certfile` and `keyfile`. Use port 8883 (default when TLS is on). Set `tls_insecure on;` only for development to skip certificate verification.
+
+```nginx
+# Example: MQTT over TLS
+mqtt {
+    host "broker.example.com";
+    port 8883;
+    tls on;
+    cafile "/etc/ssl/certs/ca-certificates.crt";
+    # Optional: client certificate
+    # certfile "/etc/penguin-metrics/client.crt";
+    # keyfile "/etc/penguin-metrics/client.key";
+    username "user";
+    password "pass";
+    topic_prefix "penguin_metrics";
+}
+```
 
 **Retain modes:**
 | Mode | Description |

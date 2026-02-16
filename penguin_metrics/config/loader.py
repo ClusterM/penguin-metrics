@@ -133,6 +133,12 @@ class ConfigLoader:
             "qos",
             "retain",
             "keepalive",
+            "tls",
+            "tls_insecure",
+            "cafile",
+            "capath",
+            "certfile",
+            "keyfile",
         },
         "homeassistant": {
             "discovery",
