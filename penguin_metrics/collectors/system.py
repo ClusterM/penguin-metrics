@@ -21,7 +21,7 @@ import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, SystemConfig
 from ..models.device import Device
-from ..models.sensor import DeviceClass, Sensor, StateClass
+from ..models.sensor import BinarySensorDeviceClass, DeviceClass, Sensor, StateClass
 from .base import Collector, CollectorResult, build_sensor
 
 
@@ -243,6 +243,22 @@ class SystemCollector(Collector):
         sensors = []
         device = self.device
         ha_cfg = getattr(self.config, "ha_config", None)
+
+        # Online binary sensor: reads from {topic_prefix}/status, always available in HA
+        status_topic = f"{self.topic_prefix}/status"
+        online_sensor = Sensor(
+            unique_id=self.sensor_id("online"),
+            name="Online",
+            state_topic=status_topic,
+            availability_topic=None,
+            device=device,
+            value_template=None,
+            entity_type="binary_sensor",
+            device_class=BinarySensorDeviceClass.CONNECTIVITY,
+            payload_on="online",
+            payload_off="offline",
+        )
+        sensors.append(online_sensor)
 
         def add_sensor(
             metric: str,

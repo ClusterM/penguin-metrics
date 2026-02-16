@@ -125,6 +125,10 @@ class Sensor:
     payload_available: str = "online"
     payload_not_available: str = "offline"
 
+    # Binary sensor state payloads (for entity_type="binary_sensor" when state_topic uses custom payloads)
+    payload_on: str | None = None
+    payload_off: str | None = None
+
     # JSON attributes
     json_attributes_topic: str | None = None
     json_attributes_template: str | None = None
@@ -263,6 +267,13 @@ class Sensor:
 
         if self.entity_category:
             result["entity_category"] = self.entity_category
+
+        # Binary sensor: custom payload_on/payload_off when state_topic uses non-ON/OFF values
+        if self.entity_type == "binary_sensor" and (self.payload_on is not None or self.payload_off is not None):
+            if self.payload_on is not None:
+                result["payload_on"] = self.payload_on
+            if self.payload_off is not None:
+                result["payload_off"] = self.payload_off
 
         if self.json_attributes_topic:
             result["json_attributes_topic"] = self.json_attributes_topic
