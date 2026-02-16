@@ -443,7 +443,7 @@ class ContainerDefaultsConfig:
 class BatteryDefaultsConfig:
     """Default settings for battery collectors."""
 
-    capacity: bool = True
+    level: bool = True
     voltage: bool = True
     current: bool = True
     power: bool = True
@@ -471,7 +471,7 @@ class BatteryDefaultsConfig:
             return cls()
         defaults = cls()  # Get class defaults
         return cls(
-            capacity=bool(block.get_value("capacity", defaults.capacity)),
+            level=bool(block.get_value("level", defaults.level)),
             voltage=bool(block.get_value("voltage", defaults.voltage)),
             current=bool(block.get_value("current", defaults.current)),
             power=bool(block.get_value("power", defaults.power)),
@@ -1309,7 +1309,7 @@ class BatteryConfig:
     ha_config: HomeAssistantSensorConfig | None = None  # HA sensor overrides
 
     # Metrics flags
-    capacity: bool = True
+    level: bool = True
     voltage: bool = True
     current: bool = True
     power: bool = True
@@ -1364,7 +1364,7 @@ class BatteryConfig:
             match=match,
             device_ref=device_ref,
             ha_config=ha_config,
-            capacity=get_bool("capacity", bd.capacity),
+            level=get_bool("level", bd.level),
             voltage=get_bool("voltage", bd.voltage),
             current=get_bool("current", bd.current),
             power=get_bool("power", bd.power),
@@ -1399,7 +1399,7 @@ class BatteryConfig:
         return cls(
             name=name,
             match=match,
-            capacity=bd.capacity,
+            level=bd.level,
             voltage=bd.voltage,
             current=bd.current,
             power=bd.power,

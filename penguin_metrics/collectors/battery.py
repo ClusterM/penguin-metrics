@@ -5,7 +5,7 @@ Reads battery information from /sys/class/power_supply/
 Supports multiple batteries (BAT0, BAT1, etc.)
 
 Collects:
-- Capacity (percentage)
+- Level (percentage)
 - Status (charging, discharging, full, not charging)
 - Voltage
 - Current
@@ -206,10 +206,10 @@ class BatteryCollector(Collector):
                 )
             )
 
-        if self.config.capacity:
+        if self.config.level:
             add(
-                "capacity",
-                "Capacity",
+                "level",
+                "Level",
                 unit="%",
                 device_class=DeviceClass.BATTERY,
                 state_class=StateClass.MEASUREMENT,
@@ -466,10 +466,10 @@ class BatteryCollector(Collector):
         else:
             result.set_state("unknown")
 
-        if self.config.capacity:
-            capacity = read_sysfs_int(path / "capacity")
-            if capacity is not None:
-                result.set("capacity", capacity)
+        if self.config.level:
+            level = read_sysfs_int(path / "capacity")
+            if level is not None:
+                result.set("level", level)
 
         if self.config.voltage:
             voltage = read_sysfs_float(path / "voltage_now", scale=0.000001)

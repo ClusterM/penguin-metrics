@@ -26,7 +26,7 @@ Linux system telemetry service that sends data to MQTT, with Home Assistant inte
   - **Real PSS/USS**: Excludes file-backed mappings (accurate for apps that map large files)
 - **Systemd Services**: State, CPU, memory via cgroups (auto-discovery with filter)
 - **Docker Containers**: CPU, memory, network, disk I/O with optional rate metrics (KiB/s)
-- **Battery**: Capacity, status, voltage, current, health (auto-discovery supported)
+- **Battery**: Level, status, voltage, current, health (auto-discovery supported)
 - **AC Power**: External power supply presence (`online`/`offline`, with auto-discovery)
 - **Network Interfaces**: Bytes, packets, errors, drops, rate, isup, speed, mtu, duplex, optional Wi-Fi RSSI (dBm) (auto-discovery supported)
 - **Fan (RPM)**: hwmon fan*_input from sysfs (auto-discovery supported)
@@ -498,7 +498,7 @@ defaults {
     
     # All batteries will have these settings by default
     battery {
-        capacity on;
+        level on;
         voltage on;
         power on;
         health on;
@@ -932,7 +932,7 @@ container "monitored" {
 
 **Metrics (published as JSON fields):**
 - `state` - charging/discharging/full/not charging/not_found
-- `capacity` - charge level (%)
+- `level` - battery level (%)
 - `voltage` - current voltage (V)
 - `current` - current (A, sign preserved)
 - `power` - power (W, sign preserved)
@@ -955,7 +955,7 @@ battery "main" {
     match name "BAT0";             # Battery name
     # match path "/sys/class/power_supply/BAT0";  # Or by sysfs path
     
-    capacity on;               # Charge percentage
+    level on;                  # Battery level (%)
     voltage on;                # Current voltage
     current on;                # Current amperage (sign preserved: +charge / -discharge)
     power on;                  # Power (sign preserved)
@@ -986,7 +986,7 @@ battery "main" {
 |-----------|---------|-------------|
 | `match name` | *(required)* | Battery name (BAT0, etc.) |
 | `match path` | *(alternative)* | Full path to battery in sysfs |
-| `capacity` | `on` | Charge percentage |
+| `level` | `on` | Battery level (%) |
 | `voltage` | `on` | Current voltage |
 | `current` | `on` | Current amperage (sign preserved) |
 | `power` | `on` | Power (sign preserved) |
@@ -1345,7 +1345,7 @@ penguin_metrics/temperature/cpu-thermal
   → {"temp": 42.5, "state": "online", "high": 70.0, "critical": 85.0}
 
 penguin_metrics/battery/main
-  → {"capacity": 85, "state": "charging", "voltage": 12.6, ...}
+  → {"level": 85, "state": "charging", "voltage": 12.6, ...}
 ```
 
 ### Availability Topics

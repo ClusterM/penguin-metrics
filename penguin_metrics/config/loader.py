@@ -227,7 +227,7 @@ class ConfigLoader:
             "device",
             "display_name",
             "match",
-            "capacity",
+            "level",
             "voltage",
             "current",
             "power",

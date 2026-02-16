@@ -409,7 +409,7 @@ class BatteryConfig:
     match: BatteryMatchConfig | None = None  # match name/path
     device_ref: str | None = None
     ha_config: HomeAssistantSensorConfig | None = None
-    capacity: bool = True
+    level: bool = True
     voltage: bool = True
     current: bool = True
     power: bool = True
@@ -778,7 +778,7 @@ Reads battery status from `/sys/class/power_supply/`.
 
 Metrics:
 - `state` - charging/discharging/full/not charging/not_found
-- `capacity` - Charge level (%)
+- `level` - Battery level (%)
 - `voltage` - Current voltage (V)
 - `current` - Current (A)
 - `power` - Power consumption (W)
