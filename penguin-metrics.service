@@ -31,7 +31,8 @@ ProtectControlGroups=yes
 ReadOnlyPaths=/proc /sys
 
 # Allow Docker socket access (if monitoring containers)
-ReadWritePaths=/var/run/docker.sock
+# and state file storage under /var/lib/penguin-metrics
+ReadWritePaths=/var/lib/penguin-metrics /var/run/docker.sock
 
 # Capabilities for reading other processes' memory info
 AmbientCapabilities=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
