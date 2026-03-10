@@ -18,7 +18,7 @@ from datetime import datetime
 
 from ..config.schema import ContainerConfig, ContainerMatchType, DefaultsConfig, DeviceConfig
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass
+from ..models.sensor import BinarySensorDeviceClass, DeviceClass, Sensor, StateClass
 from ..utils.docker_api import ContainerInfo, DockerClient, DockerError
 from .base import Collector, CollectorResult, build_sensor
 
@@ -206,6 +206,21 @@ class ContainerCollector(Collector):
 
         if self.config.state:
             add("state", "State", icon="mdi:docker")
+            # Binary sensor: Running when state == "running"
+            sensors.append(
+                build_sensor(
+                    source_type=self.SOURCE_TYPE,
+                    source_name=self.name,
+                    metric_name="running",
+                    display_name=f"{prefix} Running",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    entity_type="binary_sensor",
+                    device_class=BinarySensorDeviceClass.RUNNING,
+                    ha_config=ha_cfg,
+                    value_template="{{ 'ON' if value_json.state == 'running' else 'OFF' }}",
+                )
+            )
 
         if self.config.health:
             add("health", "Health", icon="mdi:heart-pulse")

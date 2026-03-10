@@ -197,6 +197,7 @@ class ConfigLoader:
             "fds",
             "threads",
             "aggregate",
+            "state",
             "update_interval",
         },
         "service": {

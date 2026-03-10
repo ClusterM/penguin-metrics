@@ -378,6 +378,7 @@ class ProcessDefaultsConfig:
     fds: bool = False
     threads: bool = False
     aggregate: bool = False
+    state: bool = True
 
     @classmethod
     def from_block(cls, block: Block | None) -> "ProcessDefaultsConfig":
@@ -385,6 +386,7 @@ class ProcessDefaultsConfig:
             return cls()
         smaps_val = block.get_value("smaps")
         return cls(
+            state=bool(block.get_value("state", True)),
             cpu=bool(block.get_value("cpu", True)),
             memory=bool(block.get_value("memory", True)),
             smaps=None if smaps_val is None else bool(smaps_val),
@@ -414,10 +416,10 @@ class ServiceDefaultsConfig:
             return cls()
         smaps_val = block.get_value("smaps")
         return cls(
+            state=bool(block.get_value("state", True)),
             cpu=bool(block.get_value("cpu", True)),
             memory=bool(block.get_value("memory", True)),
             smaps=None if smaps_val is None else bool(smaps_val),
-            state=bool(block.get_value("state", True)),
             restart_count=bool(block.get_value("restart_count", False)),
             disk=bool(block.get_value("disk", False)),
             disk_rate=bool(block.get_value("disk_rate", False)),
@@ -443,13 +445,13 @@ class ContainerDefaultsConfig:
         if block is None:
             return cls()
         return cls(
+            state=bool(block.get_value("state", True)),
             cpu=bool(block.get_value("cpu", True)),
             memory=bool(block.get_value("memory", True)),
             network=bool(block.get_value("network", False)),
             network_rate=bool(block.get_value("network_rate", False)),
             disk=bool(block.get_value("disk", False)),
             disk_rate=bool(block.get_value("disk_rate", False)),
-            state=bool(block.get_value("state", True)),
             health=bool(block.get_value("health", False)),
             uptime=bool(block.get_value("uptime", False)),
         )
@@ -884,6 +886,7 @@ class ProcessConfig:
     fds: bool = False
     threads: bool = False
     aggregate: bool = False  # Sum metrics from all matching processes
+    state: bool = True
 
     # Settings
     update_interval: float | None = None
@@ -934,6 +937,7 @@ class ProcessConfig:
             fds=get_bool("fds", pd.fds),
             threads=get_bool("threads", pd.threads),
             aggregate=get_bool("aggregate", pd.aggregate),
+            state=get_bool("state", pd.state),
             update_interval=float(interval) if interval else None,
         )
 
@@ -960,6 +964,7 @@ class ProcessConfig:
             fds=pd.fds,
             threads=pd.threads,
             aggregate=pd.aggregate,
+            state=pd.state,
             update_interval=defaults.update_interval,
         )
 

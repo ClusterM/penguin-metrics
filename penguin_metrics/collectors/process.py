@@ -25,7 +25,7 @@ import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, ProcessConfig, ProcessMatchType
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass
+from ..models.sensor import BinarySensorDeviceClass, DeviceClass, Sensor, StateClass
 from ..utils.smaps import get_process_memory
 from .base import (
     CollectorResult,
@@ -172,18 +172,35 @@ class ProcessCollector(MultiSourceCollector):
         device = self.device
         prefix = f"Process: {self.config.label}"
 
-        sensors.append(
-            build_sensor(
-                source_type="process",
-                source_name=self.name,
-                metric_name="state",
-                display_name=f"{prefix} State",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                icon="mdi:application",
-                ha_config=self.config.ha_config,
+        if self.config.state:
+            sensors.append(
+                build_sensor(
+                    source_type="process",
+                    source_name=self.name,
+                    metric_name="state",
+                    display_name=f"{prefix} State",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    icon="mdi:application",
+                    ha_config=self.config.ha_config,
+                )
             )
-        )
+            # Binary sensor: Running when state == "running"
+            sensors.append(
+                build_sensor(
+                    source_type="process",
+                    source_name=self.name,
+                    metric_name="running",
+                    display_name=f"{prefix} Running",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    entity_type="binary_sensor",
+                    device_class=BinarySensorDeviceClass.RUNNING,
+                    icon="mdi:circle-outline",
+                    ha_config=self.config.ha_config,
+                    value_template="{{ 'ON' if value_json.state == 'running' else 'OFF' }}",
+                )
+            )
 
         # Process count (for aggregate mode)
         if self.config.aggregate:

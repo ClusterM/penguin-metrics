@@ -21,7 +21,7 @@ import psutil
 
 from ..config.schema import DefaultsConfig, DeviceConfig, ServiceConfig, ServiceMatchType
 from ..models.device import Device, create_device_from_ref
-from ..models.sensor import DeviceClass, Sensor, StateClass
+from ..models.sensor import BinarySensorDeviceClass, DeviceClass, Sensor, StateClass
 from ..utils.cgroup import (
     get_cgroup_pids,
     get_cgroup_stats,
@@ -257,6 +257,22 @@ class ServiceCollector(Collector):
                     ha_config=self.config.ha_config,
                 )
             )
+
+        # Binary sensor: Running when state == "active"
+        sensors.append(
+            build_sensor(
+                source_type="service",
+                source_name=self.name,
+                metric_name="running",
+                display_name=f"{prefix} Running",
+                device=device,
+                topic_prefix=self.topic_prefix,
+                entity_type="binary_sensor",
+                device_class=BinarySensorDeviceClass.RUNNING,
+                ha_config=self.config.ha_config,
+                value_template="{{ 'ON' if value_json.state == 'active' else 'OFF' }}",
+            )
+        )
 
         if self.config.restart_count:
             sensors.append(
