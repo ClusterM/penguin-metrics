@@ -242,7 +242,7 @@ class ServiceCollector(Collector):
         """Create sensors based on configuration."""
         sensors = []
         device = self.device
-        prefix = self.config.label
+        prefix = f"Service: {self.config.label}"
 
         if self.config.state:
             sensors.append(
@@ -279,7 +279,7 @@ class ServiceCollector(Collector):
                     source_type="service",
                     source_name=self.name,
                     metric_name="cpu_percent",
-                    display_name=f"{prefix} CPU",
+                    display_name=f"{prefix} CPU Usage",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="%",
@@ -401,7 +401,7 @@ class ServiceCollector(Collector):
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
-                        suggested_display_precision=2,
+                        suggested_display_precision=0,
                         ha_config=self.config.ha_config,
                     ),
                     build_sensor(
@@ -415,7 +415,7 @@ class ServiceCollector(Collector):
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
-                        suggested_display_precision=2,
+                        suggested_display_precision=0,
                         ha_config=self.config.ha_config,
                     ),
                 ]

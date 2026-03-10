@@ -230,7 +230,7 @@ class NetworkCollector(Collector):
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon=None,
-                suggested_display_precision=2,
+                suggested_display_precision=0,
             )
             add(
                 "bytes_recv_rate",
@@ -239,7 +239,7 @@ class NetworkCollector(Collector):
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon=None,
-                suggested_display_precision=2,
+                suggested_display_precision=0,
             )
         if self.config.packets_rate:
             add(

@@ -170,7 +170,7 @@ class ProcessCollector(MultiSourceCollector):
         """Create sensors based on configuration."""
         sensors = []
         device = self.device
-        prefix = self.config.label
+        prefix = f"Process: {self.config.label}"
 
         sensors.append(
             build_sensor(
@@ -328,7 +328,7 @@ class ProcessCollector(MultiSourceCollector):
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
-                        suggested_display_precision=2,
+                        suggested_display_precision=0,
                         ha_config=self.config.ha_config,
                     ),
                     build_sensor(
@@ -342,7 +342,7 @@ class ProcessCollector(MultiSourceCollector):
                         device_class=DeviceClass.DATA_RATE,
                         state_class=StateClass.MEASUREMENT,
                         icon="mdi:harddisk",
-                        suggested_display_precision=2,
+                        suggested_display_precision=0,
                         ha_config=self.config.ha_config,
                     ),
                 ]

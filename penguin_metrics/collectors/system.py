@@ -440,7 +440,7 @@ class SystemCollector(Collector):
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:harddisk",
-                suggested_display_precision=2,
+                suggested_display_precision=0,
             )
             add_sensor(
                 "disk_write_rate",
@@ -449,7 +449,7 @@ class SystemCollector(Collector):
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:harddisk",
-                suggested_display_precision=2,
+                suggested_display_precision=0,
             )
 
         if self.config.cpu_freq and psutil.cpu_freq() is not None:

@@ -175,7 +175,7 @@ class ContainerCollector(Collector):
         sensors: list[Sensor] = []
         device = self.device
         ha_cfg = self.config.ha_config
-        prefix = self.config.label
+        prefix = f"Container: {self.config.label}"
 
         def add(
             metric: str,
@@ -272,7 +272,7 @@ class ContainerCollector(Collector):
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:download",
-                suggested_display_precision=2,
+                suggested_display_precision=0,
             )
             add(
                 "network_tx_rate",
@@ -281,7 +281,7 @@ class ContainerCollector(Collector):
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:upload",
-                suggested_display_precision=2,
+                suggested_display_precision=0,
             )
 
         if self.config.disk:
@@ -312,7 +312,7 @@ class ContainerCollector(Collector):
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:harddisk",
-                suggested_display_precision=2,
+                suggested_display_precision=0,
             )
             add(
                 "disk_write_rate",
@@ -321,7 +321,7 @@ class ContainerCollector(Collector):
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:harddisk",
-                suggested_display_precision=2,
+                suggested_display_precision=0,
             )
 
         if self.config.uptime:
