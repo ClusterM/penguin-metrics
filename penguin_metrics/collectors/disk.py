@@ -179,7 +179,10 @@ class DiskCollector(Collector):
         source_name = self.config.name
         ha_cfg = getattr(self.config, "ha_config", None)
 
-        name_prefix = self.config.label
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        prefix = f"Disk {self.config.label} " if is_system else ""
 
         def add(metric: str, display: str, unit: str, *, icon: str = "mdi:harddisk") -> None:
             sensors.append(
@@ -199,13 +202,13 @@ class DiskCollector(Collector):
             )
 
         if self.config.total:
-            add("total", f"{name_prefix} Total", "GiB")
+            add("total", f"{prefix}Total", "GiB")
 
         if self.config.used:
-            add("used", f"{name_prefix} Used", "GiB")
+            add("used", f"{prefix}Used", "GiB")
 
         if self.config.free:
-            add("free", f"{name_prefix} Free", "GiB")
+            add("free", f"{prefix}Free", "GiB")
 
         if self.config.percent:
             sensors.append(
@@ -213,7 +216,7 @@ class DiskCollector(Collector):
                     source_type="disk",
                     source_name=source_name,
                     metric_name="percent",
-                    display_name=f"{name_prefix} Usage",
+                    display_name=f"{prefix}Usage",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="%",

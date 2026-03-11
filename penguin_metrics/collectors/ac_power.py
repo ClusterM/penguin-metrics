@@ -132,12 +132,17 @@ class ACPowerCollector(Collector):
 
     def create_sensors(self) -> list[Sensor]:
         """Create binary sensor for AC online state."""
+        device = self.device
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        prefix = f"AC {self.config.label} " if is_system else ""
         sensor = build_sensor(
             source_type=self.SOURCE_TYPE,
             source_name=self.collector_id,
             metric_name="online",
-            display_name=f"{self.config.label} Connected",
-            device=self.device,
+            display_name=f"{prefix}Connected",
+            device=device,
             topic_prefix=self.topic_prefix,
             entity_type="binary_sensor",
             device_class=BinarySensorDeviceClass.PLUG,

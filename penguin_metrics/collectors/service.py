@@ -242,7 +242,10 @@ class ServiceCollector(Collector):
         """Create sensors based on configuration."""
         sensors = []
         device = self.device
-        prefix = f"Service: {self.config.label}"
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        prefix = f"Service {self.config.label} " if is_system else ""
 
         if self.config.state:
             sensors.append(
@@ -250,29 +253,28 @@ class ServiceCollector(Collector):
                     source_type="service",
                     source_name=self.name,
                     metric_name="state",
-                    display_name=f"{prefix} State",
+                    display_name=f"{prefix}State",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     icon="mdi:cog",
                     ha_config=self.config.ha_config,
                 )
             )
-
-        # Binary sensor: Running when state == "active"
-        sensors.append(
-            build_sensor(
-                source_type="service",
-                source_name=self.name,
-                metric_name="running",
-                display_name=f"{prefix} Running",
-                device=device,
-                topic_prefix=self.topic_prefix,
-                entity_type="binary_sensor",
-                device_class=BinarySensorDeviceClass.RUNNING,
-                ha_config=self.config.ha_config,
-                value_template="{{ 'ON' if value_json.state == 'active' else 'OFF' }}",
+            # Binary sensor: Running when state == "active"
+            sensors.append(
+                build_sensor(
+                    source_type="service",
+                    source_name=self.name,
+                    metric_name="running",
+                    display_name=f"{prefix}Running",
+                    device=device,
+                    topic_prefix=self.topic_prefix,
+                    entity_type="binary_sensor",
+                    device_class=BinarySensorDeviceClass.RUNNING,
+                    ha_config=self.config.ha_config,
+                    value_template="{{ 'ON' if value_json.state == 'active' else 'OFF' }}",
+                )
             )
-        )
 
         if self.config.restart_count:
             sensors.append(
@@ -280,7 +282,7 @@ class ServiceCollector(Collector):
                     source_type="service",
                     source_name=self.name,
                     metric_name="restarts",
-                    display_name=f"{prefix} Restart Count",
+                    display_name=f"{prefix}Restart Count",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     state_class=StateClass.TOTAL_INCREASING,
@@ -295,7 +297,7 @@ class ServiceCollector(Collector):
                     source_type="service",
                     source_name=self.name,
                     metric_name="cpu_percent",
-                    display_name=f"{prefix} CPU Usage",
+                    display_name=f"{prefix}CPU Usage",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit="%",
@@ -312,7 +314,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory",
-                        display_name=f"{prefix} Memory Cgroup",
+                        display_name=f"{prefix}Memory Cgroup",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="MiB",
@@ -325,7 +327,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory_cache",
-                        display_name=f"{prefix} Cache",
+                        display_name=f"{prefix}Cache",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="MiB",
@@ -344,7 +346,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory_pss",
-                        display_name=f"{prefix} Memory PSS",
+                        display_name=f"{prefix}Memory PSS",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="MiB",
@@ -357,7 +359,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="memory_uss",
-                        display_name=f"{prefix} Memory USS",
+                        display_name=f"{prefix}Memory USS",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="MiB",
@@ -376,7 +378,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="disk_read",
-                        display_name=f"{prefix} Disk Read",
+                        display_name=f"{prefix}Disk Read",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="B",
@@ -390,7 +392,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="disk_write",
-                        display_name=f"{prefix} Disk Write",
+                        display_name=f"{prefix}Disk Write",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="B",
@@ -410,7 +412,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="disk_read_rate",
-                        display_name=f"{prefix} Disk Read Rate",
+                        display_name=f"{prefix}Disk Read Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="KiB/s",
@@ -424,7 +426,7 @@ class ServiceCollector(Collector):
                         source_type="service",
                         source_name=self.name,
                         metric_name="disk_write_rate",
-                        display_name=f"{prefix} Disk Write Rate",
+                        display_name=f"{prefix}Disk Write Rate",
                         device=device,
                         topic_prefix=self.topic_prefix,
                         unit="KiB/s",
@@ -443,7 +445,7 @@ class ServiceCollector(Collector):
                 source_type="service",
                 source_name=self.name,
                 metric_name="processes",
-                display_name=f"{prefix} Processes",
+                display_name=f"{prefix}Processes",
                 device=device,
                 topic_prefix=self.topic_prefix,
                 state_class=StateClass.MEASUREMENT,

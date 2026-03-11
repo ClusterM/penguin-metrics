@@ -175,7 +175,10 @@ class ContainerCollector(Collector):
         sensors: list[Sensor] = []
         device = self.device
         ha_cfg = self.config.ha_config
-        prefix = f"Container: {self.config.label}"
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        prefix = f"Container {self.config.label} " if is_system else ""
 
         def add(
             metric: str,
@@ -192,7 +195,7 @@ class ContainerCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.name,
                     metric_name=metric,
-                    display_name=f"{prefix} {display}",
+                    display_name=f"{prefix}{display}",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit=unit,
@@ -212,7 +215,7 @@ class ContainerCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.name,
                     metric_name="running",
-                    display_name=f"{prefix} Running",
+                    display_name=f"{prefix}Running",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     entity_type="binary_sensor",

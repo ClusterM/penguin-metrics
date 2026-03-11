@@ -274,12 +274,17 @@ class TemperatureCollector(Collector):
 
         ha_cfg = self.config.ha_config if isinstance(self.config, TemperatureConfig) else None
 
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        prefix = f"Temp {self.config.label} " if is_system else ""
+
         # Add specific hwmon sensor if configured (manual configuration)
         if self._hwmon_sensors:
             self._add_temp_sensor(
                 sensors,
                 sensor_name=source_name,
-                display_name=f"{self.config.label} Temperature",
+                display_name=f"{prefix}Temperature",
                 device=device,
                 ha_config=ha_cfg,
             )
@@ -290,7 +295,7 @@ class TemperatureCollector(Collector):
             self._add_temp_sensor(
                 sensors,
                 sensor_name=source_name,
-                display_name=f"{self.config.label} Temperature",
+                display_name=f"{prefix}Temperature",
                 device=device,
                 ha_config=ha_cfg,
             )

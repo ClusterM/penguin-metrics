@@ -138,9 +138,13 @@ class FanCollector(Collector):
         sensors: list[Sensor] = []
         device = self.device
         ha_cfg = getattr(self.config, "ha_config", None)
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        prefix = f"Fan {self.config.label} " if is_system else ""
 
         for fin in self._fan_inputs:
-            display = f"{self.config.label} {fin.metric_name.replace('_', ' ').title()}"
+            display = f"{prefix}{fin.metric_name.replace('_', ' ').title()}"
             sensors.append(
                 build_sensor(
                     source_type=self.SOURCE_TYPE,

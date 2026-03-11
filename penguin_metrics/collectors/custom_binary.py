@@ -84,12 +84,16 @@ class CustomBinarySensorCollector(Collector):
     def create_sensors(self) -> list[Sensor]:
         """Create custom binary sensor."""
         device = self.device
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        display_name = f"Sensor {self.config.label}" if is_system else self.config.label
 
         sensor = build_sensor(
             source_type=self.SOURCE_TYPE,
             source_name=self.collector_id,
             metric_name="value",
-            display_name=self.config.label,
+            display_name=display_name,
             device=device,
             topic_prefix=self.topic_prefix,
             entity_type="binary_sensor",

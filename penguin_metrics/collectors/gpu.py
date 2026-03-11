@@ -282,6 +282,10 @@ class GPUCollector(Collector):
         device = self.device
         ha_cfg = getattr(self.config, "ha_config", None)
         source_name = self.name
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        prefix = "GPU " if is_system else ""
 
         if not self._gpus or not self._available_metrics:
             return sensors
@@ -315,7 +319,7 @@ class GPUCollector(Collector):
         if "frequency" in self._available_metrics:
             add_sensor(
                 "frequency",
-                "GPU Frequency",
+                f"{prefix}Frequency",
                 unit="MHz",
                 device_class=DeviceClass.FREQUENCY,
                 state_class=StateClass.MEASUREMENT,
@@ -325,7 +329,7 @@ class GPUCollector(Collector):
         if "temperature" in self._available_metrics:
             add_sensor(
                 "temperature",
-                "GPU Temperature",
+                f"{prefix}Temperature",
                 unit="°C",
                 device_class=DeviceClass.TEMPERATURE,
                 state_class=StateClass.MEASUREMENT,
@@ -335,7 +339,7 @@ class GPUCollector(Collector):
         if "utilization" in self._available_metrics:
             add_sensor(
                 "utilization",
-                "GPU Usage",
+                f"{prefix}Usage",
                 unit="%",
                 state_class=StateClass.MEASUREMENT,
                 icon="mdi:chip",

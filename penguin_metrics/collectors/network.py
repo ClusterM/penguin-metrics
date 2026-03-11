@@ -163,7 +163,10 @@ class NetworkCollector(Collector):
         ha_cfg = self.config.ha_config
         # source_name must match collector_id for correct state_topic
         source_name = self.config.name
-        prefix = self.config.label
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        prefix = f"Network {self.config.label} " if is_system else ""
 
         def add(
             metric: str,
@@ -197,7 +200,7 @@ class NetworkCollector(Collector):
         if self.config.bytes:
             add(
                 "bytes_sent",
-                f"{prefix} Bytes Sent",
+                f"{prefix}Bytes Sent",
                 unit="B",
                 device_class=DeviceClass.DATA_SIZE,
                 state_class=StateClass.TOTAL_INCREASING,
@@ -206,7 +209,7 @@ class NetworkCollector(Collector):
             )
             add(
                 "bytes_recv",
-                f"{prefix} Bytes Recv",
+                f"{prefix}Bytes Recv",
                 unit="B",
                 device_class=DeviceClass.DATA_SIZE,
                 state_class=StateClass.TOTAL_INCREASING,
@@ -214,18 +217,18 @@ class NetworkCollector(Collector):
                 suggested_display_precision=0,
             )
         if self.config.packets:
-            add("packets_sent", f"{prefix} Packets Sent", state_class=StateClass.TOTAL_INCREASING)
-            add("packets_recv", f"{prefix} Packets Recv", state_class=StateClass.TOTAL_INCREASING)
+            add("packets_sent", f"{prefix}Packets Sent", state_class=StateClass.TOTAL_INCREASING)
+            add("packets_recv", f"{prefix}Packets Recv", state_class=StateClass.TOTAL_INCREASING)
         if self.config.errors:
-            add("errin", f"{prefix} Errors In", state_class=StateClass.TOTAL_INCREASING)
-            add("errout", f"{prefix} Errors Out", state_class=StateClass.TOTAL_INCREASING)
+            add("errin", f"{prefix}Errors In", state_class=StateClass.TOTAL_INCREASING)
+            add("errout", f"{prefix}Errors Out", state_class=StateClass.TOTAL_INCREASING)
         if self.config.drops:
-            add("dropin", f"{prefix} Drops In", state_class=StateClass.TOTAL_INCREASING)
-            add("dropout", f"{prefix} Drops Out", state_class=StateClass.TOTAL_INCREASING)
+            add("dropin", f"{prefix}Drops In", state_class=StateClass.TOTAL_INCREASING)
+            add("dropout", f"{prefix}Drops Out", state_class=StateClass.TOTAL_INCREASING)
         if self.config.rate:
             add(
                 "bytes_sent_rate",
-                f"{prefix} Send Rate",
+                f"{prefix}Send Rate",
                 unit="KiB/s",
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
@@ -234,7 +237,7 @@ class NetworkCollector(Collector):
             )
             add(
                 "bytes_recv_rate",
-                f"{prefix} Recv Rate",
+                f"{prefix}Recv Rate",
                 unit="KiB/s",
                 device_class=DeviceClass.DATA_RATE,
                 state_class=StateClass.MEASUREMENT,
@@ -244,13 +247,13 @@ class NetworkCollector(Collector):
         if self.config.packets_rate:
             add(
                 "packets_sent_rate",
-                f"{prefix} Packets Sent Rate",
+                f"{prefix}Packets Sent Rate",
                 unit="p/s",
                 state_class=StateClass.MEASUREMENT,
             )
             add(
                 "packets_recv_rate",
-                f"{prefix} Packets Recv Rate",
+                f"{prefix}Packets Recv Rate",
                 unit="p/s",
                 state_class=StateClass.MEASUREMENT,
             )
@@ -260,7 +263,7 @@ class NetworkCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=source_name,
                     metric_name="isup",
-                    display_name=f"{prefix} Up",
+                    display_name=f"{prefix}Up",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     entity_type="binary_sensor",
@@ -272,19 +275,19 @@ class NetworkCollector(Collector):
         if self.config.speed:
             add(
                 "speed",
-                f"{prefix} Speed",
+                f"{prefix}Speed",
                 unit="Mbps",
                 device_class=DeviceClass.DATA_RATE,
                 icon=None,
             )
         if self.config.mtu:
-            add("mtu", f"{prefix} MTU")
+            add("mtu", f"{prefix}MTU")
         if self.config.duplex:
-            add("duplex", f"{prefix} Duplex")
+            add("duplex", f"{prefix}Duplex")
         if self.config.rssi:
             add(
                 "rssi",
-                f"{prefix} Signal",
+                f"{prefix}Signal",
                 unit="dBm",
                 device_class=DeviceClass.SIGNAL_STRENGTH,
                 state_class=StateClass.MEASUREMENT,

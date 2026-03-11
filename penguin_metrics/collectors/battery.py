@@ -179,7 +179,10 @@ class BatteryCollector(Collector):
         sensors: list[Sensor] = []
         device = self.device
         ha_cfg = self.config.ha_config
-        prefix = self.config.label
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        prefix = f"Battery {self.config.label} " if is_system else ""
 
         def add(
             metric: str,
@@ -195,7 +198,7 @@ class BatteryCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name=metric,
-                    display_name=f"{prefix} {display}",
+                    display_name=f"{prefix}{display}",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     unit=unit,
@@ -220,7 +223,7 @@ class BatteryCollector(Collector):
                 source_type=self.SOURCE_TYPE,
                 source_name=self.collector_id,
                 metric_name="status",
-                display_name=f"{prefix} Status",
+                display_name=f"{prefix}Status",
                 device=device,
                 topic_prefix=self.topic_prefix,
                 icon="mdi:battery-charging",
@@ -319,7 +322,7 @@ class BatteryCollector(Collector):
                     source_type=self.SOURCE_TYPE,
                     source_name=self.collector_id,
                     metric_name="present",
-                    display_name=f"{prefix} Present",
+                    display_name=f"{prefix}Present",
                     device=device,
                     topic_prefix=self.topic_prefix,
                     entity_type="binary_sensor",
@@ -409,7 +412,7 @@ class BatteryCollector(Collector):
                 source_type=self.SOURCE_TYPE,
                 source_name=self.collector_id,
                 metric_name="is_charging",
-                display_name=f"{prefix} Is Charging",
+                display_name=f"{prefix}Is Charging",
                 device=device,
                 topic_prefix=self.topic_prefix,
                 entity_type="binary_sensor",
@@ -422,7 +425,7 @@ class BatteryCollector(Collector):
                 source_type=self.SOURCE_TYPE,
                 source_name=self.collector_id,
                 metric_name="is_discharging",
-                display_name=f"{prefix} Is Discharging",
+                display_name=f"{prefix}Is Discharging",
                 device=device,
                 topic_prefix=self.topic_prefix,
                 entity_type="binary_sensor",

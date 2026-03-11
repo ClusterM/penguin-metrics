@@ -86,6 +86,10 @@ class CustomCollector(Collector):
     def create_sensors(self) -> list[Sensor]:
         """Create sensor for custom command."""
         device = self.device
+        is_system = (
+            device is not None and self.parent_device is not None and device is self.parent_device
+        )
+        display_name = f"Custom {self.config.label}" if is_system else self.config.label
 
         # Determine device class
         device_class: DeviceClass | str | None = None
@@ -107,7 +111,7 @@ class CustomCollector(Collector):
             source_type="custom",
             source_name=self.collector_id,  # Use collector_id for MQTT topic
             metric_name="value",
-            display_name=self.config.label,
+            display_name=display_name,
             device=device,
             topic_prefix=self.topic_prefix,
             unit=self.config.unit
